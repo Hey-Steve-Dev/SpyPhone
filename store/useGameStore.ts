@@ -34,6 +34,11 @@ type GameState = {
   setMissionStep: (step: number) => void;
   resetMission: () => void;
 
+  // mission deadline (Date.now timestamp)
+  missionDeadlineAt: number | null;
+  setMissionDeadlineMsFromNow: (ms: number) => void;
+  clearMissionDeadline: () => void;
+
   // actions
   setTrace: (next: number, reason?: string) => void;
   bumpTrace: (delta: number, reason?: string) => void;
@@ -97,6 +102,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   mission: { missionId: "bootcamp_01", step: 0 },
   setMissionStep: (step) => set((s) => ({ mission: { ...s.mission, step } })),
   resetMission: () => set({ mission: { missionId: "bootcamp_01", step: 0 } }),
+
+  // mission deadline defaults
+  missionDeadlineAt: null,
+  setMissionDeadlineMsFromNow: (ms) =>
+    set({ missionDeadlineAt: Date.now() + ms }),
+  clearMissionDeadline: () => set({ missionDeadlineAt: null }),
 
   setTrace: (next, reason) => {
     const v = clamp(next, 0, 100);

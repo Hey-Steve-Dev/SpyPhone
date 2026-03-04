@@ -27,8 +27,10 @@ function matches(
 ) {
   const raw = norm(inputRaw);
   if (mode === "strict") return raw === exact;
+
   const inL = normLower(inputRaw);
   if (normLower(exact) === inL) return true;
+
   return easyAlso.map(normLower).includes(inL);
 }
 
@@ -53,6 +55,12 @@ export function missionIntro(state: MissionState): string[] {
   }
   if (state.step === 4) {
     return ["Task: read intel. Run `cat intel.txt`."];
+  }
+  if (state.step === 5) {
+    return ["EXFIL WINDOW OPEN", "Task: start transfer. Run `./drop.sh`."];
+  }
+  if (state.step === 6) {
+    return ["Transfer initiated.", "Objective complete. Stand by."];
   }
   return ["Objective complete. Stand by."];
 }
@@ -142,6 +150,22 @@ export function runMissionCommand(
       };
     }
     return { ok: false, output: ["Expected: cat intel.txt"] };
+  }
+
+  // Step 5: execute drop script (timed window step)
+  if (state.step === 5) {
+    if (matches(raw, "./drop.sh", mode, ["bash drop.sh", "sh drop.sh"])) {
+      return {
+        ok: true,
+        output: [
+          "Running drop.sh...",
+          "Transfer started.",
+          ...missionIntro({ ...state, step: 6 }),
+        ],
+        nextState: { ...state, step: 6 },
+      };
+    }
+    return { ok: false, output: ["Expected: ./drop.sh"] };
   }
 
   return null;

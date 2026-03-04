@@ -2,7 +2,7 @@ import PhoneFrame from "@/components/PhoneFrame";
 import { runCommandEngine, setMode } from "@/lib/commandEngine";
 import { missionIntro, runMissionCommand } from "@/lib/missionEngine";
 import { useGameStore } from "@/store/useGameStore";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -13,12 +13,20 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
-const bumpTrace = useGameStore((s) => s.bumpTrace);
+
 type Line = { id: string; kind: "out" | "cmd"; text: string };
 
 export default function TerminalScreen() {
+  // ✅ hooks must be called inside a component
+  const bumpTrace = useGameStore((s) => s.bumpTrace);
   const mission = useGameStore((s) => s.mission);
   const setMissionStep = useGameStore((s) => s.setMissionStep);
+  const missionDeadlineAt = useGameStore((s) => s.missionDeadlineAt);
+  const setMissionDeadlineMsFromNow = useGameStore(
+    (s) => s.setMissionDeadlineMsFromNow,
+  );
+  const clearMissionDeadline = useGameStore((s) => s.clearMissionDeadline);
+  const bannerPush = useGameStore((s) => s.bannerPush);
   const [cwd] = useState("~/ops");
   const [mode, setModeState] = useState<"easy" | "strict">("easy");
   const [input, setInput] = useState("");
@@ -27,12 +35,6 @@ export default function TerminalScreen() {
     { id: "l2", kind: "out", text: "Type `help` to list available commands." },
   ]);
   const [introShown, setIntroShown] = useState(false);
-  if (!introShown) {
-    setIntroShown(true);
-    setTimeout(() => {
-      missionIntro(mission).forEach((line) => append("out", line));
-    }, 0);
-  }
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -47,10 +49,28 @@ export default function TerminalScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0);
   }
 
+  // ✅ don’t set state during render; run intro once in an effect
+  useEffect(() => {
+    if (introShown) return;
+    setIntroShown(true);
+    missionIntro(mission).forEach((line) => append("out", line));
+    // Intentionally "once": avoids rerunning if mission changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [introShown]);
+
   function runCommand(raw: string) {
     const cmd = raw.trim();
     if (!cmd) return;
+    // deadline enforcement (only while a deadline is active)
+    if (missionDeadlineAt && Date.now() > missionDeadlineAt) {
+      append("out", "WINDOW MISSED: handler link dropped.");
+      append("out", "Trace spike. Reacquire instructions.");
+      bannerPush("ALERT", "Exfil window missed.", 2200);
 
+      // penalty + clear the deadline so it doesn't spam forever
+      bumpTrace(12, "missed window");
+      clearMissionDeadline();
+    }
     append("cmd", `${prompt}${cmd}`);
     setInput("");
 
@@ -67,7 +87,19 @@ export default function TerminalScreen() {
 
       if (missionRes.ok) {
         bumpTrace(-2, "correct command"); // small reward
-        if (missionRes.nextState) setMissionStep(missionRes.nextState.step);
+        if (missionRes.nextState) {
+          setMissionStep(missionRes.nextState.step);
+
+          // start a timed window right after intel is read (step 5)
+          if (missionRes.nextState.step === 5) {
+            setMissionDeadlineMsFromNow(12_000);
+            append("out", "⚠ EXFIL WINDOW: 12s");
+            bannerPush("WINDOW", "12s to proceed.", 1400);
+          } else {
+            // for other steps, clear any old window
+            clearMissionDeadline();
+          }
+        }
       } else {
         bumpTrace(4, "wrong command"); // small penalty
       }
