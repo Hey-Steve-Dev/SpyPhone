@@ -13,6 +13,11 @@ type GameState = {
   secondsLeft: number;
   timerRunning: boolean;
 
+  // global tick loop
+  heartbeatOn: boolean;
+  startHeartbeat: () => void;
+  stopHeartbeat: () => void;
+
   // comms
   commsConnected: boolean;
   commsConnecting: boolean;
@@ -53,6 +58,32 @@ export const useGameStore = create<GameState>((set, get) => ({
   trace: 16,
   secondsLeft: 150,
   timerRunning: true,
+
+  // heartbeat defaults
+  heartbeatOn: false,
+
+  startHeartbeat: () => {
+    const s = get();
+    if (s.heartbeatOn) return;
+
+    set({ heartbeatOn: true });
+
+    const id = setInterval(() => {
+      const st = get();
+      if (!st.heartbeatOn) return;
+      st.tick();
+    }, 1000);
+
+    // stash interval id on the function
+    (get().startHeartbeat as any)._id = id;
+  },
+
+  stopHeartbeat: () => {
+    const fn = get().startHeartbeat as any;
+    const id = fn?._id;
+    if (id) clearInterval(id);
+    set({ heartbeatOn: false });
+  },
 
   commsConnected: false,
   commsConnecting: false,
@@ -119,9 +150,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (ms > 0) {
       setTimeout(() => {
         const b = get().banner;
-        // only clear if unchanged-ish
-        if (b.title === title && b.message === message)
+        if (b.title === title && b.message === message) {
           set({ banner: { ...b, on: false } });
+        }
       }, ms);
     }
   },

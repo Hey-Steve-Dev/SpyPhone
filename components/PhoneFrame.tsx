@@ -18,6 +18,7 @@ export default function PhoneFrame({ children, overlay }: Props) {
   const terminalLocked = false;
   const bannerPush = useGameStore((s) => s.bannerPush);
   const ENFORCE_TERMINAL_LOCK = false;
+  const startHeartbeat = useGameStore((s) => s.startHeartbeat);
   useEffect(() => {
     if (!ENFORCE_TERMINAL_LOCK) return;
     if (!terminalLocked) return;
@@ -28,7 +29,9 @@ export default function PhoneFrame({ children, overlay }: Props) {
       router.replace("/(tabs)/terminal");
     }
   }, [terminalLocked, pathname, router, bannerPush]);
-
+  useEffect(() => {
+    startHeartbeat();
+  }, [startHeartbeat]);
   const Inner = (
     <>
       <StatusBarFake />
