@@ -1,4 +1,5 @@
 import PhoneFrame from "@/components/PhoneFrame";
+import { runCommandEngine, setMode } from "@/lib/commandEngine";
 import React, { useMemo, useRef, useState } from "react";
 import {
   Pressable,
@@ -8,12 +9,14 @@ import {
   TextInput,
   View,
 } from "react-native";
+
 const HOME_BAR_SPACE = 44;
 
 type Line = { id: string; kind: "out" | "cmd"; text: string };
 
 export default function TerminalScreen() {
   const [cwd] = useState("~/ops");
+  const [mode, setModeState] = useState<"easy" | "strict">("easy");
   const [input, setInput] = useState("");
   const [lines, setLines] = useState<Line[]>([
     { id: "l1", kind: "out", text: "Secure shell — Git Bash (simulated)" },
@@ -22,13 +25,14 @@ export default function TerminalScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
 
+  // compact prompt like your beta: "~ $"
   const prompt = useMemo(() => `${cwd} $`, [cwd]);
+
   function append(kind: Line["kind"], text: string) {
     setLines((prev) => [
       ...prev,
       { id: String(Date.now()) + Math.random(), kind, text },
     ]);
-    // allow layout then scroll
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0);
   }
 
@@ -36,28 +40,40 @@ export default function TerminalScreen() {
     const cmd = raw.trim();
     if (!cmd) return;
 
-    append("cmd", `${prompt} ${cmd}`);
+    append("cmd", `${prompt}${cmd}`);
     setInput("");
 
-    // TEMP: no real engine yet
-    if (cmd === "help") {
-      append("out", "Commands: help, clear");
-      return;
-    }
-    if (cmd === "clear") {
+    // handled locally
+    if (cmd.toLowerCase() === "clear") {
       setLines([]);
       return;
     }
 
-    append("out", `command not found: ${cmd}`);
+    const res = runCommandEngine(cmd);
+    res.output.forEach((line) => append("out", line));
   }
 
   return (
     <PhoneFrame>
       <View style={styles.wrap}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Terminal</Text>
-          <Text style={styles.headerSub}>Git Bash</Text>
+          <View>
+            <Text style={styles.headerTitle}>Terminal</Text>
+            <Text style={styles.headerSub}>Git Bash</Text>
+          </View>
+
+          <Pressable
+            onPress={() => {
+              const next = mode === "easy" ? "strict" : "easy";
+              setMode(next);
+              setModeState(next);
+            }}
+            style={styles.modeBtn}
+          >
+            <Text style={styles.modeTxt}>
+              {mode === "easy" ? "Easy" : "Hard"}
+            </Text>
+          </Pressable>
         </View>
 
         <View style={styles.screen}>
@@ -72,7 +88,7 @@ export default function TerminalScreen() {
                 key={l.id}
                 style={[
                   styles.line,
-                  l.kind === "cmd" ? styles.cmd : styles.out,
+                  l.kind === "cmd" ? styles.lineCmd : styles.lineOut,
                 ]}
                 selectable
               >
@@ -93,9 +109,9 @@ export default function TerminalScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 spellCheck={false}
-                placeholder=" "
+                placeholder="type command…"
                 placeholderTextColor="rgba(255,255,255,0.35)"
-                style={styles.cmd}
+                style={styles.inputCmd}
                 onSubmitEditing={() => runCommand(input)}
                 returnKeyType="go"
               />
@@ -114,13 +130,14 @@ export default function TerminalScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrap: {
-    flex: 1,
-    padding: 14,
-  },
+  wrap: { flex: 1, padding: 14 },
+
   header: {
     paddingHorizontal: 4,
     paddingBottom: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   headerTitle: {
     fontSize: 18,
@@ -133,6 +150,20 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.60)",
   },
 
+  modeBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+  },
+  modeTxt: {
+    color: "rgba(255,255,255,0.88)",
+    fontWeight: "800",
+    fontSize: 12,
+  },
+
   screen: {
     flex: 1,
     borderRadius: 20,
@@ -140,7 +171,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(0,0,0,0.55)",
     overflow: "hidden",
-    paddingBlock: 24,
   },
 
   scroll: { flex: 1 },
@@ -153,48 +183,11 @@ const styles = StyleSheet.create({
   line: {
     fontSize: 13,
     lineHeight: 18,
-    fontFamily: "monospace" as any, // ok for now; we can swap later
-  },
-  out: { color: "rgba(255,255,255,0.82)" },
-
-  inputRow: {
-    flexDirection: "row",
-    alignItems: "stretch", // important
-    gap: 10,
-  },
-
-  inputPill: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    backgroundColor: "rgba(15,15,15,0.85)",
-    minHeight: 42, // fixed height baseline
-  },
-  input: {
-    flex: 1,
-    fontSize: 13,
-    color: "rgba(255,255,255,0.92)",
     fontFamily: "monospace" as any,
-    paddingVertical: 0,
   },
-  goBtn: {
-    width: 44,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.05)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  goTxt: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 16,
-    fontWeight: "800",
-  },
+  lineOut: { color: "rgba(255,255,255,0.82)" },
+  lineCmd: { color: "rgba(255,255,255,0.95)" },
+
   inputDock: {
     paddingHorizontal: 12,
     paddingTop: 10,
@@ -221,10 +214,10 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.78)",
     fontFamily: "monospace" as any,
     marginRight: 8,
-    maxWidth: 90, // keeps it from stealing the row
+    maxWidth: 90,
   },
 
-  cmd: {
+  inputCmd: {
     flex: 1,
     fontSize: 13,
     color: "rgba(255,255,255,0.92)",
@@ -250,7 +243,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-
   btnTxt: {
     color: "rgba(255,255,255,0.9)",
     fontWeight: "800",
