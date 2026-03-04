@@ -21,16 +21,24 @@ export default function OpsScreen() {
     return "NOMINAL";
   }, [trace]);
 
+  const traceColor = useMemo(() => {
+    if (trace >= 85) return "rgba(255, 90, 131, 0.95)"; // critical (pink-red)
+    if (trace >= 70) return "rgba(255, 154, 122, 0.95)"; // high (coral)
+    if (trace >= 45) return "rgba(0, 214, 199, 0.95)"; // elevated (teal)
+    return "rgba(243, 246, 255, 0.92)"; // nominal (near-white)
+  }, [trace]);
+
+  const danger = trace >= 70;
   return (
     <PhoneFrame>
       <View style={styles.wrap}>
         <Text style={styles.title}>Ops HUD</Text>
         <Text style={styles.sub}>Operational status monitor</Text>
 
-        <View style={styles.card}>
+        <View style={[styles.card, danger && styles.cardDanger]}>
           <View style={styles.row}>
             <Text style={styles.k}>TRACE</Text>
-            <Text style={styles.v}>{trace}%</Text>
+            <Text style={[styles.v, { color: traceColor }]}>{trace}%</Text>
           </View>
           <Text style={styles.hint}>Status: {traceLabel}</Text>
 
@@ -42,6 +50,13 @@ export default function OpsScreen() {
           </View>
           <Text style={styles.hint}>
             {timerRunning ? "Countdown active" : "Timer paused"}
+            {danger && (
+              <View style={styles.alertStrip}>
+                <Text style={styles.alertStripText}>
+                  OPSEC RISK — minimize errors
+                </Text>
+              </View>
+            )}
           </Text>
         </View>
 
@@ -104,5 +119,24 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.62)",
     fontSize: 12,
     lineHeight: 16,
+  },
+  cardDanger: {
+    borderColor: "rgba(255, 154, 122, 0.22)",
+    backgroundColor: "rgba(255, 154, 122, 0.06)",
+  },
+  alertStrip: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255, 154, 122, 0.22)",
+    backgroundColor: "rgba(0,0,0,0.25)",
+  },
+  alertStripText: {
+    fontSize: 11,
+    letterSpacing: 1.1,
+    fontWeight: "900",
+    color: "rgba(255, 154, 122, 0.92)",
   },
 });
