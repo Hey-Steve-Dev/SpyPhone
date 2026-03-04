@@ -1,3 +1,4 @@
+import type { MissionState } from "@/lib/missionEngine";
 import { create } from "zustand";
 
 type Banner = {
@@ -22,6 +23,11 @@ type GameState = {
 
   // banner
   banner: Banner;
+
+  // mission
+  mission: MissionState;
+  setMissionStep: (step: number) => void;
+  resetMission: () => void;
 
   // actions
   setTrace: (next: number, reason?: string) => void;
@@ -55,6 +61,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   terminalLocked: false,
 
   banner: { on: false, title: "SECURE COMMS", message: "…" },
+
+  // mission defaults
+  mission: { missionId: "bootcamp_01", step: 0 },
+  setMissionStep: (step) => set((s) => ({ mission: { ...s.mission, step } })),
+  resetMission: () => set({ mission: { missionId: "bootcamp_01", step: 0 } }),
 
   setTrace: (next, reason) => {
     const v = clamp(next, 0, 100);

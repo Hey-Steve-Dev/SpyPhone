@@ -1,5 +1,7 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { runCommandEngine, setMode } from "@/lib/commandEngine";
+import { missionIntro, runMissionCommand } from "@/lib/missionEngine";
+import { useGameStore } from "@/store/useGameStore";
 import React, { useMemo, useRef, useState } from "react";
 import {
   Pressable,
@@ -11,10 +13,12 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
-
+const bumpTrace = useGameStore((s) => s.bumpTrace);
 type Line = { id: string; kind: "out" | "cmd"; text: string };
 
 export default function TerminalScreen() {
+  const mission = useGameStore((s) => s.mission);
+  const setMissionStep = useGameStore((s) => s.setMissionStep);
   const [cwd] = useState("~/ops");
   const [mode, setModeState] = useState<"easy" | "strict">("easy");
   const [input, setInput] = useState("");
@@ -22,6 +26,13 @@ export default function TerminalScreen() {
     { id: "l1", kind: "out", text: "Secure shell — Git Bash (simulated)" },
     { id: "l2", kind: "out", text: "Type `help` to list available commands." },
   ]);
+  const [introShown, setIntroShown] = useState(false);
+  if (!introShown) {
+    setIntroShown(true);
+    setTimeout(() => {
+      missionIntro(mission).forEach((line) => append("out", line));
+    }, 0);
+  }
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -46,6 +57,21 @@ export default function TerminalScreen() {
     // handled locally
     if (cmd.toLowerCase() === "clear") {
       setLines([]);
+      return;
+    }
+
+    const missionRes = runMissionCommand(cmd, mode, mission);
+
+    if (missionRes) {
+      missionRes.output.forEach((line: string) => append("out", line));
+
+      if (missionRes.ok) {
+        bumpTrace(-2, "correct command"); // small reward
+        if (missionRes.nextState) setMissionStep(missionRes.nextState.step);
+      } else {
+        bumpTrace(4, "wrong command"); // small penalty
+      }
+
       return;
     }
 
