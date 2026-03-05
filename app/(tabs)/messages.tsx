@@ -1,14 +1,8 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import SmartReplyBar from "@/components/SmartReplyBar";
 import { useGameStore } from "@/store/useGameStore";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
-
-type Msg = {
-  id: string;
-  from: "handler" | "you";
-  text: string;
-};
 
 export default function MessagesScreen() {
   const commsConnected = useGameStore((s) => s.commsConnected);
@@ -17,13 +11,9 @@ export default function MessagesScreen() {
   const connectComms = useGameStore((s) => s.connectComms);
   const bannerPush = useGameStore((s) => s.bannerPush);
 
-  const [thread, setThread] = useState<Msg[]>([
-    {
-      id: "h1",
-      from: "handler",
-      text: "Stand by. Awaiting further instruction.",
-    },
-  ]);
+  // store-backed thread
+  const thread = useGameStore((s) => s.thread);
+  const pushThread = useGameStore((s) => s.pushThread);
 
   useEffect(() => {
     connectComms();
@@ -45,14 +35,6 @@ export default function MessagesScreen() {
     [],
   );
 
-  function pushYou(text: string) {
-    setThread((t) => [...t, { id: "y" + Date.now(), from: "you", text }]);
-  }
-
-  function pushHandler(text: string) {
-    setThread((t) => [...t, { id: "h" + Date.now(), from: "handler", text }]);
-  }
-
   function onPick(key: string) {
     if (!commsConnected) {
       bannerPush("COMMS", "No link. Unable to send.", 1800);
@@ -60,25 +42,26 @@ export default function MessagesScreen() {
     }
 
     if (key === "onit") {
-      pushYou("On it.");
-      setTimeout(() => pushHandler("Good. Hold position."), 500);
+      pushThread("player", "On it.");
+      setTimeout(() => pushThread("handler", "Good. Hold position."), 500);
       return;
     }
 
     if (key === "repeat") {
-      pushYou("Repeat.");
+      pushThread("player", "Repeat.");
       setTimeout(
-        () => pushHandler("Stand by. Awaiting further instruction."),
+        () => pushThread("handler", "Stand by. Awaiting further instruction."),
         550,
       );
       return;
     }
 
     if (key === "q") {
-      pushYou("?");
+      pushThread("player", "?");
       setTimeout(
         () =>
-          pushHandler(
+          pushThread(
+            "handler",
             "You can ask for clarification once. Keep it short. Stay on task.",
           ),
         650,
@@ -106,17 +89,25 @@ export default function MessagesScreen() {
         <Text style={styles.status}>{statusText}</Text>
 
         <View style={styles.thread}>
-          {thread.map((m) => (
-            <View
-              key={m.id}
-              style={[
-                styles.bubble,
-                m.from === "you" ? styles.bubbleYou : styles.bubbleHandler,
-              ]}
-            >
-              <Text style={styles.bubbleTxt}>{m.text}</Text>
+          {thread.length === 0 ? (
+            <View style={[styles.bubble, styles.bubbleHandler]}>
+              <Text style={styles.bubbleTxt}>
+                No messages yet. Establish a link and await instruction.
+              </Text>
             </View>
-          ))}
+          ) : (
+            thread.map((m) => (
+              <View
+                key={m.id}
+                style={[
+                  styles.bubble,
+                  m.from === "player" ? styles.bubbleYou : styles.bubbleHandler,
+                ]}
+              >
+                <Text style={styles.bubbleTxt}>{m.text}</Text>
+              </View>
+            ))
+          )}
         </View>
       </View>
     </PhoneFrame>

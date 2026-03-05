@@ -1,0 +1,9 @@
+[33m843a2b3[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Add timed exfil objective to mission flow
+[33ma020bc2[m Add global heartbeat to tick mission timer across screens
+[33m44cef11[m Add Ops HUD visual escalation when trace is high
+[33m499316c[m Add Ops HUD and integrate trace pressure feedback with mission system
+[33m43e9b2b[m Integrate mission engine with terminal and trace reward/penalty logic
+[33m087ac3f[m Add command engine with easy/strict mode toggle in terminal
+[33m69da46d[m Refactor terminal UI to beta-style layout with prompt, caret, and run button
+[33m370352b[m Initial SpyPhone prototype with navigation, PhoneFrame, and messaging system
+[33m04bb74e[m Initial commit

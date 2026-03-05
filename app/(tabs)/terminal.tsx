@@ -14,19 +14,27 @@ import {
 
 const HOME_BAR_SPACE = 44;
 
+// Slight comms latency so OPS doesn’t feel omniscient
+const OPS_BASE_LAG_MS = 650;
+const OPS_JITTER_MS = 550;
+
 type Line = { id: string; kind: "out" | "cmd"; text: string };
 
 export default function TerminalScreen() {
-  // ✅ hooks must be called inside a component
   const bumpTrace = useGameStore((s) => s.bumpTrace);
   const mission = useGameStore((s) => s.mission);
   const setMissionStep = useGameStore((s) => s.setMissionStep);
+
   const missionDeadlineAt = useGameStore((s) => s.missionDeadlineAt);
   const setMissionDeadlineMsFromNow = useGameStore(
     (s) => s.setMissionDeadlineMsFromNow,
   );
   const clearMissionDeadline = useGameStore((s) => s.clearMissionDeadline);
+
   const bannerPush = useGameStore((s) => s.bannerPush);
+  const bannerOn = useGameStore((s) => s.banner.on);
+  const pushThread = useGameStore((s) => s.pushThread);
+
   const [cwd] = useState("~/ops");
   const [mode, setModeState] = useState<"easy" | "strict">("easy");
   const [input, setInput] = useState("");
@@ -37,8 +45,8 @@ export default function TerminalScreen() {
   const [introShown, setIntroShown] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
 
-  // compact prompt like your beta: "~ $"
   const prompt = useMemo(() => `${cwd} $`, [cwd]);
 
   function append(kind: Line["kind"], text: string) {
@@ -49,66 +57,131 @@ export default function TerminalScreen() {
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0);
   }
 
-  // ✅ don’t set state during render; run intro once in an effect
+  function jitter() {
+    return OPS_BASE_LAG_MS + Math.floor(Math.random() * OPS_JITTER_MS);
+  }
+
+  // Keep input focused whenever a banner pops in (store update can blur RN TextInput)
+  useEffect(() => {
+    if (!bannerOn) return;
+    const id = setTimeout(() => inputRef.current?.focus(), 50);
+    return () => clearTimeout(id);
+  }, [bannerOn]);
+
+  // Queue OPS banners so they don’t replace each other instantly
+  function opsBurstDelayed(msgs: string[], msEach = 4500, gap = 250) {
+    const startDelay = jitter();
+    msgs.forEach((text, i) => {
+      setTimeout(
+        () => {
+          bannerPush("OPS", text, msEach);
+          setTimeout(() => inputRef.current?.focus(), 50);
+        },
+        startDelay + i * (msEach + gap),
+      );
+    });
+  }
+
+  // Thread lines should arrive with the same lag (feels like comms)
+  function opsThreadDelayed(msgs: string[]) {
+    const startDelay = jitter();
+    msgs.forEach((text, i) => {
+      setTimeout(
+        () => {
+          pushThread("handler", text);
+        },
+        startDelay + i * 120,
+      );
+    });
+  }
+
+  // Intro: OPS -> delayed + thread (NOT terminal)
   useEffect(() => {
     if (introShown) return;
     setIntroShown(true);
-    missionIntro(mission).forEach((line) => append("out", line));
-    // Intentionally "once": avoids rerunning if mission changes.
+
+    const handlerLines = missionIntro(mission);
+    if (handlerLines?.length) {
+      opsBurstDelayed(handlerLines, 4500, 250);
+      opsThreadDelayed(handlerLines);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [introShown]);
 
   function runCommand(raw: string) {
     const cmd = raw.trim();
     if (!cmd) return;
+
     // deadline enforcement (only while a deadline is active)
     if (missionDeadlineAt && Date.now() > missionDeadlineAt) {
-      append("out", "WINDOW MISSED: handler link dropped.");
-      append("out", "Trace spike. Reacquire instructions.");
-      bannerPush("ALERT", "Exfil window missed.", 2200);
+      append("out", "WINDOW MISSED: link dropped.");
+      append("out", "Trace spike.");
 
-      // penalty + clear the deadline so it doesn't spam forever
+      bannerPush("ALERT", "Exfil window missed.", 2200);
+      pushThread("handler", "We missed the exfil window. Keep moving.");
+
       bumpTrace(12, "missed window");
       clearMissionDeadline();
     }
+
     append("cmd", `${prompt}${cmd}`);
     setInput("");
+    setTimeout(() => inputRef.current?.focus(), 10);
 
     // handled locally
     if (cmd.toLowerCase() === "clear") {
       setLines([]);
+      setTimeout(() => inputRef.current?.focus(), 10);
       return;
     }
 
     const missionRes = runMissionCommand(cmd, mode, mission);
 
     if (missionRes) {
-      missionRes.output.forEach((line: string) => append("out", line));
+      // Terminal shows ONLY enemy output
+      missionRes.terminalOut.forEach((line: string) => append("out", line));
 
-      if (missionRes.ok) {
-        bumpTrace(-2, "correct command"); // small reward
-        if (missionRes.nextState) {
-          setMissionStep(missionRes.nextState.step);
+      // OPS does NOT “grade” typing — only speak when step advances.
+      if (missionRes.nextState) {
+        const nextStep = missionRes.nextState.step;
 
-          // start a timed window right after intel is read (step 5)
-          if (missionRes.nextState.step === 5) {
-            setMissionDeadlineMsFromNow(12_000);
-            append("out", "⚠ EXFIL WINDOW: 12s");
-            bannerPush("WINDOW", "12s to proceed.", 1400);
-          } else {
-            // for other steps, clear any old window
-            clearMissionDeadline();
-          }
+        const opsLines = missionRes.handlerOut?.length
+          ? missionRes.handlerOut
+          : [];
+
+        if (opsLines.length) {
+          opsBurstDelayed(opsLines, 2000, 250);
+          opsThreadDelayed(opsLines);
         }
-      } else {
-        bumpTrace(4, "wrong command"); // small penalty
+
+        if (missionRes.ok) bumpTrace(-2, "correct command");
+        else bumpTrace(4, "wrong command");
+
+        setMissionStep(nextStep);
+
+        // start a timed window right after intel is read (step 5)
+        if (nextStep === 5) {
+          setMissionDeadlineMsFromNow(12_000);
+          bannerPush("WINDOW", "Exfil window: 12s.", 1400);
+          pushThread("handler", "Exfil window is open. You have ~12 seconds.");
+        } else {
+          clearMissionDeadline();
+        }
+
+        setTimeout(() => inputRef.current?.focus(), 50);
+        return;
       }
 
+      if (missionRes.ok) bumpTrace(-2, "correct command");
+      else bumpTrace(4, "wrong command");
+
+      setTimeout(() => inputRef.current?.focus(), 50);
       return;
     }
 
     const res = runCommandEngine(cmd);
     res.output.forEach((line) => append("out", line));
+    setTimeout(() => inputRef.current?.focus(), 50);
   }
 
   return (
@@ -125,6 +198,7 @@ export default function TerminalScreen() {
               const next = mode === "easy" ? "strict" : "easy";
               setMode(next);
               setModeState(next);
+              setTimeout(() => inputRef.current?.focus(), 50);
             }}
             style={styles.modeBtn}
           >
@@ -162,6 +236,7 @@ export default function TerminalScreen() {
               </Text>
 
               <TextInput
+                ref={inputRef}
                 value={input}
                 onChangeText={setInput}
                 autoCapitalize="none"

@@ -7,6 +7,17 @@ type Banner = {
   message: string;
 };
 
+type ThreadItem = {
+  id: string;
+  at: number; // Date.now()
+  from: "handler" | "system" | "player";
+  text: string;
+};
+
+function makeId() {
+  return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
 type GameState = {
   // core pressure systems
   trace: number; // 0..100
@@ -28,6 +39,10 @@ type GameState = {
 
   // banner
   banner: Banner;
+  // messages thread
+  thread: ThreadItem[];
+  pushThread: (from: ThreadItem["from"], text: string) => void;
+  clearThread: () => void;
 
   // mission
   mission: MissionState;
@@ -97,7 +112,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   terminalLocked: false,
 
   banner: { on: false, title: "SECURE COMMS", message: "…" },
-
+  thread: [],
+  pushThread: (from, text) => {
+    const item: ThreadItem = { id: makeId(), at: Date.now(), from, text };
+    set((s) => ({ thread: [...s.thread, item] }));
+  },
+  clearThread: () => set({ thread: [] }),
   // mission defaults
   mission: { missionId: "bootcamp_01", step: 0 },
   setMissionStep: (step) => set((s) => ({ mission: { ...s.mission, step } })),

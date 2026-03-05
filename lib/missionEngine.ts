@@ -7,7 +7,8 @@ export type MissionState = {
 
 export type MissionResult = {
   ok: boolean;
-  output: string[];
+  terminalOut: string[]; // ONLY enemy system output (Terminal app)
+  handlerOut?: string[]; // ONLY handler instruction (BannerComms + Messages thread)
   nextState?: MissionState; // only set when advancing
 };
 
@@ -34,35 +35,44 @@ function matches(
   return easyAlso.map(normLower).includes(inL);
 }
 
-// --- mission definition ---
-// Bootcamp 01: basic navigation in a “Git Bash” vibe
+function enemyUnknown(cmd: string) {
+  return cmd ? [`bash: ${cmd}: command not found`] : [];
+}
+
+function handlerForStep(step: number): string[] {
+  // Keep it grounded, short, not “gamey”.
+  switch (step) {
+    case 0:
+      return [
+        "Booting you into a hostile shell.",
+        "Confirm where you are. Type: `pwd`.",
+      ];
+    case 1:
+      return ["List what's here. Type: `ls`."];
+    case 2:
+      return ["Go into the payload directory. Type: `cd payload`."];
+    case 3:
+      return ["Confirm what's inside. Type: `ls`."];
+    case 4:
+      return ["Read the intel file. Type: `cat intel.txt`."];
+    case 5:
+      return [
+        "Exfil window is open. You have seconds.",
+        "Start the transfer. Type: `./drop.sh`.",
+      ];
+    case 6:
+      return ["Transfer initiated. Stay sharp. Stand by."];
+    default:
+      return ["Stand by."];
+  }
+}
+
+/**
+ * Called when a mission first becomes active / when you want the next handler prompt for current step.
+ * IMPORTANT: This is handler-only text. Do NOT print this inside Terminal.
+ */
 export function missionIntro(state: MissionState): string[] {
-  if (state.step === 0) {
-    return [
-      "MISSION: BOOTCAMP-01",
-      "Objective: verify position.",
-      "Task: run `pwd`.",
-    ];
-  }
-  if (state.step === 1) {
-    return ["Good.", "Task: list files. Run `ls`."];
-  }
-  if (state.step === 2) {
-    return ["Task: enter payload directory. Run `cd payload`."];
-  }
-  if (state.step === 3) {
-    return ["Task: confirm contents. Run `ls`."];
-  }
-  if (state.step === 4) {
-    return ["Task: read intel. Run `cat intel.txt`."];
-  }
-  if (state.step === 5) {
-    return ["EXFIL WINDOW OPEN", "Task: start transfer. Run `./drop.sh`."];
-  }
-  if (state.step === 6) {
-    return ["Transfer initiated.", "Objective complete. Stand by."];
-  }
-  return ["Objective complete. Stand by."];
+  return handlerForStep(state.step);
 }
 
 export function runMissionCommand(
@@ -76,96 +86,114 @@ export function runMissionCommand(
   // Step 0: pwd
   if (state.step === 0) {
     if (matches(raw, "pwd", mode)) {
+      const nextState = { ...state, step: 1 } as MissionState;
       return {
         ok: true,
-        output: ["/home/agent/ops", ...missionIntro({ ...state, step: 1 })],
-        nextState: { ...state, step: 1 },
+        terminalOut: ["/home/agent/ops"],
+        handlerOut: handlerForStep(nextState.step),
+        nextState,
       };
     }
     return {
       ok: false,
-      output: ["Expected: pwd", "Tip: prints your current directory."],
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Negative. Confirm position with: `pwd`."],
     };
   }
 
-  // Step 1: ls (easy allows ls -la, ls -l, etc.)
+  // Step 1: ls
   if (state.step === 1) {
     if (matches(raw, "ls", mode, ["ls -la", "ls -l", "ls -a"])) {
+      const nextState = { ...state, step: 2 } as MissionState;
       return {
         ok: true,
-        output: [
-          "intel.txt",
-          "access.log",
-          "payload/",
-          ...missionIntro({ ...state, step: 2 }),
-        ],
-        nextState: { ...state, step: 2 },
+        terminalOut: ["intel.txt", "access.log", "payload/"],
+        handlerOut: handlerForStep(nextState.step),
+        nextState,
       };
     }
-    return { ok: false, output: ["Expected: ls"] };
+    return {
+      ok: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Don't improvise. Type: `ls`."],
+    };
   }
 
-  // Step 2: cd payload (easy allows extra spaces/case)
+  // Step 2: cd payload
   if (state.step === 2) {
     if (matches(raw, "cd payload", mode, ["cd    payload", "CD payload"])) {
+      const nextState = { ...state, step: 3 } as MissionState;
       return {
         ok: true,
-        output: ["~/ops/payload", ...missionIntro({ ...state, step: 3 })],
-        nextState: { ...state, step: 3 },
+        terminalOut: ["~/ops/payload"],
+        handlerOut: handlerForStep(nextState.step),
+        nextState,
       };
     }
-    return { ok: false, output: ["Expected: cd payload"] };
+    return {
+      ok: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["We need the payload directory. Type: `cd payload`."],
+    };
   }
 
-  // Step 3: ls again (same tolerance as step 1)
+  // Step 3: ls again
   if (state.step === 3) {
     if (matches(raw, "ls", mode, ["ls -la", "ls -l", "ls -a"])) {
+      const nextState = { ...state, step: 4 } as MissionState;
       return {
         ok: true,
-        output: [
-          "intel.txt",
-          "drop.sh",
-          "README.md",
-          ...missionIntro({ ...state, step: 4 }),
-        ],
-        nextState: { ...state, step: 4 },
+        terminalOut: ["intel.txt", "drop.sh", "README.md"],
+        handlerOut: handlerForStep(nextState.step),
+        nextState,
       };
     }
-    return { ok: false, output: ["Expected: ls"] };
+    return {
+      ok: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Confirm contents. Type: `ls`."],
+    };
   }
 
-  // Step 4: cat intel.txt (easy allows `cat ./intel.txt`)
+  // Step 4: cat intel.txt
   if (state.step === 4) {
     if (matches(raw, "cat intel.txt", mode, ["cat ./intel.txt"])) {
+      const nextState = { ...state, step: 5 } as MissionState;
       return {
         ok: true,
-        output: [
+        terminalOut: [
           "INTEL: server=staging-7",
           "port=443",
           "user=agent",
           "NOTE: exfil window is short.",
-          ...missionIntro({ ...state, step: 5 }),
         ],
-        nextState: { ...state, step: 5 },
+        handlerOut: handlerForStep(nextState.step),
+        nextState,
       };
     }
-    return { ok: false, output: ["Expected: cat intel.txt"] };
+    return {
+      ok: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Read the intel. Type: `cat intel.txt`."],
+    };
   }
 
-  // Step 5: execute drop script (timed window step)
+  // Step 5: execute drop script (timed window step; timing enforcement stays in TerminalScreen)
   if (state.step === 5) {
     if (matches(raw, "./drop.sh", mode, ["bash drop.sh", "sh drop.sh"])) {
+      const nextState = { ...state, step: 6 } as MissionState;
       return {
         ok: true,
-        output: [
-          "Running drop.sh...",
-          "Transfer started.",
-          ...missionIntro({ ...state, step: 6 }),
-        ],
-        nextState: { ...state, step: 6 },
+        terminalOut: ["Running drop.sh...", "Transfer started."],
+        handlerOut: handlerForStep(nextState.step),
+        nextState,
       };
     }
-    return { ok: false, output: ["Expected: ./drop.sh"] };
+    return {
+      ok: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["No. Run the drop script: `./drop.sh`."],
+    };
   }
 
   return null;
