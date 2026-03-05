@@ -240,6 +240,7 @@ export default function TerminalScreen() {
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
             keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
             {lines.map((l) => (
               <Text
