@@ -28,6 +28,52 @@ type JammerConfig = {
   autoMask: boolean;
 };
 
+type NetworkBand = "VHF" | "UHF" | "LTE" | "SAT" | "WIFI" | "5G";
+
+type NetworkConnectedMeta = {
+  ssid: string;
+  band: NetworkBand;
+  security: string;
+  bssid: string;
+  channel: number;
+};
+
+type NetworkLogItem = {
+  id: string;
+  at: number;
+  level: "SYS" | "SCAN" | "LINK" | "HACK" | "WARN";
+  text: string;
+};
+
+// ✅ Persisted scan cache type (matches your NetworkScreen Net shape)
+type NetworkSec = "OPEN" | "WEP" | "WPA2" | "WPA3" | "EAP" | "UNKNOWN";
+
+type NetworkNet = {
+  id: string;
+  ssid: string;
+  band: NetworkBand;
+  rssi: number;
+  security: NetworkSec;
+  bssid: string;
+  channel: number;
+  lastSeen: number;
+  tags: string[];
+};
+
+type NetworkState = {
+  preferredBand: NetworkBand;
+  autoHop: boolean;
+  stealth: boolean;
+
+  connectedId: string | null;
+  connectedMeta: NetworkConnectedMeta | null;
+
+  logs: NetworkLogItem[];
+
+  // ✅ cache scan results so list doesn't regenerate on screen mount
+  scanCache: NetworkNet[];
+};
+
 function makeId() {
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
@@ -37,6 +83,15 @@ type GameState = {
   trace: number; // 0..100
   secondsLeft: number;
   timerRunning: boolean;
+
+  network: NetworkState;
+  setNetwork: (patch: Partial<NetworkState>) => void;
+  appendNetworkLog: (item: NetworkLogItem) => void;
+  clearNetworkLog: () => void;
+
+  // ✅ scan cache actions (explicit so NetworkScreen can call them)
+  setNetworkScanCache: (nets: NetworkNet[]) => void;
+  clearNetworkScanCache: () => void;
 
   // global tick loop
   heartbeatOn: boolean;
@@ -101,6 +156,51 @@ export const useGameStore = create<GameState>((set, get) => ({
   // heartbeat defaults
   heartbeatOn: false,
 
+  // network defaults (store-backed so game logic can read it)
+  network: {
+    preferredBand: "LTE",
+    autoHop: true,
+    stealth: true,
+
+    connectedId: null,
+    connectedMeta: null,
+
+    logs: [],
+
+    // ✅ persisted scan cache
+    scanCache: [],
+  },
+
+  setNetwork: (patch) =>
+    set((s) => ({
+      network: { ...s.network, ...patch },
+    })),
+
+  appendNetworkLog: (item) =>
+    set((s) => {
+      const next = [...s.network.logs, item];
+      const trimmed = next.length > 250 ? next.slice(next.length - 250) : next;
+      return {
+        network: { ...s.network, logs: trimmed },
+      };
+    }),
+
+  clearNetworkLog: () =>
+    set((s) => ({
+      network: { ...s.network, logs: [] },
+    })),
+
+  // ✅ scan cache actions
+  setNetworkScanCache: (nets) =>
+    set((s) => ({
+      network: { ...s.network, scanCache: nets },
+    })),
+
+  clearNetworkScanCache: () =>
+    set((s) => ({
+      network: { ...s.network, scanCache: [] },
+    })),
+
   // jammer defaults (store-backed so game logic can read it)
   jammer: {
     enabled: false,
@@ -129,7 +229,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       st.tick();
     }, 1000);
 
-    // stash interval id on the function
     (get().startHeartbeat as any)._id = id;
   },
 
@@ -208,11 +307,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
-    // normal countdown
     set({ secondsLeft: s.secondsLeft - 1 });
 
-    // JAMMER TRACE DRIFT
-    // Every 5 seconds: if you’re blasting RF, you get hotter.
     const j = get().jammer;
     if (j?.enabled && s.secondsLeft % 5 === 0) {
       const loud = !j.stealth || j.strength >= 80;
@@ -245,7 +341,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     const s = get();
     const j = s.jammer;
 
-    // Still hard-block if jammed
     if (s.commsJammed) {
       set({
         commsConnected: false,
@@ -258,7 +353,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ commsConnecting: true, commsConnected: false });
     get().bannerPush("SECURE COMMS", "Securing connection…", 700);
 
-    // --- realism knobs driven by jammer config ---
     const band = j?.band ?? "UHF";
     const strength = j?.strength ?? 62;
 
@@ -284,7 +378,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     setTimeout(() => {
       const st = get();
 
-      // If jammer flipped on during the wait, stop.
       if (st.commsJammed) {
         set({ commsConnecting: false, commsConnected: false });
         return;
@@ -296,10 +389,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ commsConnecting: false, commsConnected: false });
         get().bannerPush("COMMS", "Handshake failed.", 2600);
 
-        // AUTO-MASK: if armed, fail triggers the mask to protect you
         const jNow = get().jammer;
         if (jNow?.autoMask && !get().commsJammed) {
-          // disarm the tripwire once it fires
           get().setJammer({ autoMask: false });
 
           get().setCommsJammed(true);
@@ -318,7 +409,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setCommsJammed: (on) => {
     set({ commsJammed: on });
-    // keep jammer.enabled in sync
     set((s) => ({ jammer: { ...s.jammer, enabled: on } }));
 
     if (on) {
