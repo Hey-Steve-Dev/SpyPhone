@@ -79,6 +79,7 @@ export function runMissionCommand(
   input: string,
   mode: Mode,
   state: MissionState,
+  jammerEnabled: boolean,
 ): MissionResult | null {
   // return null when the mission doesn't care about this command (let generic engine handle)
   const raw = norm(input);
@@ -155,18 +156,38 @@ export function runMissionCommand(
     };
   }
 
-  // Step 4: cat intel.txt
+  // Step 4: cat intel.txt (now gated by jammerEnabled)
   if (state.step === 4) {
     if (matches(raw, "cat intel.txt", mode, ["cat ./intel.txt"])) {
+      const intelLines = [
+        "INTEL: server=staging-7",
+        "port=443",
+        "user=agent",
+        "NOTE: exfil window is short.",
+      ];
+
+      // Gate advancement until jammer mask is enabled (Jammer app)
+      if (!jammerEnabled) {
+        const holdState = { ...state, step: 4 } as MissionState;
+
+        return {
+          ok: true,
+          terminalOut: intelLines,
+          handlerOut: [
+            "Mask comms before you exfil.",
+            "Open Jammer. Set MASK ON.",
+            "Then re-run: `cat intel.txt`.",
+          ],
+          // ✅ include nextState so Terminal will emit OPS lines,
+          // but keep the mission on the same step (no advancement)
+          nextState: holdState,
+        };
+      }
+
       const nextState = { ...state, step: 5 } as MissionState;
       return {
         ok: true,
-        terminalOut: [
-          "INTEL: server=staging-7",
-          "port=443",
-          "user=agent",
-          "NOTE: exfil window is short.",
-        ],
+        terminalOut: intelLines,
         handlerOut: handlerForStep(nextState.step),
         nextState,
       };

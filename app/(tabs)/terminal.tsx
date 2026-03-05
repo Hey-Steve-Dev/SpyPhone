@@ -28,6 +28,7 @@ export default function TerminalScreen() {
   const bumpTrace = useGameStore((s) => s.bumpTrace);
   const mission = useGameStore((s) => s.mission);
   const setMissionStep = useGameStore((s) => s.setMissionStep);
+  const jammerEnabled = useGameStore((s) => s.jammer.enabled);
 
   const missionDeadlineAt = useGameStore((s) => s.missionDeadlineAt);
   const setMissionDeadlineMsFromNow = useGameStore(
@@ -161,8 +162,7 @@ export default function TerminalScreen() {
       return;
     }
 
-    const missionRes = runMissionCommand(cmd, mode, mission);
-
+    const missionRes = runMissionCommand(cmd, mode, mission, jammerEnabled);
     if (missionRes) {
       // Terminal shows ONLY enemy output
       missionRes.terminalOut.forEach((line: string) => append("out", line));
