@@ -20,6 +20,10 @@ const OPS_JITTER_MS = 550;
 
 type Line = { id: string; kind: "out" | "cmd"; text: string };
 
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
 export default function TerminalScreen() {
   const bumpTrace = useGameStore((s) => s.bumpTrace);
   const mission = useGameStore((s) => s.mission);
@@ -61,6 +65,15 @@ export default function TerminalScreen() {
     return OPS_BASE_LAG_MS + Math.floor(Math.random() * OPS_JITTER_MS);
   }
 
+  // How long OPS "types" before sending a message
+  function typingMsFor(text: string) {
+    // Rough human typing feel: base + per-char, clamped
+    // (Short lines still take a beat; long lines don’t take forever.)
+    const base = 850;
+    const perChar = 38;
+    return clamp(base + text.length * perChar, 1200, 2600);
+  }
+
   // Keep input focused whenever a banner pops in (store update can blur RN TextInput)
   useEffect(() => {
     if (!bannerOn) return;
@@ -68,30 +81,43 @@ export default function TerminalScreen() {
     return () => clearTimeout(id);
   }, [bannerOn]);
 
-  // Queue OPS banners so they don’t replace each other instantly
-  function opsBurstDelayed(msgs: string[], msEach = 4500, gap = 250) {
+  // OPS banner burst with realistic typing delay + animated dots (handled by BannerComms)
+  function opsBurstDelayed(msgs: string[], msgMsEach = 3500, gap = 250) {
     const startDelay = jitter();
-    msgs.forEach((text, i) => {
-      setTimeout(
-        () => {
-          bannerPush("OPS", text, msEach);
-          setTimeout(() => inputRef.current?.focus(), 50);
-        },
-        startDelay + i * (msEach + gap),
-      );
+    let t = startDelay;
+
+    msgs.forEach((text) => {
+      const typingMs = typingMsFor(text);
+
+      // show typing indicator long enough to feel real
+      setTimeout(() => {
+        bannerPush("OPS", "…", typingMs);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }, t);
+
+      // then show actual message
+      setTimeout(() => {
+        bannerPush("OPS", text, msgMsEach);
+        setTimeout(() => inputRef.current?.focus(), 50);
+      }, t + typingMs);
+
+      t += typingMs + msgMsEach + gap;
     });
   }
 
-  // Thread lines should arrive with the same lag (feels like comms)
+  // Thread lines arrive after the typing delay (so it matches what player saw)
   function opsThreadDelayed(msgs: string[]) {
     const startDelay = jitter();
-    msgs.forEach((text, i) => {
-      setTimeout(
-        () => {
-          pushThread("handler", text);
-        },
-        startDelay + i * 120,
-      );
+    let t = startDelay;
+
+    msgs.forEach((text) => {
+      const typingMs = typingMsFor(text);
+      setTimeout(() => {
+        pushThread("handler", text);
+      }, t + typingMs);
+
+      // keep thread pacing tight but believable
+      t += typingMs + 120;
     });
   }
 
@@ -102,7 +128,7 @@ export default function TerminalScreen() {
 
     const handlerLines = missionIntro(mission);
     if (handlerLines?.length) {
-      opsBurstDelayed(handlerLines, 4500, 250);
+      opsBurstDelayed(handlerLines, 3500, 250);
       opsThreadDelayed(handlerLines);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -150,7 +176,7 @@ export default function TerminalScreen() {
           : [];
 
         if (opsLines.length) {
-          opsBurstDelayed(opsLines, 2000, 250);
+          opsBurstDelayed(opsLines, 3500, 250);
           opsThreadDelayed(opsLines);
         }
 

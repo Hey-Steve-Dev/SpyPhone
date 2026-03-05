@@ -1,5 +1,5 @@
 import { useGameStore } from "@/store/useGameStore";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 export default function BannerComms() {
@@ -7,6 +7,9 @@ export default function BannerComms() {
 
   const y = useRef(new Animated.Value(-80)).current;
   const a = useRef(new Animated.Value(0)).current;
+
+  const isTyping = banner.on && (banner.message || "").trim() === "…";
+  const [dots, setDots] = useState("…");
 
   useEffect(() => {
     if (!banner.on) {
@@ -38,7 +41,22 @@ export default function BannerComms() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [banner.on]);
+  }, [banner.on, a, y]);
+
+  // Animate typing: ".", "..", "...", repeat
+  useEffect(() => {
+    if (!isTyping) {
+      setDots("…");
+      return;
+    }
+    let i = 0;
+    const frames = [".", "..", "..."];
+    const id = setInterval(() => {
+      i = (i + 1) % frames.length;
+      setDots(frames[i]);
+    }, 260);
+    return () => clearInterval(id);
+  }, [isTyping]);
 
   if (!banner.on) return null;
 
@@ -49,6 +67,8 @@ export default function BannerComms() {
     title.length > 0 && title.toLowerCase() !== "secure comms"
       ? title.toUpperCase()
       : "OPS";
+
+  const displayMsg = isTyping ? dots : msg;
 
   return (
     <Animated.View
@@ -63,7 +83,7 @@ export default function BannerComms() {
     >
       <View style={styles.banner}>
         <Text style={styles.header}>{header}</Text>
-        <Text style={styles.text}>{msg}</Text>
+        <Text style={styles.text}>{displayMsg}</Text>
       </View>
     </Animated.View>
   );
@@ -85,7 +105,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 14,
     borderRadius: 16,
-
     backgroundColor: "#1a1f2b",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
