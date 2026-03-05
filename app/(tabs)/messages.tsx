@@ -1,8 +1,19 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import SmartReplyBar from "@/components/SmartReplyBar";
 import { useGameStore } from "@/store/useGameStore";
-import React, { useEffect, useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef } from "react";
+import {
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ListRenderItem,
+} from "react-native";
+
+const HOME_GESTURE_SPACE = 34;
+const REPLY_DOCK_HEIGHT = 96;
+const DOCK_TOTAL = REPLY_DOCK_HEIGHT + HOME_GESTURE_SPACE;
 
 export default function MessagesScreen() {
   const commsConnected = useGameStore((s) => s.commsConnected);
@@ -11,9 +22,10 @@ export default function MessagesScreen() {
   const connectComms = useGameStore((s) => s.connectComms);
   const bannerPush = useGameStore((s) => s.bannerPush);
 
-  // store-backed thread
   const thread = useGameStore((s) => s.thread);
   const pushThread = useGameStore((s) => s.pushThread);
+
+  const listRef = useRef<FlatList<(typeof thread)[number]>>(null);
 
   useEffect(() => {
     connectComms();
@@ -70,14 +82,27 @@ export default function MessagesScreen() {
     }
   }
 
-  return (
-    <PhoneFrame
-      overlay={
-        <View style={styles.replyDock}>
-          <SmartReplyBar replies={replies} onPick={onPick} />
-        </View>
-      }
+  const renderItem: ListRenderItem<(typeof thread)[number]> = ({ item: m }) => (
+    <View
+      style={[
+        styles.bubble,
+        m.from === "player" ? styles.bubbleYou : styles.bubbleHandler,
+      ]}
     >
+      <Text style={styles.bubbleTxt}>{m.text}</Text>
+    </View>
+  );
+
+  // Keep pinned to bottom when new messages arrive
+  useEffect(() => {
+    if (thread.length === 0) return;
+    requestAnimationFrame(() => {
+      listRef.current?.scrollToEnd({ animated: true });
+    });
+  }, [thread.length]);
+
+  return (
+    <PhoneFrame>
       <View style={styles.container}>
         <View style={styles.headerRow}>
           <Text style={styles.title}>Messages</Text>
@@ -88,7 +113,7 @@ export default function MessagesScreen() {
 
         <Text style={styles.status}>{statusText}</Text>
 
-        <View style={styles.thread}>
+        <View style={styles.body}>
           {thread.length === 0 ? (
             <View style={[styles.bubble, styles.bubbleHandler]}>
               <Text style={styles.bubbleTxt}>
@@ -96,18 +121,29 @@ export default function MessagesScreen() {
               </Text>
             </View>
           ) : (
-            thread.map((m) => (
-              <View
-                key={m.id}
-                style={[
-                  styles.bubble,
-                  m.from === "player" ? styles.bubbleYou : styles.bubbleHandler,
-                ]}
-              >
-                <Text style={styles.bubbleTxt}>{m.text}</Text>
-              </View>
-            ))
+            <FlatList
+              ref={listRef}
+              data={thread}
+              keyExtractor={(m) => m.id}
+              renderItem={renderItem}
+              // THIS is the key: the list itself stops above the dock
+              style={[styles.thread, { marginBottom: DOCK_TOTAL }]}
+              contentContainerStyle={styles.threadContent}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              onContentSizeChange={() => {
+                // keep pinned on first render/layout changes
+                listRef.current?.scrollToEnd({ animated: false });
+              }}
+            />
           )}
+
+          {/* Dock stays pinned; list never goes behind it now */}
+          <View pointerEvents="box-none" style={styles.dockWrap}>
+            <View style={styles.dockBg} pointerEvents="auto">
+              <SmartReplyBar replies={replies} onPick={onPick} />
+            </View>
+          </View>
         </View>
       </View>
     </PhoneFrame>
@@ -118,6 +154,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 18,
+    minHeight: 0,
   },
 
   headerRow: {
@@ -126,17 +163,13 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 10,
   },
-  replyDock: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 34, // above home gesture bar
-  },
+
   title: {
     fontSize: 20,
     fontWeight: "800",
     color: "rgba(255,255,255,0.92)",
   },
+
   reconnectBtn: {
     paddingHorizontal: 10,
     paddingVertical: 8,
@@ -154,9 +187,22 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.62)",
   },
 
+  body: {
+    flex: 1,
+    minHeight: 0,
+  },
+
   thread: {
     flex: 1,
-    gap: 10,
+    minHeight: 0,
+  },
+
+  // “Modern chat” (short lists sit at bottom)
+  // We only need a little padding now since the viewport is shortened.
+  threadContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
+    paddingTop: 6,
     paddingBottom: 10,
   },
 
@@ -166,6 +212,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 16,
     borderWidth: 1,
+    marginBottom: 10,
   },
   bubbleHandler: {
     alignSelf: "flex-start",
@@ -181,5 +228,25 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.92)",
     fontSize: 14,
     lineHeight: 18,
+  },
+
+  dockWrap: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: DOCK_TOTAL,
+    justifyContent: "flex-end",
+  },
+
+  dockBg: {
+    height: DOCK_TOTAL,
+    paddingBottom: HOME_GESTURE_SPACE,
+    paddingHorizontal: 16,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(20, 24, 34, 1)",
+    borderTopWidth: 1,
+    borderTopColor: "rgba(255,255,255,0.10)",
   },
 });

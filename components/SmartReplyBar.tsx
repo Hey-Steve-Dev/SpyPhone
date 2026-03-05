@@ -1,28 +1,24 @@
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-type Reply = {
-  key: string;
-  label: string;
-};
+type Reply = { key: string; label: string };
 
-type SmartReplyBarProps = {
+export default function SmartReplyBar({
+  replies,
+  onPick,
+}: {
   replies: Reply[];
   onPick: (key: string) => void;
-};
-
-export default function SmartReplyBar({ replies, onPick }: SmartReplyBarProps) {
+}) {
   return (
-    <View style={styles.wrap}>
+    <View style={styles.row}>
       {replies.map((r) => (
         <Pressable
           key={r.key}
           onPress={() => onPick(r.key)}
-          style={({ pressed }) => [styles.chip, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.chip, pressed && styles.chipPressed]}
         >
-          <Text style={styles.txt} numberOfLines={1}>
-            {r.label}
-          </Text>
+          <Text style={styles.chipText}>{r.label}</Text>
         </Pressable>
       ))}
     </View>
@@ -30,30 +26,35 @@ export default function SmartReplyBar({ replies, onPick }: SmartReplyBarProps) {
 }
 
 const styles = StyleSheet.create({
-  wrap: {
+  row: {
     flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+
+    // THIS is what you needed
+    paddingHorizontal: 18,
+    paddingVertical: 6,
   },
+
   chip: {
-    maxWidth: 160,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    minWidth: 100,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.14)",
-    backgroundColor: "rgba(255,255,255,0.06)",
+    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(255,255,255,0.10)",
   },
-  pressed: {
-    transform: [{ scale: 0.98 }],
-    opacity: 0.9,
+
+  chipPressed: {
+    backgroundColor: "rgba(255,255,255,0.16)",
   },
-  txt: {
-    fontSize: 13,
-    color: "rgba(255,255,255,0.90)",
+
+  chipText: {
+    textAlign: "center",
+    fontWeight: "800",
+    color: "rgba(255,255,255,0.92)",
+    letterSpacing: 0.2,
   },
 });
