@@ -1,7 +1,15 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
-import React, { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  FlatList,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type ListRenderItem,
+} from "react-native";
 
 type LogItem = {
   id: string;
@@ -70,6 +78,9 @@ export default function JammerScreen() {
     { id: makeId(), at: Date.now(), text: "RF front-end warmed." },
   ]);
 
+  // Log list ref for autoscroll
+  const logRef = useRef<FlatList<LogItem>>(null);
+
   const statusText = useMemo(() => {
     if (commsJammed) return "MASK ACTIVE";
     if (commsConnecting) return "LINK NEGOTIATING";
@@ -96,6 +107,16 @@ export default function JammerScreen() {
     pushLog(`Band profile loaded: ${jammer.band}.`);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Autoscroll when new log lines arrive (while on Log tab)
+  useEffect(() => {
+    if (tab !== "log") return;
+    if (log.length === 0) return;
+
+    requestAnimationFrame(() => {
+      logRef.current?.scrollToEnd({ animated: true });
+    });
+  }, [log.length, tab]);
 
   function setJam(on: boolean) {
     if (on === commsJammed) return;
@@ -168,6 +189,13 @@ export default function JammerScreen() {
     pushLog(`Band selected: ${band}`);
     if (commsJammed) pushLog("Mask retuned to new band.");
   }
+
+  const renderLogItem: ListRenderItem<LogItem> = ({ item: l }) => (
+    <Text style={styles.logLine} selectable>
+      <Text style={styles.logTs}>{ts(l.at)} </Text>
+      {l.text}
+    </Text>
+  );
 
   return (
     <PhoneFrame>
@@ -250,14 +278,21 @@ export default function JammerScreen() {
 
         <View style={styles.panel}>
           {tab === "log" ? (
-            <View style={styles.log}>
-              {log.slice(-26).map((l) => (
-                <Text key={l.id} style={styles.logLine} selectable>
-                  <Text style={styles.logTs}>{ts(l.at)} </Text>
-                  {l.text}
-                </Text>
-              ))}
-            </View>
+            <FlatList
+              ref={logRef}
+              data={log.slice(-200)}
+              keyExtractor={(l) => l.id}
+              renderItem={renderLogItem}
+              style={styles.logList}
+              contentContainerStyle={styles.logContent}
+              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              onContentSizeChange={() => {
+                if (tab === "log")
+                  logRef.current?.scrollToEnd({ animated: false });
+              }}
+            />
           ) : (
             <ScrollView
               style={{ flex: 1 }}
@@ -508,9 +543,20 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.40)",
     overflow: "hidden",
     padding: 14,
+    minHeight: 0,
   },
 
-  log: { gap: 8 },
+  // ✅ Log tab now scrolls like Messages (drag-to-scroll, no indicator, pinned bottom)
+  logList: {
+    flex: 1,
+    minHeight: 0,
+  },
+  logContent: {
+    flexGrow: 1,
+    justifyContent: "flex-end",
+    paddingBottom: 10,
+  },
+
   logLine: {
     fontSize: 12.5,
     lineHeight: 17,
