@@ -45,21 +45,6 @@ type NetworkLogItem = {
   text: string;
 };
 
-// ✅ Persisted scan cache type (matches your NetworkScreen Net shape)
-type NetworkSec = "OPEN" | "WEP" | "WPA2" | "WPA3" | "EAP" | "UNKNOWN";
-
-type NetworkNet = {
-  id: string;
-  ssid: string;
-  band: NetworkBand;
-  rssi: number;
-  security: NetworkSec;
-  bssid: string;
-  channel: number;
-  lastSeen: number;
-  tags: string[];
-};
-
 type NetworkState = {
   preferredBand: NetworkBand;
   autoHop: boolean;
@@ -70,8 +55,8 @@ type NetworkState = {
 
   logs: NetworkLogItem[];
 
-  // ✅ cache scan results so list doesn't regenerate on screen mount
-  scanCache: NetworkNet[];
+  // optional scan persistence (Network screen uses this)
+  scanCache?: any[];
 };
 
 function makeId() {
@@ -84,14 +69,14 @@ type GameState = {
   secondsLeft: number;
   timerRunning: boolean;
 
+  // startup flow
+  booted: boolean;
+  bootGame: () => void;
+
   network: NetworkState;
   setNetwork: (patch: Partial<NetworkState>) => void;
   appendNetworkLog: (item: NetworkLogItem) => void;
   clearNetworkLog: () => void;
-
-  // ✅ scan cache actions (explicit so NetworkScreen can call them)
-  setNetworkScanCache: (nets: NetworkNet[]) => void;
-  clearNetworkScanCache: () => void;
 
   // global tick loop
   heartbeatOn: boolean;
@@ -103,11 +88,11 @@ type GameState = {
   commsConnecting: boolean;
   commsJammed: boolean;
 
-  // jammer config (readable by mission/game logic)
+  // jammer config
   jammer: JammerConfig;
   setJammer: (patch: Partial<JammerConfig>) => void;
 
-  // navigation lock (terminal-only beats)
+  // navigation lock
   terminalLocked: boolean;
 
   // banner
@@ -123,7 +108,7 @@ type GameState = {
   setMissionStep: (step: number) => void;
   resetMission: () => void;
 
-  // mission deadline (Date.now timestamp)
+  // mission deadline
   missionDeadlineAt: number | null;
   setMissionDeadlineMsFromNow: (ms: number) => void;
   clearMissionDeadline: () => void;
@@ -153,10 +138,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   secondsLeft: 150,
   timerRunning: true,
 
-  // heartbeat defaults
-  heartbeatOn: false,
+  booted: false,
 
-  // network defaults (store-backed so game logic can read it)
+  // network defaults
   network: {
     preferredBand: "LTE",
     autoHop: true,
@@ -166,16 +150,63 @@ export const useGameStore = create<GameState>((set, get) => ({
     connectedMeta: null,
 
     logs: [],
-
-    // ✅ persisted scan cache
     scanCache: [],
   },
 
-  setNetwork: (patch) =>
-    set((s) => ({
-      network: { ...s.network, ...patch },
-    })),
+  // ---- STARTUP: FIRST OBJECTIVE = "get on a network" ----
+  bootGame: () => {
+    const s = get();
+    if (s.booted) return;
 
+    set({ booted: true });
+
+    // lock terminal until we have a network + comms handshake
+    get().setTerminalLocked(true);
+
+    // mission starts at step 0
+    get().setMissionStep(0);
+
+    get().pushThread(
+      "handler",
+      "You’re online. Quick review of your ghost phone?",
+    );
+    get().pushThread("handler", "First action: get us on a network.");
+    get().pushThread("handler", "Open Network → Scan → Link. Keep it quiet.");
+  },
+
+  setNetwork: (patch) =>
+    set((s) => {
+      const prev = s.network;
+      const next = { ...s.network, ...patch };
+
+      const connectedNow =
+        typeof patch.connectedId === "string" && patch.connectedId.length > 0;
+
+      const justLinked = prev.connectedId == null && connectedNow;
+
+      // Apply patch
+      const outState: any = { network: next };
+
+      // If user just linked to a network, kick off the secure shell handshake
+      if (justLinked) {
+        const meta = (patch.connectedMeta ??
+          next.connectedMeta) as NetworkConnectedMeta | null;
+
+        get().pushThread(
+          "handler",
+          `Good. Linked to ${meta?.ssid ?? "network"}. Establishing secure shell…`,
+        );
+        get().bannerPush("COMMS", "Securing connection…", 1200);
+
+        // Keep terminal locked until handshake completes
+        get().setTerminalLocked(true);
+
+        // Kick off comms handshake (this will flip commsConnected on success)
+        get().connectComms();
+      }
+
+      return outState;
+    }),
   appendNetworkLog: (item) =>
     set((s) => {
       const next = [...s.network.logs, item];
@@ -190,18 +221,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       network: { ...s.network, logs: [] },
     })),
 
-  // ✅ scan cache actions
-  setNetworkScanCache: (nets) =>
-    set((s) => ({
-      network: { ...s.network, scanCache: nets },
-    })),
+  // heartbeat defaults
+  heartbeatOn: false,
 
-  clearNetworkScanCache: () =>
-    set((s) => ({
-      network: { ...s.network, scanCache: [] },
-    })),
-
-  // jammer defaults (store-backed so game logic can read it)
+  // jammer defaults
   jammer: {
     enabled: false,
     band: "UHF",
@@ -259,7 +282,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMissionStep: (step) => set((s) => ({ mission: { ...s.mission, step } })),
   resetMission: () => set({ mission: { missionId: "bootcamp_01", step: 0 } }),
 
-  // mission deadline defaults
   missionDeadlineAt: null,
   setMissionDeadlineMsFromNow: (ms) =>
     set({ missionDeadlineAt: Date.now() + ms }),
@@ -279,7 +301,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         },
       });
     } else if (reason) {
-      // optional: could log later
+      // optional
     }
   },
 
@@ -388,7 +410,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (fail) {
         set({ commsConnecting: false, commsConnected: false });
         get().bannerPush("COMMS", "Handshake failed.", 2600);
-
+        get().pushThread(
+          "handler",
+          "Handshake failed. Try a different network or band.",
+        );
         const jNow = get().jammer;
         if (jNow?.autoMask && !get().commsJammed) {
           get().setJammer({ autoMask: false });
@@ -403,6 +428,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else {
         set({ commsConnecting: false, commsConnected: true });
         get().bannerPush("COMMS", "Secure link established.", 1800);
+
+        // ✅ Continue playthrough
+        get().pushThread("handler", "Secure shell is live. Open Terminal.");
+        get().setTerminalLocked(false);
       }
     }, delay);
   },

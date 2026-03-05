@@ -26,6 +26,7 @@ function clamp(n: number, min: number, max: number) {
 
 export default function TerminalScreen() {
   const bumpTrace = useGameStore((s) => s.bumpTrace);
+
   const mission = useGameStore((s) => s.mission);
   const setMissionStep = useGameStore((s) => s.setMissionStep);
   const jammerEnabled = useGameStore((s) => s.jammer.enabled);
@@ -38,7 +39,14 @@ export default function TerminalScreen() {
 
   const bannerPush = useGameStore((s) => s.bannerPush);
   const bannerOn = useGameStore((s) => s.banner.on);
+
   const pushThread = useGameStore((s) => s.pushThread);
+
+  // ✅ NEW: boot + gating flags
+  const bootGame = useGameStore((s) => s.bootGame);
+  const booted = useGameStore((s) => s.booted);
+  const terminalLocked = useGameStore((s) => s.terminalLocked);
+  const commsConnected = useGameStore((s) => s.commsConnected);
 
   const [cwd] = useState("~/ops");
   const [mode, setModeState] = useState<"easy" | "strict">("easy");
@@ -47,7 +55,9 @@ export default function TerminalScreen() {
     { id: "l1", kind: "out", text: "Secure shell — Git Bash (simulated)" },
     { id: "l2", kind: "out", text: "Type `help` to list available commands." },
   ]);
-  const [introShown, setIntroShown] = useState(false);
+
+  // ✅ NEW: intro should only fire once, AFTER network handshake unlocks terminal
+  const [introFired, setIntroFired] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
@@ -66,10 +76,7 @@ export default function TerminalScreen() {
     return OPS_BASE_LAG_MS + Math.floor(Math.random() * OPS_JITTER_MS);
   }
 
-  // How long OPS "types" before sending a message
   function typingMsFor(text: string) {
-    // Rough human typing feel: base + per-char, clamped
-    // (Short lines still take a beat; long lines don’t take forever.)
     const base = 850;
     const perChar = 38;
     return clamp(base + text.length * perChar, 1200, 2600);
@@ -82,7 +89,6 @@ export default function TerminalScreen() {
     return () => clearTimeout(id);
   }, [bannerOn]);
 
-  // OPS banner burst with realistic typing delay + animated dots (handled by BannerComms)
   function opsBurstDelayed(msgs: string[], msgMsEach = 3500, gap = 250) {
     const startDelay = jitter();
     let t = startDelay;
@@ -90,13 +96,11 @@ export default function TerminalScreen() {
     msgs.forEach((text) => {
       const typingMs = typingMsFor(text);
 
-      // show typing indicator long enough to feel real
       setTimeout(() => {
         bannerPush("OPS", "…", typingMs);
         setTimeout(() => inputRef.current?.focus(), 50);
       }, t);
 
-      // then show actual message
       setTimeout(() => {
         bannerPush("OPS", text, msgMsEach);
         setTimeout(() => inputRef.current?.focus(), 50);
@@ -106,7 +110,6 @@ export default function TerminalScreen() {
     });
   }
 
-  // Thread lines arrive after the typing delay (so it matches what player saw)
   function opsThreadDelayed(msgs: string[]) {
     const startDelay = jitter();
     let t = startDelay;
@@ -117,27 +120,52 @@ export default function TerminalScreen() {
         pushThread("handler", text);
       }, t + typingMs);
 
-      // keep thread pacing tight but believable
       t += typingMs + 120;
     });
   }
 
-  // Intro: OPS -> delayed + thread (NOT terminal)
+  // ✅ STEP 0: ensure bootGame runs once when Terminal mounts
   useEffect(() => {
-    if (introShown) return;
-    setIntroShown(true);
+    if (booted) return;
+    bootGame();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booted]);
 
+  // ✅ STEP 1: run the mission intro ONLY after:
+  // - terminal is unlocked (handshake succeeded)
+  // - commsConnected is true (extra safety)
+  useEffect(() => {
+    if (introFired) return;
+
+    const unlocked = terminalLocked === false;
+    const ready = unlocked && commsConnected;
+
+    if (!ready) return;
+
+    setIntroFired(true);
+
+    // This is the “connecting to shell / intro” beat
     const handlerLines = missionIntro(mission);
     if (handlerLines?.length) {
       opsBurstDelayed(handlerLines, 3500, 250);
       opsThreadDelayed(handlerLines);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [introShown]);
+  }, [terminalLocked, commsConnected, introFired]);
 
   function runCommand(raw: string) {
     const cmd = raw.trim();
     if (!cmd) return;
+
+    // ✅ Hard gate: terminal is locked until network + handshake
+    if (terminalLocked) {
+      append("out", "LOCKED: No secure shell.");
+      append("out", "Open Network → Scan → Link to establish comms.");
+      bannerPush("LOCK", "Get on a network first.", 1400);
+      setInput("");
+      setTimeout(() => inputRef.current?.focus(), 10);
+      return;
+    }
 
     // deadline enforcement (only while a deadline is active)
     if (missionDeadlineAt && Date.now() > missionDeadlineAt) {
@@ -155,7 +183,6 @@ export default function TerminalScreen() {
     setInput("");
     setTimeout(() => inputRef.current?.focus(), 10);
 
-    // handled locally
     if (cmd.toLowerCase() === "clear") {
       setLines([]);
       setTimeout(() => inputRef.current?.focus(), 10);
@@ -164,10 +191,8 @@ export default function TerminalScreen() {
 
     const missionRes = runMissionCommand(cmd, mode, mission, jammerEnabled);
     if (missionRes) {
-      // Terminal shows ONLY enemy output
       missionRes.terminalOut.forEach((line: string) => append("out", line));
 
-      // OPS does NOT “grade” typing — only speak when step advances.
       if (missionRes.nextState) {
         const nextStep = missionRes.nextState.step;
 
@@ -185,7 +210,6 @@ export default function TerminalScreen() {
 
         setMissionStep(nextStep);
 
-        // start a timed window right after intel is read (step 5)
         if (nextStep === 5) {
           setMissionDeadlineMsFromNow(12_000);
           bannerPush("WINDOW", "Exfil window: 12s.", 1400);
@@ -216,7 +240,9 @@ export default function TerminalScreen() {
         <View style={styles.header}>
           <View>
             <Text style={styles.headerTitle}>Terminal</Text>
-            <Text style={styles.headerSub}>Git Bash</Text>
+            <Text style={styles.headerSub}>
+              {terminalLocked ? "No link" : "Git Bash"}
+            </Text>
           </View>
 
           <Pressable
@@ -269,16 +295,24 @@ export default function TerminalScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 spellCheck={false}
-                placeholder="type command…"
+                placeholder={
+                  terminalLocked
+                    ? "locked: connect via Network…"
+                    : "type command…"
+                }
                 placeholderTextColor="rgba(255,255,255,0.35)"
                 style={styles.inputCmd}
                 onSubmitEditing={() => runCommand(input)}
                 returnKeyType="go"
+                editable={!terminalLocked}
               />
 
               <View style={styles.caret} />
 
-              <Pressable onPress={() => runCommand(input)} style={styles.btn}>
+              <Pressable
+                onPress={() => runCommand(input)}
+                style={[styles.btn, terminalLocked && { opacity: 0.55 }]}
+              >
                 <Text style={styles.btnTxt}>Run</Text>
               </Pressable>
             </View>
