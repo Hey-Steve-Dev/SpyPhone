@@ -219,15 +219,19 @@ type GameState = {
   commsConnecting: boolean;
   commsJammed: boolean;
 
+  attemptMoveNow: () => void;
+
   jammer: JammerConfig;
   setJammer: (patch: Partial<JammerConfig>) => void;
 
   terminalLocked: boolean;
 
   banner: Banner;
+  setBanner: (banner: Banner) => void;
 
   thread: ThreadItem[];
   pushThread: (from: ThreadItem["from"], text: string) => void;
+  addThreadItem: (item: ThreadItem) => void;
   clearThread: () => void;
 
   replyChips: ReplyChip[];
@@ -304,7 +308,47 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().setTerminalLocked(true);
     get().setMissionStep(0);
     get().clearThread();
+
+    get().pushThread(
+      "handler",
+      "You’re online. Quick review of your ghost phone?",
+    );
+
+    get().setReplyChips([
+      { id: "boot_review_yes", label: "Sure", action: "review_phone" },
+      { id: "boot_review_no", label: "Nah, I'm ready", action: "skip_review" },
+    ]);
+  },
+
+  attemptMoveNow: () => {
+    const s = get();
+    const cam12 = s.cameras[12];
+    const occupied = cam12?.state === "occupied" || cam12?.state === "motion";
+
     get().clearReplyChips();
+    get().pushThread("player", "moving now");
+
+    if (occupied) {
+      get().pushThread("handler", "Negative. Guard still in the hall.");
+      get().bannerPush("ALERT", "Compromised.", 1800);
+
+      setTimeout(() => {
+        if (
+          typeof location !== "undefined" &&
+          typeof location.reload === "function"
+        ) {
+          location.reload();
+        }
+      }, 900);
+
+      return;
+    }
+
+    get().pushThread("handler", "Good. Window is clear. Move.");
+    get().pushThread("handler", "Secure shell is live. Open Terminal.");
+    get().bannerPush("MOVE", "Proceed.", 1600);
+    get().stopCameraSim();
+    get().setTerminalLocked(false);
   },
 
   setNetwork: (patch) =>
@@ -322,6 +366,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         const meta = (patch.connectedMeta ??
           next.connectedMeta) as NetworkConnectedMeta | null;
 
+        get().clearReplyChips();
         get().pushThread(
           "handler",
           `Good. Linked to ${meta?.ssid ?? "network"}. Establishing secure shell…`,
@@ -392,12 +437,17 @@ export const useGameStore = create<GameState>((set, get) => ({
   terminalLocked: false,
 
   banner: { on: false, title: "SECURE COMMS", message: "…" },
+  setBanner: (banner) => set({ banner }),
 
   thread: [],
   pushThread: (from, text) => {
     const item: ThreadItem = { id: makeId(), at: Date.now(), from, text };
     set((s) => ({ thread: [...s.thread, item] }));
   },
+  addThreadItem: (item) =>
+    set((s) => ({
+      thread: [...s.thread, item],
+    })),
   clearThread: () => set({ thread: [] }),
 
   replyChips: [],
@@ -546,8 +596,20 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else {
         set({ commsConnecting: false, commsConnected: true });
         get().bannerPush("COMMS", "Secure link established.", 1800);
-        get().pushThread("handler", "Secure shell is live. Open Terminal.");
-        get().setTerminalLocked(false);
+
+        get().pushThread(
+          "handler",
+          "Secure shell is live. Check camera 12 and wait for the guard to pass.",
+        );
+        get().pushThread("handler", "Text when you're moving.");
+
+        get().setReplyChips([
+          { id: "move_now", label: "moving now", action: "moving_now" },
+        ]);
+
+        get().setTerminalLocked(true);
+        get().startCameraObjective(12);
+        get().startCameraSim();
       }
     }, delay);
   },
@@ -579,6 +641,11 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     set({ selectedCamId: id });
 
+    if (id === 12) {
+      const occupied = cam?.state === "occupied" || cam?.state === "motion";
+      set({ hallwayOneOccupied: occupied });
+    }
+
     if (
       s.cameraObjectiveActive &&
       !s.cameraObjectiveResolved &&
@@ -597,6 +664,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setCameraState: (id, state) =>
     set((s) => ({
+      hallwayOneOccupied:
+        id === 12
+          ? state === "occupied" || state === "motion"
+          : s.hallwayOneOccupied,
       cameras: {
         ...s.cameras,
         [id]: {
@@ -614,6 +685,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   triggerCameraTarget: (id) =>
     set((s) => ({
+      hallwayOneOccupied: id === 12 ? true : s.hallwayOneOccupied,
       cameras: {
         ...s.cameras,
         [id]: {
@@ -629,6 +701,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   clearCameraTarget: (id) =>
     set((s) => ({
+      hallwayOneOccupied: id === 12 ? false : s.hallwayOneOccupied,
       cameras: {
         ...s.cameras,
         [id]: {
@@ -641,24 +714,17 @@ export const useGameStore = create<GameState>((set, get) => ({
       targetCameraId: s.targetCameraId === id ? null : s.targetCameraId,
     })),
 
-  startCameraObjective: (targetId = 19) => {
+  startCameraObjective: (targetId = 12) => {
     get().resetCameras();
-    get().triggerCameraTarget(targetId);
+
     set({
       cameraObjectiveActive: true,
       cameraObjectiveResolved: false,
       targetCameraId: targetId,
     });
 
-    get().pushThread(
-      "handler",
-      "Check Cameras. We may have movement in the building.",
-    );
-    get().pushThread(
-      "handler",
-      "Find the live feed with the contact before they disappear.",
-    );
-    get().bannerPush("CAMERAS", "Possible movement detected.", 2000);
+    get().setCameraState(12, "occupied");
+    get().bannerPush("CAMERAS", "Watch camera 12.", 1800);
   },
 
   resolveCameraObjective: () => {
@@ -670,12 +736,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       cameraObjectiveActive: false,
     });
 
-    get().pushThread(
-      "handler",
-      `Confirmed. Visual on ${s.cameras[s.targetCameraId ?? 0]?.zone ?? "target zone"}.`,
-    );
-    get().pushThread("handler", "Good catch. Hold that location in memory.");
-    get().bannerPush("OBJECTIVE", "Target feed confirmed.", 2200);
+    get().bannerPush("OBJECTIVE", "Hall is clear.", 1800);
   },
 
   resetCameras: () =>
@@ -685,6 +746,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       targetCameraId: null,
       cameraObjectiveActive: false,
       cameraObjectiveResolved: false,
+      hallwayOneOccupied: false,
     }),
 
   startCameraSim: () => {
@@ -693,31 +755,31 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const timer = setInterval(() => {
       const st = get();
-      const ids = CAMERA_IDS;
-      const simIds = ids.filter((id) => id !== 12);
-      const pick = simIds[Math.floor(Math.random() * simIds.length)];
-
       if (st.standbyMode) return;
 
-      if (
-        st.cameraObjectiveActive &&
-        st.targetCameraId != null &&
-        st.cameras[st.targetCameraId]
-      ) {
-        set((prev) => ({
-          cameras: {
-            ...prev.cameras,
-            [st.targetCameraId!]: {
-              ...prev.cameras[st.targetCameraId!],
-              state: prev.cameras[st.targetCameraId!].hasTarget
-                ? "occupied"
-                : "motion",
-              alert: true,
-              lastSeenAt: Date.now(),
+      if (st.cameraObjectiveActive && st.targetCameraId === 12) {
+        const cam12 = st.cameras[12];
+        const age = cam12?.lastSeenAt ? Date.now() - cam12.lastSeenAt : 0;
+
+        if (cam12?.state === "occupied" && age > 4500) {
+          set((prev) => ({
+            hallwayOneOccupied: false,
+            cameras: {
+              ...prev.cameras,
+              12: {
+                ...prev.cameras[12],
+                state: "empty",
+                alert: false,
+                hasTarget: false,
+                lastSeenAt: prev.cameras[12].lastSeenAt,
+              },
             },
-          },
-        }));
+          }));
+        }
       }
+
+      const simIds = CAMERA_IDS.filter((id) => id !== 12);
+      const pickedId = simIds[Math.floor(Math.random() * simIds.length)];
 
       const roll = Math.random();
       let nextState: CameraState = "empty";
@@ -728,17 +790,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       else if (roll < 0.13) nextState = "offline";
 
       set((prev) => {
-        const current = prev.cameras[pick];
+        const current = prev.cameras[pickedId];
         if (!current) return prev;
-
-        if (prev.targetCameraId === pick && current.hasTarget) {
-          return prev;
-        }
 
         return {
           cameras: {
             ...prev.cameras,
-            [pick]: {
+            [pickedId]: {
               ...current,
               state: nextState,
               alert: nextState === "motion" || nextState === "occupied",
