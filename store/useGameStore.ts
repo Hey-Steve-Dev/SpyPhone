@@ -14,6 +14,12 @@ type ThreadItem = {
   text: string;
 };
 
+type ReplyChip = {
+  id: string;
+  label: string;
+  action: string;
+};
+
 type JammerBand = "VHF" | "UHF" | "LTE" | "SAT" | "WIFI";
 type JammerSweep = "narrow" | "wide";
 type JammerBurst = "low" | "med" | "high";
@@ -194,6 +200,8 @@ type GameState = {
   trace: number;
   secondsLeft: number;
   timerRunning: boolean;
+  hallwayOneOccupied: boolean;
+  setHallwayOneOccupied: (occupied: boolean) => void;
 
   booted: boolean;
   bootGame: () => void;
@@ -222,6 +230,10 @@ type GameState = {
   pushThread: (from: ThreadItem["from"], text: string) => void;
   clearThread: () => void;
 
+  replyChips: ReplyChip[];
+  setReplyChips: (chips: ReplyChip[]) => void;
+  clearReplyChips: () => void;
+
   mission: MissionState;
   setMissionStep: (step: number) => void;
   resetMission: () => void;
@@ -244,7 +256,6 @@ type GameState = {
   connectComms: () => void;
   setCommsJammed: (on: boolean) => void;
 
-  // cameras
   cameras: Record<number, CameraFeed>;
   selectedCamId: number | null;
   cameraSimTimer: ReturnType<typeof setInterval> | null;
@@ -270,6 +281,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   trace: 16,
   secondsLeft: 150,
   timerRunning: true,
+  hallwayOneOccupied: false,
+  setHallwayOneOccupied: (occupied) => set({ hallwayOneOccupied: occupied }),
 
   booted: false,
 
@@ -290,13 +303,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ booted: true });
     get().setTerminalLocked(true);
     get().setMissionStep(0);
-
-    get().pushThread(
-      "handler",
-      "You’re online. Quick review of your ghost phone?",
-    );
-    get().pushThread("handler", "First action: get us on a network.");
-    get().pushThread("handler", "Open Network → Scan → Link. Keep it quiet.");
+    get().clearThread();
+    get().clearReplyChips();
   },
 
   setNetwork: (patch) =>
@@ -391,6 +399,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     set((s) => ({ thread: [...s.thread, item] }));
   },
   clearThread: () => set({ thread: [] }),
+
+  replyChips: [],
+  setReplyChips: (chips) => set({ replyChips: chips }),
+  clearReplyChips: () => set({ replyChips: [] }),
 
   mission: { missionId: "bootcamp_01", step: 0 },
   setMissionStep: (step) => set((s) => ({ mission: { ...s.mission, step } })),
@@ -552,7 +564,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  // cameras
   cameras: makeInitialCameras(),
   selectedCamId: 12,
   cameraSimTimer: null,
@@ -683,11 +694,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     const timer = setInterval(() => {
       const st = get();
       const ids = CAMERA_IDS;
-      const pick = ids[Math.floor(Math.random() * ids.length)];
+      const simIds = ids.filter((id) => id !== 12);
+      const pick = simIds[Math.floor(Math.random() * simIds.length)];
 
       if (st.standbyMode) return;
 
-      // keep objective target stable if active
       if (
         st.cameraObjectiveActive &&
         st.targetCameraId != null &&
@@ -720,7 +731,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         const current = prev.cameras[pick];
         if (!current) return prev;
 
-        // do not overwrite the target feed if it's active
         if (prev.targetCameraId === pick && current.hasTarget) {
           return prev;
         }

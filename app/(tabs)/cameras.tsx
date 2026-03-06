@@ -42,7 +42,11 @@ function SmallCameraFeed({ state }: { state: CamState }) {
 }
 
 function FeaturedHallwayOne() {
-  const [hallwayState, setHallwayState] = useState<HallwayState>("empty");
+  const hallwayOneOccupied = useGameStore((s) => s.hallwayOneOccupied);
+  const setHallwayOneOccupied = useGameStore((s) => s.setHallwayOneOccupied);
+
+  const hallwayState: HallwayState = hallwayOneOccupied ? "occupied" : "empty";
+
   const [playKey, setPlayKey] = useState(0);
 
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -54,13 +58,13 @@ function FeaturedHallwayOne() {
 
     timeoutRef.current = setTimeout(() => {
       setPlayKey((n) => n + 1);
-      setHallwayState("occupied");
+      setHallwayOneOccupied(true);
     }, randomDelayMs());
 
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [hallwayState]);
+  }, [hallwayState, setHallwayOneOccupied]);
 
   useEffect(() => {
     return () => {
@@ -73,7 +77,7 @@ function FeaturedHallwayOne() {
       const el = webVideoRef.current;
       if (!el) return;
 
-      el.playbackRate = 0.85;
+      el.playbackRate = 0.65;
 
       if (hallwayState === "occupied") {
         const playPromise = el.play();
@@ -110,7 +114,7 @@ function FeaturedHallwayOne() {
   }, [hallwayState, playKey]);
 
   const endOccupiedCycle = () => {
-    setHallwayState("empty");
+    setHallwayOneOccupied(false);
   };
 
   return (
@@ -131,7 +135,7 @@ function FeaturedHallwayOne() {
               ref={(node) => {
                 webVideoRef.current = node;
               }}
-              src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-left-to-right.mp4"
+              src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-back-and-forth.mp4"
               muted
               playsInline
               preload="auto"
@@ -149,7 +153,7 @@ function FeaturedHallwayOne() {
           <Video
             key={`hallway1-native-${playKey}`}
             ref={nativeVideoRef}
-            source={require("../../assets/cams/hallway1/guard-left-to-right.mp4")}
+            source={require("../../assets/cams/hallway1/guard-back-and-forth.mp4")}
             style={styles.featuredMedia}
             resizeMode={ResizeMode.CONTAIN}
             shouldPlay={false}
@@ -176,6 +180,8 @@ export default function CamerasScreen() {
   const standbyMessage = useGameStore((s) => s.standbyMessage);
   const startCameraSim = useGameStore((s) => s.startCameraSim);
   const stopCameraSim = useGameStore((s) => s.stopCameraSim);
+  const hallwayOneOccupied = useGameStore((s) => s.hallwayOneOccupied);
+  const setCameraState = useGameStore((s) => s.setCameraState);
 
   const tiles = useMemo(() => GRID_IDS, []);
 
@@ -183,6 +189,10 @@ export default function CamerasScreen() {
     startCameraSim();
     return () => stopCameraSim();
   }, [startCameraSim, stopCameraSim]);
+
+  useEffect(() => {
+    setCameraState(12, hallwayOneOccupied ? "occupied" : "empty");
+  }, [hallwayOneOccupied, setCameraState]);
 
   return (
     <PhoneFrame>
