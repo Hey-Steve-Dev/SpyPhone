@@ -1,46 +1,15 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
-import React, { useEffect, useMemo, useRef } from "react";
-import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
+import { ResizeMode, Video } from "expo-av";
+import React, { useEffect, useMemo } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 const HOME_BAR_SPACE = 44;
-const GRID_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+const GRID_IDS = [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 type CamState = "occupied" | "empty" | "jammed" | "offline" | string;
 
-function CameraFeed({ state }: { state: CamState }) {
-  const flicker = useRef(new Animated.Value(0.12)).current;
-
-  useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(flicker, {
-          toValue: 0.22,
-          duration: 120,
-          useNativeDriver: true,
-        }),
-        Animated.timing(flicker, {
-          toValue: 0.1,
-          duration: 180,
-          useNativeDriver: true,
-        }),
-        Animated.timing(flicker, {
-          toValue: 0.18,
-          duration: 140,
-          useNativeDriver: true,
-        }),
-        Animated.timing(flicker, {
-          toValue: 0.12,
-          duration: 220,
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-
-    loop.start();
-    return () => loop.stop();
-  }, [flicker]);
-
+function SmallCameraFeed({ state }: { state: CamState }) {
   const isNoSignal = state === "offline";
   const isJammed = state === "jammed";
   const isOccupied = state === "occupied";
@@ -48,12 +17,6 @@ function CameraFeed({ state }: { state: CamState }) {
   return (
     <View style={styles.feed}>
       <View style={styles.feedBase} />
-      <View pointerEvents="none" style={styles.vignette} />
-      <Animated.View
-        pointerEvents="none"
-        style={[styles.noise, { opacity: flicker }]}
-      />
-      <View pointerEvents="none" style={styles.scanlines} />
 
       {isOccupied && (
         <View pointerEvents="none" style={styles.figureWrap}>
@@ -69,6 +32,43 @@ function CameraFeed({ state }: { state: CamState }) {
           </Text>
         </View>
       )}
+    </View>
+  );
+}
+
+function FeaturedHallwayVideo() {
+  if (Platform.OS === "web") {
+    return (
+      <View style={styles.featuredFrame}>
+        {/* @ts-ignore */}
+        <video
+          src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-standing.mp4"
+          autoPlay
+          loop
+          muted
+          playsInline
+          style={{
+            width: "100%",
+            height: "100%",
+            objectFit: "contain",
+            display: "block",
+            backgroundColor: "#000",
+          }}
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.featuredFrame}>
+      <Video
+        source={require("../../assets/cams/hallway1/guard-standing.mp4")}
+        style={styles.featuredVideo}
+        resizeMode={ResizeMode.CONTAIN}
+        shouldPlay
+        isLooping
+        isMuted
+      />
     </View>
   );
 }
@@ -92,6 +92,15 @@ export default function CamerasScreen() {
   return (
     <PhoneFrame>
       <View style={styles.wrap}>
+        <View style={styles.featuredCard}>
+          <View style={styles.featuredHeader}>
+            <Text style={styles.featuredTitle}>CAM 12</Text>
+            <Text style={styles.featuredMeta}>HALLWAY 1 • OCCUPIED</Text>
+          </View>
+
+          <FeaturedHallwayVideo />
+        </View>
+
         <View style={styles.grid}>
           {tiles.map((id) => {
             const cam = cameras[id];
@@ -104,7 +113,7 @@ export default function CamerasScreen() {
                 onPress={() => setSelectedCam(id)}
                 style={[styles.tile, isSelected && styles.tileSelected]}
               >
-                <CameraFeed state={state} />
+                <SmallCameraFeed state={state} />
 
                 <View pointerEvents="none" style={styles.overlay}>
                   <Text style={styles.overlayText}>
@@ -132,7 +141,55 @@ export default function CamerasScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 10, gap: 10 },
+  wrap: {
+    flex: 1,
+    padding: 10,
+    gap: 10,
+  },
+
+  featuredCard: {
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+
+  featuredHeader: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: "rgba(255,255,255,0.06)",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  featuredTitle: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+  },
+
+  featuredMeta: {
+    color: "rgba(255,255,255,0.68)",
+    fontSize: 10,
+    letterSpacing: 0.7,
+  },
+
+  featuredFrame: {
+    height: 210,
+    backgroundColor: "#000",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+  },
+
+  featuredVideo: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#000",
+  },
 
   grid: {
     flexDirection: "row",
@@ -152,6 +209,15 @@ const styles = StyleSheet.create({
 
   tileSelected: {
     borderColor: "rgba(255,255,255,0.55)",
+  },
+
+  feed: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  feedBase: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.55)",
   },
 
   overlay: {
@@ -176,6 +242,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
 
+  noSignal: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.28)",
+  },
+
+  noSignalText: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 12,
+    letterSpacing: 1,
+  },
+
   standby: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.92)",
@@ -188,47 +267,6 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.7)",
     fontSize: 13,
     letterSpacing: 1.2,
-  },
-
-  feed: { ...StyleSheet.absoluteFillObject },
-
-  feedBase: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.55)",
-  },
-
-  vignette: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.6,
-    shadowRadius: 18,
-    shadowOffset: { width: 0, height: 0 },
-  },
-
-  noise: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-
-  scanlines: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.18,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255,255,255,0.08)",
-    transform: [{ scaleY: 1.02 }],
-  },
-
-  noSignal: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  noSignalText: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 12,
-    letterSpacing: 1,
   },
 
   figureWrap: {

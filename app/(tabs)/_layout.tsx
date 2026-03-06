@@ -17,6 +17,7 @@ export default function PhoneLayout() {
       <Stack.Screen name="mask" />
       <Stack.Screen name="vault" />
       <Stack.Screen name="ops" />
+      <Stack.Screen name="video-test" />
     </Stack>
   );
 }
