@@ -1,4 +1,3 @@
-// app/(whatever)/network.tsx
 import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useMemo, useRef, useState } from "react";
@@ -11,26 +10,6 @@ import {
   View,
 } from "react-native";
 
-/**
- * Network App
- * - Scan for networks
- * - Switch networks
- * - Band-hop / roaming logic (fake complexity)
- * - Hack/probe flows (fake complexity)
- * - Log tab behaves like a console (pinned to bottom)
- *
- * Scrolling rules:
- * - Prefer FlatList for long feeds
- * - Hide scroll indicators
- * - If there’s a pinned bottom UI (dock/footer), shorten scroll viewport
- *   via paddingBottom (or marginBottom on list wrapper) so content never sits under it.
- * - For chat/log feeds: pinned-to-bottom via flexGrow + justifyContent:'flex-end'
- *
- * Update (per request):
- * - Removed pinned/transparent bottom dock.
- * - Actions now live inline under each tab’s header so they don’t interrupt flow.
- */
-
 type TabKey = "scan" | "hop" | "hack" | "log";
 
 type Band = "LTE" | "5G" | "WIFI" | "SAT" | "UHF" | "VHF";
@@ -40,11 +19,11 @@ type Net = {
   id: string;
   ssid: string;
   band: Band;
-  rssi: number; // -95..-30
+  rssi: number;
   security: Sec;
   bssid: string;
   channel: number;
-  lastSeen: number; // Date.now()
+  lastSeen: number;
   tags: string[];
 };
 
@@ -159,6 +138,7 @@ function genNetworks(seedCount: number): Net[] {
       band === "WIFI"
         ? pick([1, 6, 11, 36, 40, 44, 149, 157])
         : pick([3, 7, 12, 18, 20, 28, 66, 71]);
+
     return {
       id: uid("net"),
       ssid: fakeSsid(),
@@ -180,21 +160,16 @@ function summarizeNet(n: Net) {
 }
 
 export default function NetworkScreen() {
-  // Use "any" selectors so this file compiles even before the store is extended.
   const useAnyStore = useGameStore as unknown as (sel: (s: any) => any) => any;
 
-  // Engine hooks
   const engineNetwork = useAnyStore((s) => s?.network);
   const engineSetNetwork = useAnyStore((s) => s?.setNetwork);
   const engineAddLog = useAnyStore((s) => s?.appendNetworkLog);
   const engineTrace = useAnyStore((s) => s?.trace);
   const engineBumpTrace = useAnyStore((s) => s?.bumpTrace);
-  const engineSetScanCache = useAnyStore((s) => s?.setNetworkScanCache);
-  const engineClearScanCache = useAnyStore((s) => s?.clearNetworkScanCache);
 
   const [tab, setTab] = useState<TabKey>("scan");
 
-  // Settings
   const [preferredBand, setPreferredBand] = useState<Band>(
     engineNetwork?.preferredBand ?? "LTE",
   );
@@ -205,11 +180,10 @@ export default function NetworkScreen() {
     engineNetwork?.stealth ?? true,
   );
 
-  // Runtime state
   const [scanning, setScanning] = useState(false);
   const [scanGen, setScanGen] = useState(0);
 
-  // IMPORTANT: local list is hydrated from store ONCE; store is source of persistence
+  // Persisted network cache
   const [scanResults, setScanResults] = useState<Net[]>([]);
   const didHydrateScanRef = useRef(false);
 
@@ -217,7 +191,6 @@ export default function NetworkScreen() {
     engineNetwork?.connectedId ?? null,
   );
 
-  // Hydrate scan list from store cache; if empty, seed once and write to store.
   useEffect(() => {
     if (didHydrateScanRef.current) return;
     didHydrateScanRef.current = true;
@@ -230,8 +203,9 @@ export default function NetworkScreen() {
 
     const seed = genNetworks(11);
     setScanResults(seed);
+
     try {
-      engineSetScanCache?.(seed);
+      engineSetNetwork?.({ scanCache: seed });
     } catch {
       // ignore
     }
@@ -241,15 +215,16 @@ export default function NetworkScreen() {
   const connected = useMemo(() => {
     const fromLocal = scanResults.find((n) => n.id === connectedId);
     if (fromLocal) return fromLocal;
+
     if (engineNetwork?.connectedId) {
       return (
         scanResults.find((n) => n.id === engineNetwork.connectedId) ?? null
       );
     }
+
     return null;
   }, [connectedId, engineNetwork?.connectedId, scanResults]);
 
-  // Hack tab
   const [targetId, setTargetId] = useState<string | null>(null);
   const [passphrase, setPassphrase] = useState("");
   const [hackBusy, setHackBusy] = useState(false);
@@ -259,7 +234,6 @@ export default function NetworkScreen() {
     [scanResults, targetId],
   );
 
-  // Log feed
   const [logItems, setLogItems] = useState<LogItem[]>(() => {
     const existing: LogItem[] = engineNetwork?.logs ?? [];
     if (existing.length) return existing;
@@ -293,6 +267,7 @@ export default function NetworkScreen() {
 
   function pushLog(level: LogItem["level"], text: string) {
     const item: LogItem = { id: uid("log"), at: Date.now(), level, text };
+
     setLogItems((prev) => {
       const next = [...prev, item];
       return next.length > 250 ? next.slice(next.length - 250) : next;
@@ -307,7 +282,6 @@ export default function NetworkScreen() {
     });
   }
 
-  // Mirror local toggles into engine
   useEffect(() => {
     try {
       engineSetNetwork?.({
@@ -318,14 +292,12 @@ export default function NetworkScreen() {
     } catch {}
   }, [preferredBand, autoHop, stealth, engineSetNetwork]);
 
-  // Fake scan heartbeat
   useEffect(() => {
     if (!scanning) return;
     const t = setInterval(() => setScanGen((g) => g + 1), 450);
     return () => clearInterval(t);
   }, [scanning]);
 
-  // Auto-hop
   useEffect(() => {
     if (!autoHop) return;
     const t = setInterval(() => {
@@ -347,6 +319,7 @@ export default function NetworkScreen() {
     pushLog("SCAN", "Scan: start (passive beacons + active probes)");
 
     const base = genNetworks(7 + Math.floor(Math.random() * 6));
+
     setScanResults((prev) => {
       const keep = prev.filter(() => Math.random() < 0.35).slice(0, 4);
       const merged = [...keep, ...base]
@@ -359,6 +332,7 @@ export default function NetworkScreen() {
 
       const seen = new Set<string>();
       const out: Net[] = [];
+
       for (const n of merged) {
         const k = `${n.ssid}-${n.bssid}`;
         if (!seen.has(k)) {
@@ -369,9 +343,8 @@ export default function NetworkScreen() {
 
       const nextList = out.slice(0, 18);
 
-      // ✅ Persist scan cache
       try {
-        engineSetScanCache?.(nextList);
+        engineSetNetwork?.({ scanCache: nextList });
       } catch {}
 
       return nextList;
@@ -388,11 +361,17 @@ export default function NetworkScreen() {
 
   function clearScan() {
     setScanResults([]);
-    try {
-      engineClearScanCache?.();
-    } catch {}
     setConnectedId(null);
     setTargetId(null);
+
+    try {
+      engineSetNetwork?.({
+        scanCache: [],
+        connectedId: null,
+        connectedMeta: null,
+      });
+    } catch {}
+
     pushLog("SYS", "Scan cache cleared");
   }
 
@@ -429,6 +408,7 @@ export default function NetworkScreen() {
     if (!connected) return;
     pushLog("LINK", `Link: detach ← ${connected.ssid}`);
     setConnectedId(null);
+
     try {
       engineSetNetwork?.({ connectedId: null, connectedMeta: null });
     } catch {}
@@ -466,8 +446,8 @@ export default function NetworkScreen() {
               : n.security === "EAP"
                 ? "802.1X/EAP: look for misconfig + captive portal"
                 : "Security unknown: inconsistent beacons";
-    pushLog("HACK", `Probe: result → ${finding}`);
 
+    pushLog("HACK", `Probe: result → ${finding}`);
     setHackBusy(false);
     setTab("log");
   }
@@ -524,11 +504,11 @@ export default function NetworkScreen() {
     const ok = Math.random() < chance;
 
     if (ok) {
-      pushLog("HACK", `Hack: SUCCESS → access token minted`);
+      pushLog("HACK", "Hack: SUCCESS → access token minted");
       pushLog("LINK", `Link: switching route → ${n.ssid}`);
       connectNet(n);
     } else {
-      pushLog("WARN", `Hack: FAILED → countermeasures suspected`);
+      pushLog("WARN", "Hack: FAILED → countermeasures suspected");
       try {
         if (typeof engineBumpTrace === "function") {
           engineBumpTrace(loud ? 4 : 2);
@@ -572,6 +552,7 @@ export default function NetworkScreen() {
       t >= 80 ? "HIGH" : t >= 55 ? "ELEV" : t >= 30 ? "MED" : "LOW";
     const dots = scanning ? ".".repeat((scanGen % 3) + 1) : "";
     const link = connected ? connected.ssid : "none";
+
     return {
       trace: `${traceLabel} ${t}`,
       link,
@@ -582,9 +563,9 @@ export default function NetworkScreen() {
   return (
     <PhoneFrame>
       <View style={styles.root}>
-        {/* Top chrome */}
         <View style={styles.top}>
           <Text style={styles.title}>Network</Text>
+
           <View style={styles.metaRow}>
             <Text style={styles.meta}>
               LINK: <Text style={styles.metaStrong}>{headerStatus.link}</Text>
@@ -622,7 +603,6 @@ export default function NetworkScreen() {
           </View>
         </View>
 
-        {/* Content area */}
         <View style={styles.content}>
           {tab === "scan" && (
             <FlatList
@@ -844,14 +824,18 @@ export default function NetworkScreen() {
                     <ActionBtn
                       label="Purge"
                       onPress={() => {
-                        setLogItems([
+                        const cleared = [
                           {
                             id: uid("log"),
                             at: Date.now(),
-                            level: "SYS",
+                            level: "SYS" as const,
                             text: "NET: log cleared",
                           },
-                        ]);
+                        ];
+                        setLogItems(cleared);
+                        try {
+                          engineSetNetwork?.({ logs: cleared });
+                        } catch {}
                       }}
                     />
                     <ActionBtn label="Scan" onPress={() => setTab("scan")} />
@@ -1016,6 +1000,7 @@ function NetRow({
   onConnect: () => void;
 }) {
   const bars = rssiToBars(net.rssi);
+
   return (
     <Pressable
       onPress={onSelect}
@@ -1030,6 +1015,7 @@ function NetRow({
           <Text style={styles.rowTitle} numberOfLines={1}>
             {net.ssid}
           </Text>
+
           <View style={styles.sig}>
             <View style={[styles.bar, bars >= 1 && styles.barOn]} />
             <View style={[styles.bar, bars >= 2 && styles.barOn]} />
@@ -1107,7 +1093,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.11)",
     borderColor: "rgba(255,255,255,0.22)",
   },
-  tabText: { color: "rgba(255,255,255,0.70)", fontSize: 13, fontWeight: "600" },
+  tabText: {
+    color: "rgba(255,255,255,0.70)",
+    fontSize: 13,
+    fontWeight: "600",
+  },
   tabTextActive: { color: "rgba(255,255,255,0.92)" },
 
   content: { flex: 1 },

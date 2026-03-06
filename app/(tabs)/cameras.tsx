@@ -135,7 +135,7 @@ function FeaturedHallwayOne() {
               ref={(node) => {
                 webVideoRef.current = node;
               }}
-              src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-back-and-forth.mp4"
+              src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-left-to-right.mp4"
               muted
               playsInline
               preload="auto"
@@ -153,7 +153,7 @@ function FeaturedHallwayOne() {
           <Video
             key={`hallway1-native-${playKey}`}
             ref={nativeVideoRef}
-            source={require("../../assets/cams/hallway1/guard-back-and-forth.mp4")}
+            source={require("../../assets/cams/hallway1/guard-left-to-right.mp4")}
             style={styles.featuredMedia}
             resizeMode={ResizeMode.CONTAIN}
             shouldPlay={false}
