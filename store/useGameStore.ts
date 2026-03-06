@@ -9,7 +9,7 @@ type Banner = {
 
 type ThreadItem = {
   id: string;
-  at: number; // Date.now()
+  at: number;
   from: "handler" | "system" | "player";
   text: string;
 };
@@ -21,7 +21,7 @@ type JammerBurst = "low" | "med" | "high";
 type JammerConfig = {
   enabled: boolean;
   band: JammerBand;
-  strength: number; // 0..100
+  strength: number;
   sweep: JammerSweep;
   burst: JammerBurst;
   stealth: boolean;
@@ -49,27 +49,152 @@ type NetworkState = {
   preferredBand: NetworkBand;
   autoHop: boolean;
   stealth: boolean;
-
   connectedId: string | null;
   connectedMeta: NetworkConnectedMeta | null;
-
   logs: NetworkLogItem[];
-
-  // optional scan persistence (Network screen uses this)
   scanCache?: any[];
+};
+
+type CameraState = "empty" | "motion" | "occupied" | "jammed" | "offline";
+
+type CameraFeed = {
+  id: number;
+  label: string;
+  zone: string;
+  state: CameraState;
+  alert: boolean;
+  hasTarget: boolean;
+  lastSeenAt: number | null;
 };
 
 function makeId() {
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
 
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
+const CAMERA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+
+function makeInitialCameras(): Record<number, CameraFeed> {
+  return {
+    12: {
+      id: 12,
+      label: "CAM 12",
+      zone: "Lobby North",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    13: {
+      id: 13,
+      label: "CAM 13",
+      zone: "Hall A",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    14: {
+      id: 14,
+      label: "CAM 14",
+      zone: "Hall B",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    15: {
+      id: 15,
+      label: "CAM 15",
+      zone: "Service Door",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    16: {
+      id: 16,
+      label: "CAM 16",
+      zone: "Freight Hall",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    17: {
+      id: 17,
+      label: "CAM 17",
+      zone: "Stairwell",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    18: {
+      id: 18,
+      label: "CAM 18",
+      zone: "Loading Bay",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    19: {
+      id: 19,
+      label: "CAM 19",
+      zone: "Records Hall",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    20: {
+      id: 20,
+      label: "CAM 20",
+      zone: "East Corridor",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    21: {
+      id: 21,
+      label: "CAM 21",
+      zone: "Boiler Access",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    22: {
+      id: 22,
+      label: "CAM 22",
+      zone: "Archive Entry",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+    23: {
+      id: 23,
+      label: "CAM 23",
+      zone: "West Hall",
+      state: "empty",
+      alert: false,
+      hasTarget: false,
+      lastSeenAt: null,
+    },
+  };
+}
+
 type GameState = {
-  // core pressure systems
-  trace: number; // 0..100
+  trace: number;
   secondsLeft: number;
   timerRunning: boolean;
 
-  // startup flow
   booted: boolean;
   bootGame: () => void;
 
@@ -78,42 +203,33 @@ type GameState = {
   appendNetworkLog: (item: NetworkLogItem) => void;
   clearNetworkLog: () => void;
 
-  // global tick loop
   heartbeatOn: boolean;
   startHeartbeat: () => void;
   stopHeartbeat: () => void;
 
-  // comms
   commsConnected: boolean;
   commsConnecting: boolean;
   commsJammed: boolean;
 
-  // jammer config
   jammer: JammerConfig;
   setJammer: (patch: Partial<JammerConfig>) => void;
 
-  // navigation lock
   terminalLocked: boolean;
 
-  // banner
   banner: Banner;
 
-  // messages thread
   thread: ThreadItem[];
   pushThread: (from: ThreadItem["from"], text: string) => void;
   clearThread: () => void;
 
-  // mission
   mission: MissionState;
   setMissionStep: (step: number) => void;
   resetMission: () => void;
 
-  // mission deadline
   missionDeadlineAt: number | null;
   setMissionDeadlineMsFromNow: (ms: number) => void;
   clearMissionDeadline: () => void;
 
-  // actions
   setTrace: (next: number, reason?: string) => void;
   bumpTrace: (delta: number, reason?: string) => void;
 
@@ -127,11 +243,28 @@ type GameState = {
 
   connectComms: () => void;
   setCommsJammed: (on: boolean) => void;
-};
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
+  // cameras
+  cameras: Record<number, CameraFeed>;
+  selectedCamId: number | null;
+  cameraSimTimer: ReturnType<typeof setInterval> | null;
+  standbyMode: boolean;
+  standbyMessage: string;
+  cameraObjectiveActive: boolean;
+  cameraObjectiveResolved: boolean;
+  targetCameraId: number | null;
+
+  setSelectedCam: (id: number) => void;
+  setStandbyMode: (on: boolean, message?: string) => void;
+  setCameraState: (id: number, state: CameraState) => void;
+  triggerCameraTarget: (id: number) => void;
+  clearCameraTarget: (id: number) => void;
+  startCameraObjective: (targetId?: number) => void;
+  resolveCameraObjective: () => void;
+  resetCameras: () => void;
+  startCameraSim: () => void;
+  stopCameraSim: () => void;
+};
 
 export const useGameStore = create<GameState>((set, get) => ({
   trace: 16,
@@ -140,30 +273,22 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   booted: false,
 
-  // network defaults
   network: {
     preferredBand: "LTE",
     autoHop: true,
     stealth: true,
-
     connectedId: null,
     connectedMeta: null,
-
     logs: [],
     scanCache: [],
   },
 
-  // ---- STARTUP: FIRST OBJECTIVE = "get on a network" ----
   bootGame: () => {
     const s = get();
     if (s.booted) return;
 
     set({ booted: true });
-
-    // lock terminal until we have a network + comms handshake
     get().setTerminalLocked(true);
-
-    // mission starts at step 0
     get().setMissionStep(0);
 
     get().pushThread(
@@ -183,11 +308,8 @@ export const useGameStore = create<GameState>((set, get) => ({
         typeof patch.connectedId === "string" && patch.connectedId.length > 0;
 
       const justLinked = prev.connectedId == null && connectedNow;
+      const outState: { network: NetworkState } = { network: next };
 
-      // Apply patch
-      const outState: any = { network: next };
-
-      // If user just linked to a network, kick off the secure shell handshake
       if (justLinked) {
         const meta = (patch.connectedMeta ??
           next.connectedMeta) as NetworkConnectedMeta | null;
@@ -197,23 +319,18 @@ export const useGameStore = create<GameState>((set, get) => ({
           `Good. Linked to ${meta?.ssid ?? "network"}. Establishing secure shell…`,
         );
         get().bannerPush("COMMS", "Securing connection…", 1200);
-
-        // Keep terminal locked until handshake completes
         get().setTerminalLocked(true);
-
-        // Kick off comms handshake (this will flip commsConnected on success)
         get().connectComms();
       }
 
       return outState;
     }),
+
   appendNetworkLog: (item) =>
     set((s) => {
       const next = [...s.network.logs, item];
       const trimmed = next.length > 250 ? next.slice(next.length - 250) : next;
-      return {
-        network: { ...s.network, logs: trimmed },
-      };
+      return { network: { ...s.network, logs: trimmed } };
     }),
 
   clearNetworkLog: () =>
@@ -221,10 +338,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       network: { ...s.network, logs: [] },
     })),
 
-  // heartbeat defaults
   heartbeatOn: false,
 
-  // jammer defaults
   jammer: {
     enabled: false,
     band: "UHF",
@@ -277,7 +392,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
   clearThread: () => set({ thread: [] }),
 
-  // mission defaults
   mission: { missionId: "bootcamp_01", step: 0 },
   setMissionStep: (step) => set((s) => ({ mission: { ...s.mission, step } })),
   resetMission: () => set({ mission: { missionId: "bootcamp_01", step: 0 } }),
@@ -301,7 +415,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         },
       });
     } else if (reason) {
-      // optional
+      // no-op
     }
   },
 
@@ -332,11 +446,9 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ secondsLeft: s.secondsLeft - 1 });
 
     const j = get().jammer;
-    if (j?.enabled && s.secondsLeft % 5 === 0) {
+    if (j.enabled && s.secondsLeft % 5 === 0) {
       const loud = !j.stealth || j.strength >= 80;
-      if (loud) {
-        get().bumpTrace(1, "rf signature");
-      }
+      if (loud) get().bumpTrace(1, "rf signature");
     }
   },
 
@@ -364,10 +476,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const j = s.jammer;
 
     if (s.commsJammed) {
-      set({
-        commsConnected: false,
-        commsConnecting: false,
-      });
+      set({ commsConnected: false, commsConnecting: false });
       get().bannerPush("COMMS", "Connection blocked.", 2500);
       return;
     }
@@ -375,8 +484,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ commsConnecting: true, commsConnected: false });
     get().bannerPush("SECURE COMMS", "Securing connection…", 700);
 
-    const band = j?.band ?? "UHF";
-    const strength = j?.strength ?? 62;
+    const band = j.band ?? "UHF";
+    const strength = j.strength ?? 62;
 
     const bandDelayMs =
       band === "SAT" ? 450 : band === "LTE" || band === "WIFI" ? -80 : 0;
@@ -384,17 +493,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     const delay = 450 + Math.floor(Math.random() * 300) + bandDelayMs;
 
     let failProb = 0.08;
-
     if (band === "SAT") failProb += 0.06;
     if (band === "LTE") failProb -= 0.02;
     if (band === "WIFI") failProb -= 0.01;
     if (band === "VHF") failProb += 0.02;
     if (band === "UHF") failProb += 0.01;
-
     if (strength >= 85) failProb += 0.03;
     if (strength <= 35) failProb += 0.02;
-    if (j?.stealth) failProb -= 0.01;
-
+    if (j.stealth) failProb -= 0.01;
     failProb = Math.max(0.03, Math.min(0.22, failProb));
 
     setTimeout(() => {
@@ -414,10 +520,10 @@ export const useGameStore = create<GameState>((set, get) => ({
           "handler",
           "Handshake failed. Try a different network or band.",
         );
-        const jNow = get().jammer;
-        if (jNow?.autoMask && !get().commsJammed) {
-          get().setJammer({ autoMask: false });
 
+        const jNow = get().jammer;
+        if (jNow.autoMask && !get().commsJammed) {
+          get().setJammer({ autoMask: false });
           get().setCommsJammed(true);
           get().pushThread(
             "system",
@@ -428,8 +534,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       } else {
         set({ commsConnecting: false, commsConnected: true });
         get().bannerPush("COMMS", "Secure link established.", 1800);
-
-        // ✅ Continue playthrough
         get().pushThread("handler", "Secure shell is live. Open Terminal.");
         get().setTerminalLocked(false);
       }
@@ -446,5 +550,205 @@ export const useGameStore = create<GameState>((set, get) => ({
     } else {
       get().bannerPush("STATUS", "Jam cleared. Reconnect available.", 2200);
     }
+  },
+
+  // cameras
+  cameras: makeInitialCameras(),
+  selectedCamId: 12,
+  cameraSimTimer: null,
+  standbyMode: false,
+  standbyMessage: "STANDBY…",
+  cameraObjectiveActive: false,
+  cameraObjectiveResolved: false,
+  targetCameraId: null,
+
+  setSelectedCam: (id) => {
+    const s = get();
+    const cam = s.cameras[id];
+
+    set({ selectedCamId: id });
+
+    if (
+      s.cameraObjectiveActive &&
+      !s.cameraObjectiveResolved &&
+      s.targetCameraId === id &&
+      cam?.hasTarget
+    ) {
+      get().resolveCameraObjective();
+    }
+  },
+
+  setStandbyMode: (on, message) =>
+    set({
+      standbyMode: on,
+      standbyMessage: message ?? "STANDBY…",
+    }),
+
+  setCameraState: (id, state) =>
+    set((s) => ({
+      cameras: {
+        ...s.cameras,
+        [id]: {
+          ...s.cameras[id],
+          state,
+          alert: state === "motion" || state === "occupied",
+          hasTarget: state === "occupied" ? s.cameras[id].hasTarget : false,
+          lastSeenAt:
+            state === "motion" || state === "occupied"
+              ? Date.now()
+              : s.cameras[id].lastSeenAt,
+        },
+      },
+    })),
+
+  triggerCameraTarget: (id) =>
+    set((s) => ({
+      cameras: {
+        ...s.cameras,
+        [id]: {
+          ...s.cameras[id],
+          state: "occupied",
+          alert: true,
+          hasTarget: true,
+          lastSeenAt: Date.now(),
+        },
+      },
+      targetCameraId: id,
+    })),
+
+  clearCameraTarget: (id) =>
+    set((s) => ({
+      cameras: {
+        ...s.cameras,
+        [id]: {
+          ...s.cameras[id],
+          state: "empty",
+          alert: false,
+          hasTarget: false,
+        },
+      },
+      targetCameraId: s.targetCameraId === id ? null : s.targetCameraId,
+    })),
+
+  startCameraObjective: (targetId = 19) => {
+    get().resetCameras();
+    get().triggerCameraTarget(targetId);
+    set({
+      cameraObjectiveActive: true,
+      cameraObjectiveResolved: false,
+      targetCameraId: targetId,
+    });
+
+    get().pushThread(
+      "handler",
+      "Check Cameras. We may have movement in the building.",
+    );
+    get().pushThread(
+      "handler",
+      "Find the live feed with the contact before they disappear.",
+    );
+    get().bannerPush("CAMERAS", "Possible movement detected.", 2000);
+  },
+
+  resolveCameraObjective: () => {
+    const s = get();
+    if (s.cameraObjectiveResolved) return;
+
+    set({
+      cameraObjectiveResolved: true,
+      cameraObjectiveActive: false,
+    });
+
+    get().pushThread(
+      "handler",
+      `Confirmed. Visual on ${s.cameras[s.targetCameraId ?? 0]?.zone ?? "target zone"}.`,
+    );
+    get().pushThread("handler", "Good catch. Hold that location in memory.");
+    get().bannerPush("OBJECTIVE", "Target feed confirmed.", 2200);
+  },
+
+  resetCameras: () =>
+    set({
+      cameras: makeInitialCameras(),
+      selectedCamId: 12,
+      targetCameraId: null,
+      cameraObjectiveActive: false,
+      cameraObjectiveResolved: false,
+    }),
+
+  startCameraSim: () => {
+    const s = get();
+    if (s.cameraSimTimer) return;
+
+    const timer = setInterval(() => {
+      const st = get();
+      const ids = CAMERA_IDS;
+      const pick = ids[Math.floor(Math.random() * ids.length)];
+
+      if (st.standbyMode) return;
+
+      // keep objective target stable if active
+      if (
+        st.cameraObjectiveActive &&
+        st.targetCameraId != null &&
+        st.cameras[st.targetCameraId]
+      ) {
+        set((prev) => ({
+          cameras: {
+            ...prev.cameras,
+            [st.targetCameraId!]: {
+              ...prev.cameras[st.targetCameraId!],
+              state: prev.cameras[st.targetCameraId!].hasTarget
+                ? "occupied"
+                : "motion",
+              alert: true,
+              lastSeenAt: Date.now(),
+            },
+          },
+        }));
+      }
+
+      const roll = Math.random();
+      let nextState: CameraState = "empty";
+
+      if (roll < 0.05) nextState = "motion";
+      else if (roll < 0.08) nextState = "occupied";
+      else if (roll < 0.11) nextState = "jammed";
+      else if (roll < 0.13) nextState = "offline";
+
+      set((prev) => {
+        const current = prev.cameras[pick];
+        if (!current) return prev;
+
+        // do not overwrite the target feed if it's active
+        if (prev.targetCameraId === pick && current.hasTarget) {
+          return prev;
+        }
+
+        return {
+          cameras: {
+            ...prev.cameras,
+            [pick]: {
+              ...current,
+              state: nextState,
+              alert: nextState === "motion" || nextState === "occupied",
+              hasTarget: false,
+              lastSeenAt:
+                nextState === "motion" || nextState === "occupied"
+                  ? Date.now()
+                  : current.lastSeenAt,
+            },
+          },
+        };
+      });
+    }, 1200);
+
+    set({ cameraSimTimer: timer });
+  },
+
+  stopCameraSim: () => {
+    const s = get();
+    if (s.cameraSimTimer) clearInterval(s.cameraSimTimer);
+    set({ cameraSimTimer: null });
   },
 }));

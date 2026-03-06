@@ -20,6 +20,13 @@ const APPS: AppTile[] = [
     color: "#6f7bff",
   },
   {
+    key: "cameras",
+    label: "Cameras",
+    icon: "◫",
+    route: "/cameras",
+    color: "#9fa8da",
+  },
+  {
     key: "messages",
     label: "Messages",
     icon: "✉",

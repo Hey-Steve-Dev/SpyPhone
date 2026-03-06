@@ -7,12 +7,12 @@ export default function PhoneLayout() {
       {/* Home phone screen */}
       <Stack.Screen name="index" />
 
-      {/* “Apps” */}
       <Stack.Screen name="terminal" />
       <Stack.Screen name="messages" />
       <Stack.Screen name="sat" />
       <Stack.Screen name="network" />
       <Stack.Screen name="jammer" />
+      <Stack.Screen name="cameras" />
       <Stack.Screen name="notes" />
       <Stack.Screen name="mask" />
       <Stack.Screen name="vault" />
