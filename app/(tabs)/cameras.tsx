@@ -1,13 +1,18 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import { ResizeMode, Video } from "expo-av";
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 const HOME_BAR_SPACE = 44;
 const GRID_IDS = [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 type CamState = "occupied" | "empty" | "jammed" | "offline" | string;
+type HallwayState = "empty" | "occupied";
+
+function randomDelayMs() {
+  return 7000 + Math.floor(Math.random() * 9000);
+}
 
 function SmallCameraFeed({ state }: { state: CamState }) {
   const isNoSignal = state === "offline";
@@ -36,39 +41,129 @@ function SmallCameraFeed({ state }: { state: CamState }) {
   );
 }
 
-function FeaturedHallwayVideo() {
-  if (Platform.OS === "web") {
-    return (
-      <View style={styles.featuredFrame}>
-        {/* @ts-ignore */}
-        <video
-          src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-standing.mp4"
-          autoPlay
-          loop
-          muted
-          playsInline
-          style={{
-            width: "100%",
-            height: "100%",
-            objectFit: "contain",
-            display: "block",
-            backgroundColor: "#000",
-          }}
-        />
-      </View>
-    );
-  }
+function FeaturedHallwayOne() {
+  const [hallwayState, setHallwayState] = useState<HallwayState>("empty");
+  const [playKey, setPlayKey] = useState(0);
+
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const nativeVideoRef = useRef<Video>(null);
+  const webVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  useEffect(() => {
+    if (hallwayState !== "empty") return;
+
+    timeoutRef.current = setTimeout(() => {
+      setPlayKey((n) => n + 1);
+      setHallwayState("occupied");
+    }, randomDelayMs());
+
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, [hallwayState]);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS === "web") {
+      const el = webVideoRef.current;
+      if (!el) return;
+
+      el.playbackRate = 0.85;
+
+      if (hallwayState === "occupied") {
+        const playPromise = el.play();
+        if (playPromise && typeof playPromise.catch === "function") {
+          playPromise.catch(() => {});
+        }
+      } else {
+        el.pause();
+        try {
+          el.currentTime = 0;
+        } catch {}
+      }
+
+      return;
+    }
+
+    const runNative = async () => {
+      const player = nativeVideoRef.current;
+      if (!player) return;
+
+      try {
+        await player.setRateAsync(0.65, true);
+
+        if (hallwayState === "occupied") {
+          await player.playAsync();
+        } else {
+          await player.pauseAsync();
+          await player.setPositionAsync(0);
+        }
+      } catch {}
+    };
+
+    runNative();
+  }, [hallwayState, playKey]);
+
+  const endOccupiedCycle = () => {
+    setHallwayState("empty");
+  };
 
   return (
-    <View style={styles.featuredFrame}>
-      <Video
-        source={require("../../assets/cams/hallway1/guard-standing.mp4")}
-        style={styles.featuredVideo}
-        resizeMode={ResizeMode.CONTAIN}
-        shouldPlay
-        isLooping
-        isMuted
-      />
+    <View style={styles.featuredCard}>
+      <View style={styles.featuredHeader}>
+        <Text style={styles.featuredTitle}>CAM 12</Text>
+        <Text style={styles.featuredMeta}>
+          HALLWAY 1 • {hallwayState.toUpperCase()}
+        </Text>
+      </View>
+
+      <View style={styles.featuredFrame}>
+        {Platform.OS === "web" ? (
+          <View style={styles.featuredWebWrap}>
+            {/* @ts-ignore */}
+            <video
+              key={`hallway1-web-${playKey}`}
+              ref={(node) => {
+                webVideoRef.current = node;
+              }}
+              src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-left-to-right.mp4"
+              muted
+              playsInline
+              preload="auto"
+              onEnded={endOccupiedCycle}
+              style={{
+                width: "100%",
+                height: "100%",
+                objectFit: "contain",
+                display: "block",
+                backgroundColor: "#000",
+              }}
+            />
+          </View>
+        ) : (
+          <Video
+            key={`hallway1-native-${playKey}`}
+            ref={nativeVideoRef}
+            source={require("../../assets/cams/hallway1/guard-left-to-right.mp4")}
+            style={styles.featuredMedia}
+            resizeMode={ResizeMode.CONTAIN}
+            shouldPlay={false}
+            isLooping={false}
+            isMuted
+            onPlaybackStatusUpdate={(status) => {
+              if (!status.isLoaded) return;
+              if (status.didJustFinish) {
+                endOccupiedCycle();
+              }
+            }}
+          />
+        )}
+      </View>
     </View>
   );
 }
@@ -92,14 +187,7 @@ export default function CamerasScreen() {
   return (
     <PhoneFrame>
       <View style={styles.wrap}>
-        <View style={styles.featuredCard}>
-          <View style={styles.featuredHeader}>
-            <Text style={styles.featuredTitle}>CAM 12</Text>
-            <Text style={styles.featuredMeta}>HALLWAY 1 • OCCUPIED</Text>
-          </View>
-
-          <FeaturedHallwayVideo />
-        </View>
+        <FeaturedHallwayOne />
 
         <View style={styles.grid}>
           {tiles.map((id) => {
@@ -185,7 +273,13 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  featuredVideo: {
+  featuredWebWrap: {
+    width: "100%",
+    height: "100%",
+    backgroundColor: "#000",
+  },
+
+  featuredMedia: {
     width: "100%",
     height: "100%",
     backgroundColor: "#000",
