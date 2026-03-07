@@ -1,9 +1,11 @@
 import { useGameStore } from "@/store/useGameStore";
+import { usePathname } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
 export default function BannerComms() {
   const banner = useGameStore((s) => s.banner);
+  const pathname = usePathname();
 
   const y = useRef(new Animated.Value(-80)).current;
   const a = useRef(new Animated.Value(0)).current;
@@ -11,8 +13,13 @@ export default function BannerComms() {
   const isTyping = banner.on && (banner.message || "").trim() === "…";
   const [dots, setDots] = useState("…");
 
+  const isMessagesRoute =
+    pathname === "/messages" ||
+    pathname.endsWith("/messages") ||
+    pathname.includes("(tabs)/messages");
+
   useEffect(() => {
-    if (!banner.on) {
+    if (isMessagesRoute || !banner.on) {
       Animated.parallel([
         Animated.timing(a, {
           toValue: 0,
@@ -41,24 +48,25 @@ export default function BannerComms() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, [banner.on, a, y]);
+  }, [banner.on, isMessagesRoute, a, y]);
 
-  // Animate typing: ".", "..", "...", repeat
   useEffect(() => {
     if (!isTyping) {
       setDots("…");
       return;
     }
+
     let i = 0;
     const frames = [".", "..", "..."];
     const id = setInterval(() => {
       i = (i + 1) % frames.length;
       setDots(frames[i]);
     }, 260);
+
     return () => clearInterval(id);
   }, [isTyping]);
 
-  if (!banner.on) return null;
+  if (!banner.on || isMessagesRoute) return null;
 
   const title = (banner.title || "").trim();
   const msg = (banner.message || "").trim();

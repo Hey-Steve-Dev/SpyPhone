@@ -3,7 +3,13 @@ import {
   playIncomingMessageFx,
   setGameSoundEnabled,
 } from "@/lib/gameAudio";
-import type { MissionState } from "@/lib/missionEngine";
+import {
+  handleMissionEvent,
+  makeInitialMissionState,
+  type MissionEffect,
+  type MissionEvent,
+  type MissionState,
+} from "@/lib/missionEngine";
 import { create } from "zustand";
 
 type Banner = {
@@ -168,6 +174,27 @@ function wait(ms: number) {
 
 function rand(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function phaseForLegacyStep(step: number): MissionState["phase"] {
+  switch (step) {
+    case 0:
+      return "terminal_pwd";
+    case 1:
+      return "terminal_ls_root";
+    case 2:
+      return "terminal_cd_payload";
+    case 3:
+      return "terminal_ls_payload";
+    case 4:
+      return "terminal_cat_intel";
+    case 5:
+      return "terminal_drop";
+    case 6:
+      return "complete";
+    default:
+      return "boot_intro";
+  }
 }
 
 const CAMERA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
@@ -398,6 +425,14 @@ type GameState = {
     }>,
   ) => Promise<void>;
 
+  applyMissionEffects: (effects: MissionEffect[]) => Promise<void>;
+  dispatchMissionEvent: (event: MissionEvent) => Promise<{
+    handled: boolean;
+    ok: boolean;
+    advanced: boolean;
+    gated: boolean;
+  }>;
+
   handleMessageReplyAction: (action: string, label: string) => Promise<void>;
   submitMessageText: (text: string) => void;
 
@@ -523,77 +558,12 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     set({ booted: true });
     get().pushLog("system", "Boot sequence started.");
-    get().setTerminalLocked(true);
-    get().setMissionStep(0);
-    get().clearThread();
-    get().resetTerminalSession();
 
-    void (async () => {
-      await get().pushHandlerSequence([
-        {
-          text: "You’re online. Quick review of your ghost phone?",
-        },
-      ]);
-
-      get().setReplyChips([
-        { id: "boot_review_yes", label: "Sure", action: "review_phone" },
-        {
-          id: "boot_review_no",
-          label: "Nah, I'm ready",
-          action: "skip_review",
-        },
-      ]);
-    })();
+    void get().dispatchMissionEvent({ type: "BOOT" });
   },
 
   attemptMoveNow: async () => {
-    const s = get();
-    const cam12 = s.cameras[12];
-    const occupied = cam12?.state === "occupied" || cam12?.state === "motion";
-
-    get().clearReplyChips();
-    get().pushThread("player", "moving now");
-    get().pushLog(
-      "mission",
-      `Player attempted movement while hall was ${occupied ? "occupied" : "clear"}.`,
-    );
-
-    if (occupied) {
-      await get().pushHandlerSequence([
-        { text: "Negative. Guard still in the hall." },
-      ]);
-
-      get().bannerPush("ALERT", "Compromised.", 1800);
-      get().pushLog("mission", "Movement denied. Player compromised.");
-
-      setTimeout(() => {
-        if (
-          typeof location !== "undefined" &&
-          typeof location.reload === "function"
-        ) {
-          location.reload();
-        }
-      }, 900);
-
-      return;
-    }
-
-    await get().pushHandlerSequence([{ text: "Good. Window is clear. Move." }]);
-
-    get().stopCameraSim();
-    get().triggerGoDark(3200, "STANDBY");
-
-    await wait(900);
-
-    await get().pushHandlerSequence([
-      { text: "Secure shell is live. Open Terminal." },
-    ]);
-
-    get().setTerminalLocked(false);
-    get().pushLog(
-      "mission",
-      "Movement approved. Go dark triggered. Terminal access restored.",
-    );
+    await get().dispatchMissionEvent({ type: "MOVE_ATTEMPT" });
   },
 
   setNetwork: (patch) =>
@@ -634,13 +604,6 @@ export const useGameStore = create<GameState>((set, get) => ({
           "network",
           `Linked to ${meta?.ssid ?? "network"} on ${meta?.band ?? "unknown band"}.`,
         );
-        get().clearReplyChips();
-        get().pushThread(
-          "handler",
-          `Good. Linked to ${meta?.ssid ?? "network"}. Establishing secure shell…`,
-        );
-        get().bannerPush("COMMS", "Securing connection…", 1200);
-        get().setTerminalLocked(true);
         get().connectComms();
       }
 
@@ -912,14 +875,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().setScannerHold(true);
     get().setScannerScriptedChatterPlayed(true);
 
-    await get().pushHandlerSequence([
-      {
-        text: "There. You heard that too. East entrance. Move.",
-      },
-    ]);
-
-    get().pushLog("mission", "Scanner chatter advanced the mission.");
-    get().setMissionStep(4);
+    await get().dispatchMissionEvent({ type: "SCANNER_CHATTER_HEARD" });
   },
 
   terminalLocked: false,
@@ -1056,64 +1012,200 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
+  applyMissionEffects: async (effects) => {
+    function typingMsFor(text: string) {
+      const base = 850;
+      const perChar = 38;
+      return clamp(base + text.length * perChar, 1200, 2600);
+    }
+
+    for (const effect of effects) {
+      switch (effect.type) {
+        case "handler_message": {
+          const typingMs = effect.typingMs ?? typingMsFor(effect.text);
+
+          get().bannerPush("OPS", "…", typingMs);
+          await wait(typingMs);
+
+          get().bannerPush("OPS", effect.text, 3500);
+          get().pushThread("handler", effect.text);
+
+          if (effect.afterMs && effect.afterMs > 0) {
+            await wait(effect.afterMs);
+          } else {
+            await wait(250);
+          }
+          break;
+        }
+
+        case "handler_sequence": {
+          for (const item of effect.items) {
+            const typingMs = item.typingMs ?? typingMsFor(item.text);
+
+            get().bannerPush("OPS", "…", typingMs);
+            await wait(typingMs);
+
+            get().bannerPush("OPS", item.text, 3500);
+            get().pushThread("handler", item.text);
+
+            if (item.afterMs && item.afterMs > 0) {
+              await wait(item.afterMs);
+            } else {
+              await wait(250);
+            }
+          }
+          break;
+        }
+
+        case "player_message": {
+          get().pushThread("player", effect.text);
+          break;
+        }
+
+        case "set_reply_chips": {
+          get().setReplyChips(effect.chips);
+          break;
+        }
+
+        case "clear_reply_chips": {
+          get().clearReplyChips();
+          break;
+        }
+
+        case "set_terminal_locked": {
+          get().setTerminalLocked(effect.on);
+          break;
+        }
+
+        case "reset_terminal": {
+          get().resetTerminalSession();
+          break;
+        }
+
+        case "clear_thread": {
+          get().clearThread();
+          break;
+        }
+
+        case "banner": {
+          get().bannerPush(effect.title, effect.message, effect.ms);
+          break;
+        }
+
+        case "start_camera_objective": {
+          get().startCameraObjective(effect.targetId);
+          break;
+        }
+
+        case "resolve_camera_objective": {
+          get().resolveCameraObjective();
+          break;
+        }
+
+        case "start_camera_sim": {
+          get().startCameraSim();
+          break;
+        }
+
+        case "stop_camera_sim": {
+          get().stopCameraSim();
+          break;
+        }
+
+        case "trigger_go_dark": {
+          get().triggerGoDark(effect.durationMs, effect.message);
+          await wait(900);
+          break;
+        }
+
+        case "set_mission_state": {
+          set({ mission: effect.state });
+          get().pushLog(
+            "mission",
+            `Mission state updated to ${effect.state.missionId}:${effect.state.phase}.`,
+          );
+          break;
+        }
+
+        case "set_mission_phase": {
+          set((s) => ({
+            mission: {
+              ...s.mission,
+              phase: effect.phase,
+            },
+          }));
+          get().pushLog("mission", `Mission phase set to ${effect.phase}.`);
+          break;
+        }
+
+        case "append_terminal_output": {
+          for (const line of effect.lines) {
+            get().appendTerminalLine("out", line);
+          }
+          break;
+        }
+
+        case "mission_failed": {
+          get().pushLog("mission", `Mission failed: ${effect.reason}.`);
+
+          if (effect.bannerTitle && effect.bannerMessage) {
+            get().bannerPush(effect.bannerTitle, effect.bannerMessage, 1800);
+          }
+
+          setTimeout(() => {
+            if (
+              typeof location !== "undefined" &&
+              typeof location.reload === "function"
+            ) {
+              location.reload();
+            }
+          }, 900);
+          break;
+        }
+
+        default:
+          break;
+      }
+    }
+  },
+
+  dispatchMissionEvent: async (event) => {
+    const state = get();
+
+    const result = handleMissionEvent(state.mission, event, {
+      jammerEnabled: state.jammer.enabled,
+      hallwayOccupied: state.hallwayOneOccupied,
+    });
+
+    set({ mission: result.nextState });
+    get().pushLog(
+      "mission",
+      `Mission event ${event.type} -> ${result.nextState.phase}.`,
+    );
+
+    await get().applyMissionEffects(result.effects);
+
+    return (
+      result.commandResult ?? {
+        handled: false,
+        ok: false,
+        advanced: false,
+        gated: false,
+      }
+    );
+  },
+
   handleMessageReplyAction: async (action, label) => {
     const s = get();
     if (s.messagesTyping) return;
 
-    switch (action) {
-      case "moving_now": {
-        await get().attemptMoveNow();
-        return;
-      }
+    get().pushLog("thread", `Player selected reply action: ${action}`);
 
-      default: {
-        get().pushThread("player", label);
-        get().clearReplyChips();
-        get().pushLog("thread", `Player selected reply action: ${action}`);
-
-        switch (action) {
-          case "review_phone": {
-            await get().pushHandlerSequence([
-              {
-                text: "Ghost phone review: messages are local-first, terminal is for controlled actions, jammer buys time, network helps you pivot fast.",
-              },
-              {
-                text: "You only get short burst comms. Read fast, act local, keep moving.",
-              },
-            ]);
-
-            get().setReplyChips([
-              { id: "review_ack", label: "Got it", action: "review_ack" },
-            ]);
-            return;
-          }
-
-          case "skip_review": {
-            await get().pushHandlerSequence([
-              {
-                text: "Good. Stay dark and follow instructions exactly. We only get short burst windows.",
-              },
-              {
-                text: "First action: get us on a network. Open Network and link up.",
-              },
-            ]);
-            return;
-          }
-
-          case "review_ack": {
-            await get().pushHandlerSequence([
-              {
-                text: "Good. First action: get us on a network. Open Network and link up.",
-              },
-            ]);
-            return;
-          }
-
-          default:
-            return;
-        }
-      }
-    }
+    await get().dispatchMissionEvent({
+      type: "REPLY_SELECTED",
+      action,
+      label,
+    });
   },
 
   submitMessageText: (text) => {
@@ -1126,15 +1218,22 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().pushThread("player", trimmed);
   },
 
-  mission: { missionId: "bootcamp_01", step: 0 },
+  mission: makeInitialMissionState(),
   setMissionStep: (step) =>
     set((s) => {
+      const nextPhase = phaseForLegacyStep(step);
       get().pushLog("mission", `Mission step set to ${step}.`);
-      return { mission: { ...s.mission, step } };
+      return {
+        mission: {
+          ...s.mission,
+          step,
+          phase: nextPhase,
+        },
+      };
     }),
   resetMission: () => {
-    set({ mission: { missionId: "bootcamp_01", step: 0 } });
-    get().pushLog("mission", "Mission reset to bootcamp_01 step 0.");
+    set({ mission: makeInitialMissionState() });
+    get().pushLog("mission", "Mission reset to initial state.");
   },
 
   missionDeadlineAt: null,
@@ -1213,7 +1312,6 @@ export const useGameStore = create<GameState>((set, get) => ({
   setTerminalLocked: (on) => {
     set({ terminalLocked: on });
     get().pushLog("terminal", `Terminal ${on ? "locked" : "unlocked"}.`);
-    if (on) get().bannerPush("LOCK", "Stay on task. Terminal only.", 1800);
   },
 
   bannerPush: (title, message, ms = 4200) => {
@@ -1312,24 +1410,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         get().pushLog("network", "Secure link established.");
         get().bannerPush("COMMS", "Secure link established.", 1800);
 
-        void (async () => {
-          await get().pushHandlerSequence([
-            {
-              text: "Secure shell is live. Check camera 12 and wait for the guard to pass.",
-            },
-            {
-              text: "Text when you're moving.",
-            },
-          ]);
-
-          get().setReplyChips([
-            { id: "move_now", label: "moving now", action: "moving_now" },
-          ]);
-        })();
-
-        get().setTerminalLocked(true);
-        get().startCameraObjective(12);
-        get().startCameraSim();
+        const ssid = get().network.connectedMeta?.ssid;
+        void get().dispatchMissionEvent({
+          type: "NETWORK_LINKED",
+          ssid,
+        });
       }
     }, delay);
   },
@@ -1469,7 +1554,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     get().pushLog("mission", `Camera objective started on CAM ${targetId}.`);
     get().setCameraState(12, "occupied");
-    get().bannerPush("CAMERAS", "Watch camera 12.", 1800);
   },
 
   resolveCameraObjective: () => {
@@ -1482,7 +1566,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     get().pushLog("mission", "Camera objective resolved. Hall is clear.");
-    get().bannerPush("OBJECTIVE", "Hall is clear.", 1800);
   },
 
   resetCameras: () =>

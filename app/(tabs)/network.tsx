@@ -160,82 +160,37 @@ function summarizeNet(n: Net) {
 }
 
 export default function NetworkScreen() {
-  const useAnyStore = useGameStore as unknown as (sel: (s: any) => any) => any;
-
-  const engineNetwork = useAnyStore((s) => s?.network);
-  const engineSetNetwork = useAnyStore((s) => s?.setNetwork);
-  const engineAddLog = useAnyStore((s) => s?.appendNetworkLog);
-  const engineTrace = useAnyStore((s) => s?.trace);
-  const engineBumpTrace = useAnyStore((s) => s?.bumpTrace);
+  const engineNetwork = useGameStore((s) => s.network);
+  const engineSetNetwork = useGameStore((s) => s.setNetwork);
+  const engineAddLog = useGameStore((s) => s.appendNetworkLog);
+  const engineClearLog = useGameStore((s) => s.clearNetworkLog);
+  const engineTrace = useGameStore((s) => s.trace);
+  const engineBumpTrace = useGameStore((s) => s.bumpTrace);
 
   const [tab, setTab] = useState<TabKey>("scan");
 
   const [preferredBand, setPreferredBand] = useState<Band>(
-    engineNetwork?.preferredBand ?? "LTE",
+    engineNetwork.preferredBand as Band,
   );
-  const [autoHop, setAutoHop] = useState<boolean>(
-    engineNetwork?.autoHop ?? true,
-  );
-  const [stealth, setStealth] = useState<boolean>(
-    engineNetwork?.stealth ?? true,
-  );
+  const [autoHop, setAutoHop] = useState<boolean>(engineNetwork.autoHop);
+  const [stealth, setStealth] = useState<boolean>(engineNetwork.stealth);
 
   const [scanning, setScanning] = useState(false);
   const [scanGen, setScanGen] = useState(0);
 
-  // Persisted network cache
   const [scanResults, setScanResults] = useState<Net[]>([]);
   const didHydrateScanRef = useRef(false);
 
   const [connectedId, setConnectedId] = useState<string | null>(
-    engineNetwork?.connectedId ?? null,
+    engineNetwork.connectedId,
   );
-
-  useEffect(() => {
-    if (didHydrateScanRef.current) return;
-    didHydrateScanRef.current = true;
-
-    const cached: Net[] = (engineNetwork?.scanCache as Net[]) ?? [];
-    if (cached.length) {
-      setScanResults(cached);
-      return;
-    }
-
-    const seed = genNetworks(11);
-    setScanResults(seed);
-
-    try {
-      engineSetNetwork?.({ scanCache: seed });
-    } catch {
-      // ignore
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const connected = useMemo(() => {
-    const fromLocal = scanResults.find((n) => n.id === connectedId);
-    if (fromLocal) return fromLocal;
-
-    if (engineNetwork?.connectedId) {
-      return (
-        scanResults.find((n) => n.id === engineNetwork.connectedId) ?? null
-      );
-    }
-
-    return null;
-  }, [connectedId, engineNetwork?.connectedId, scanResults]);
 
   const [targetId, setTargetId] = useState<string | null>(null);
   const [passphrase, setPassphrase] = useState("");
   const [hackBusy, setHackBusy] = useState(false);
 
-  const target = useMemo(
-    () => scanResults.find((n) => n.id === targetId) ?? null,
-    [scanResults, targetId],
-  );
-
   const [logItems, setLogItems] = useState<LogItem[]>(() => {
-    const existing: LogItem[] = engineNetwork?.logs ?? [];
+    const existing = engineNetwork.logs as LogItem[];
     if (existing.length) return existing;
 
     return [
@@ -249,21 +204,63 @@ export default function NetworkScreen() {
     ];
   });
 
-  useEffect(() => {
-    if (!engineNetwork?.logs) return;
-    if (engineNetwork.logs.length && logItems.length <= 2) {
-      setLogItems(engineNetwork.logs);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [engineNetwork?.logs]);
-
-  useEffect(() => {
-    try {
-      engineSetNetwork?.({ connectedId });
-    } catch {}
-  }, [connectedId, engineSetNetwork]);
-
   const logListRef = useRef<FlatList<LogItem>>(null);
+
+  useEffect(() => {
+    if (didHydrateScanRef.current) return;
+    didHydrateScanRef.current = true;
+
+    const cached = (engineNetwork.scanCache as Net[] | undefined) ?? [];
+    if (cached.length) {
+      setScanResults(cached);
+      return;
+    }
+
+    const seed = genNetworks(11);
+    setScanResults(seed);
+    engineSetNetwork({ scanCache: seed });
+  }, [engineNetwork.scanCache, engineSetNetwork]);
+
+  useEffect(() => {
+    if (engineNetwork.connectedId !== connectedId) {
+      setConnectedId(engineNetwork.connectedId);
+    }
+  }, [engineNetwork.connectedId, connectedId]);
+
+  useEffect(() => {
+    setPreferredBand(engineNetwork.preferredBand as Band);
+  }, [engineNetwork.preferredBand]);
+
+  useEffect(() => {
+    setAutoHop(engineNetwork.autoHop);
+  }, [engineNetwork.autoHop]);
+
+  useEffect(() => {
+    setStealth(engineNetwork.stealth);
+  }, [engineNetwork.stealth]);
+
+  useEffect(() => {
+    if (!engineNetwork.logs.length) return;
+    setLogItems(engineNetwork.logs as LogItem[]);
+  }, [engineNetwork.logs]);
+
+  const connected = useMemo(() => {
+    const fromLocal = scanResults.find((n) => n.id === connectedId);
+    if (fromLocal) return fromLocal;
+
+    if (engineNetwork.connectedId) {
+      return (
+        scanResults.find((n) => n.id === engineNetwork.connectedId) ?? null
+      );
+    }
+
+    return null;
+  }, [connectedId, engineNetwork.connectedId, scanResults]);
+
+  const target = useMemo(
+    () => scanResults.find((n) => n.id === targetId) ?? null,
+    [scanResults, targetId],
+  );
 
   function pushLog(level: LogItem["level"], text: string) {
     const item: LogItem = { id: uid("log"), at: Date.now(), level, text };
@@ -273,9 +270,7 @@ export default function NetworkScreen() {
       return next.length > 250 ? next.slice(next.length - 250) : next;
     });
 
-    try {
-      engineAddLog?.(item);
-    } catch {}
+    engineAddLog(item);
 
     requestAnimationFrame(() => {
       logListRef.current?.scrollToEnd({ animated: true });
@@ -283,13 +278,11 @@ export default function NetworkScreen() {
   }
 
   useEffect(() => {
-    try {
-      engineSetNetwork?.({
-        preferredBand,
-        autoHop,
-        stealth,
-      });
-    } catch {}
+    engineSetNetwork({
+      preferredBand,
+      autoHop,
+      stealth,
+    });
   }, [preferredBand, autoHop, stealth, engineSetNetwork]);
 
   useEffect(() => {
@@ -300,6 +293,7 @@ export default function NetworkScreen() {
 
   useEffect(() => {
     if (!autoHop) return;
+
     const t = setInterval(() => {
       const chance = stealth ? 0.08 : 0.14;
       if (Math.random() < chance) {
@@ -309,12 +303,13 @@ export default function NetworkScreen() {
         pushLog("LINK", `Band-hop: preferred=${next}`);
       }
     }, 1600);
+
     return () => clearInterval(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoHop, stealth, preferredBand]);
 
   function beginScan() {
     if (scanning) return;
+
     setScanning(true);
     pushLog("SCAN", "Scan: start (passive beacons + active probes)");
 
@@ -342,11 +337,7 @@ export default function NetworkScreen() {
       }
 
       const nextList = out.slice(0, 18);
-
-      try {
-        engineSetNetwork?.({ scanCache: nextList });
-      } catch {}
-
+      engineSetNetwork({ scanCache: nextList });
       return nextList;
     });
 
@@ -364,13 +355,11 @@ export default function NetworkScreen() {
     setConnectedId(null);
     setTargetId(null);
 
-    try {
-      engineSetNetwork?.({
-        scanCache: [],
-        connectedId: null,
-        connectedMeta: null,
-      });
-    } catch {}
+    engineSetNetwork({
+      scanCache: [],
+      connectedId: null,
+      connectedMeta: null,
+    });
 
     pushLog("SYS", "Scan cache cleared");
   }
@@ -384,24 +373,18 @@ export default function NetworkScreen() {
     setConnectedId(n.id);
     pushLog("LINK", `Link: attaching → ${summarizeNet(n)}`);
 
-    try {
-      if (typeof engineBumpTrace === "function") {
-        engineBumpTrace(stealth ? 1 : 2);
-      }
-    } catch {}
+    engineBumpTrace(stealth ? 1 : 2);
 
-    try {
-      engineSetNetwork?.({
-        connectedId: n.id,
-        connectedMeta: {
-          ssid: n.ssid,
-          band: n.band,
-          security: n.security,
-          bssid: n.bssid,
-          channel: n.channel,
-        },
-      });
-    } catch {}
+    engineSetNetwork({
+      connectedId: n.id,
+      connectedMeta: {
+        ssid: n.ssid,
+        band: n.band,
+        security: n.security,
+        bssid: n.bssid,
+        channel: n.channel,
+      },
+    });
   }
 
   function disconnect() {
@@ -409,9 +392,7 @@ export default function NetworkScreen() {
     pushLog("LINK", `Link: detach ← ${connected.ssid}`);
     setConnectedId(null);
 
-    try {
-      engineSetNetwork?.({ connectedId: null, connectedMeta: null });
-    } catch {}
+    engineSetNetwork({ connectedId: null, connectedMeta: null });
   }
 
   async function runProbe() {
@@ -429,7 +410,6 @@ export default function NetworkScreen() {
       : ["deauth", "handshake", "pmkid", "capabilities"];
 
     for (const p of phases) {
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, stealth ? 380 : 260));
       pushLog("HACK", `Probe: ${p}…`);
     }
@@ -496,7 +476,6 @@ export default function NetworkScreen() {
       : ["observe", "capture", "derive", "negotiate"];
 
     for (const s of steps) {
-      // eslint-disable-next-line no-await-in-loop
       await new Promise((r) => setTimeout(r, loud ? 280 : 360));
       pushLog("HACK", `Hack: ${s}…`);
     }
@@ -509,11 +488,7 @@ export default function NetworkScreen() {
       connectNet(n);
     } else {
       pushLog("WARN", "Hack: FAILED → countermeasures suspected");
-      try {
-        if (typeof engineBumpTrace === "function") {
-          engineBumpTrace(loud ? 4 : 2);
-        }
-      } catch {}
+      engineBumpTrace(loud ? 4 : 2);
     }
 
     setHackBusy(false);
@@ -529,17 +504,18 @@ export default function NetworkScreen() {
   }
 
   function toggleAutoHop() {
-    setAutoHop((v) => !v);
-    pushLog("SYS", `Auto-hop: ${!autoHop ? "enabled" : "disabled"}`);
+    const next = !autoHop;
+    setAutoHop(next);
+    pushLog("SYS", `Auto-hop: ${next ? "enabled" : "disabled"}`);
   }
 
   function toggleStealth() {
-    setStealth((v) => !v);
-    pushLog("SYS", `Stealth: ${!stealth ? "enabled" : "disabled"}`);
+    const next = !stealth;
+    setStealth(next);
+    pushLog("SYS", `Stealth: ${next ? "enabled" : "disabled"}`);
   }
 
   const filteredResults = useMemo(() => {
-    if (!preferredBand) return scanResults;
     const inBand = scanResults.filter((n) => n.band === preferredBand);
     const outBand = scanResults.filter((n) => n.band !== preferredBand);
     const spill = outBand.slice(0, Math.min(3, outBand.length));
@@ -571,8 +547,7 @@ export default function NetworkScreen() {
               LINK: <Text style={styles.metaStrong}>{headerStatus.link}</Text>
             </Text>
             <Text style={styles.meta}>
-              BAND:{" "}
-              <Text style={styles.metaStrong}>{preferredBand ?? "—"}</Text>
+              BAND: <Text style={styles.metaStrong}>{preferredBand}</Text>
             </Text>
             <Text style={styles.meta}>
               TRACE: <Text style={styles.metaStrong}>{headerStatus.trace}</Text>
@@ -757,12 +732,16 @@ export default function NetworkScreen() {
                     <View style={styles.hackButtons}>
                       <MiniBtn
                         label={hackBusy ? "Probing…" : "Probe"}
-                        onPress={runProbe}
+                        onPress={() => {
+                          void runProbe();
+                        }}
                         disabled={hackBusy}
                       />
                       <MiniBtn
                         label={hackBusy ? "Working…" : "Hack"}
-                        onPress={runHack}
+                        onPress={() => {
+                          void runHack();
+                        }}
                         disabled={hackBusy}
                       />
                       <MiniBtn
@@ -833,9 +812,8 @@ export default function NetworkScreen() {
                           },
                         ];
                         setLogItems(cleared);
-                        try {
-                          engineSetNetwork?.({ logs: cleared });
-                        } catch {}
+                        engineClearLog();
+                        engineSetNetwork({ logs: cleared });
                       }}
                     />
                     <ActionBtn label="Scan" onPress={() => setTab("scan")} />

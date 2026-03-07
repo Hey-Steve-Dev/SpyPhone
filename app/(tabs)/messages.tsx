@@ -142,9 +142,9 @@ export default function MessagesScreen() {
               {replyChips.map((item) => (
                 <Pressable
                   key={item.id}
-                  onPress={() =>
-                    handleMessageReplyAction(item.action, item.label)
-                  }
+                  onPress={() => {
+                    void handleMessageReplyAction(item.action, item.label);
+                  }}
                   style={[
                     styles.quickBtn,
                     messagesTyping ? styles.quickBtnDisabled : undefined,

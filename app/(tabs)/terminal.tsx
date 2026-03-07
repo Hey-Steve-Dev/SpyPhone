@@ -1,6 +1,5 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { runCommandEngine, setMode } from "@/lib/commandEngine";
-import { missionIntro, runMissionCommand } from "@/lib/missionEngine";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -13,19 +12,25 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
-const OPS_BASE_LAG_MS = 650;
-const OPS_JITTER_MS = 550;
 
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
+type MissionDispatchResult = {
+  handled: boolean;
+  ok: boolean;
+  advanced: boolean;
+  gated: boolean;
+};
+
+const DEFAULT_MISSION_RESULT: MissionDispatchResult = {
+  handled: false,
+  ok: false,
+  advanced: false,
+  gated: false,
+};
 
 export default function TerminalScreen() {
   const bumpTrace = useGameStore((s) => s.bumpTrace);
 
   const mission = useGameStore((s) => s.mission);
-  const setMissionStep = useGameStore((s) => s.setMissionStep);
-  const jammerEnabled = useGameStore((s) => s.jammer.enabled);
 
   const missionDeadlineAt = useGameStore((s) => s.missionDeadlineAt);
   const setMissionDeadlineMsFromNow = useGameStore(
@@ -50,6 +55,8 @@ export default function TerminalScreen() {
   const clearTerminalLines = useGameStore((s) => s.clearTerminalLines);
   const setTerminalMode = useGameStore((s) => s.setTerminalMode);
 
+  const dispatchMissionEvent = useGameStore((s) => s.dispatchMissionEvent);
+
   const [input, setInput] = useState("");
   const [introFired, setIntroFired] = useState(false);
 
@@ -60,16 +67,6 @@ export default function TerminalScreen() {
 
   function append(kind: "out" | "cmd", text: string) {
     appendTerminalLine(kind, text);
-  }
-
-  function jitter() {
-    return OPS_BASE_LAG_MS + Math.floor(Math.random() * OPS_JITTER_MS);
-  }
-
-  function typingMsFor(text: string) {
-    const base = 850;
-    const perChar = 38;
-    return clamp(base + text.length * perChar, 1200, 2600);
   }
 
   useEffect(() => {
@@ -85,41 +82,6 @@ export default function TerminalScreen() {
     return () => clearTimeout(id);
   }, [lines]);
 
-  function opsBurstDelayed(msgs: string[], msgMsEach = 3500, gap = 250) {
-    const startDelay = jitter();
-    let t = startDelay;
-
-    msgs.forEach((text) => {
-      const typingMs = typingMsFor(text);
-
-      setTimeout(() => {
-        bannerPush("OPS", "…", typingMs);
-        setTimeout(() => inputRef.current?.focus(), 50);
-      }, t);
-
-      setTimeout(() => {
-        bannerPush("OPS", text, msgMsEach);
-        setTimeout(() => inputRef.current?.focus(), 50);
-      }, t + typingMs);
-
-      t += typingMs + msgMsEach + gap;
-    });
-  }
-
-  function opsThreadDelayed(msgs: string[]) {
-    const startDelay = jitter();
-    let t = startDelay;
-
-    msgs.forEach((text) => {
-      const typingMs = typingMsFor(text);
-      setTimeout(() => {
-        pushThread("handler", text);
-      }, t + typingMs);
-
-      t += typingMs + 120;
-    });
-  }
-
   useEffect(() => {
     if (booted) return;
     bootGame();
@@ -134,15 +96,10 @@ export default function TerminalScreen() {
     if (!ready) return;
 
     setIntroFired(true);
+    void dispatchMissionEvent({ type: "TERMINAL_READY" });
+  }, [terminalLocked, commsConnected, introFired, dispatchMissionEvent]);
 
-    const handlerLines = missionIntro(mission);
-    if (handlerLines?.length) {
-      opsBurstDelayed(handlerLines, 3500, 250);
-      opsThreadDelayed(handlerLines);
-    }
-  }, [terminalLocked, commsConnected, introFired, mission]);
-
-  function runCommand(raw: string) {
+  async function runCommand(raw: string) {
     const cmd = raw.trim();
     if (!cmd) return;
 
@@ -176,40 +133,34 @@ export default function TerminalScreen() {
       return;
     }
 
-    const missionRes = runMissionCommand(cmd, mode, mission, jammerEnabled);
-    if (missionRes) {
-      missionRes.terminalOut.forEach((line: string) => append("out", line));
+    const prevPhase = mission.phase;
 
-      if (missionRes.nextState) {
-        const nextStep = missionRes.nextState.step;
-        const opsLines = missionRes.handlerOut?.length
-          ? missionRes.handlerOut
-          : [];
+    const result: MissionDispatchResult =
+      (await dispatchMissionEvent({
+        type: "TERMINAL_COMMAND",
+        input: cmd,
+        mode,
+      })) ?? DEFAULT_MISSION_RESULT;
 
-        if (opsLines.length) {
-          opsBurstDelayed(opsLines, 3500, 250);
-          opsThreadDelayed(opsLines);
-        }
+    const nextMission = useGameStore.getState().mission;
+    const nextPhase = nextMission.phase;
 
-        if (missionRes.ok) bumpTrace(-2, "correct command");
-        else bumpTrace(4, "wrong command");
-
-        setMissionStep(nextStep);
-
-        if (nextStep === 5) {
-          setMissionDeadlineMsFromNow(12_000);
-          bannerPush("WINDOW", "Exfil window: 12s.", 1400);
-          pushThread("handler", "Exfil window is open. You have ~12 seconds.");
-        } else {
-          clearMissionDeadline();
-        }
-
-        setTimeout(() => inputRef.current?.focus(), 50);
-        return;
+    if (result.handled) {
+      if (result.ok && result.advanced) {
+        bumpTrace(-2, "correct command");
+      } else if (result.ok && result.gated) {
+        bumpTrace(-1, "gated command");
+      } else if (!result.ok) {
+        bumpTrace(4, "wrong command");
       }
 
-      if (missionRes.ok) bumpTrace(-2, "correct command");
-      else bumpTrace(4, "wrong command");
+      if (nextPhase === "terminal_drop" && prevPhase !== "terminal_drop") {
+        setMissionDeadlineMsFromNow(12_000);
+        bannerPush("WINDOW", "Exfil window: 12s.", 1400);
+        pushThread("handler", "Exfil window is open. You have ~12 seconds.");
+      } else if (nextPhase !== "terminal_drop") {
+        clearMissionDeadline();
+      }
 
       setTimeout(() => inputRef.current?.focus(), 50);
       return;
@@ -217,6 +168,7 @@ export default function TerminalScreen() {
 
     const res = runCommandEngine(cmd);
     res.output.forEach((line) => append("out", line));
+
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
@@ -289,7 +241,9 @@ export default function TerminalScreen() {
                 }
                 placeholderTextColor="rgba(255,255,255,0.35)"
                 style={styles.inputCmd}
-                onSubmitEditing={() => runCommand(input)}
+                onSubmitEditing={() => {
+                  void runCommand(input);
+                }}
                 returnKeyType="go"
                 editable
               />
@@ -297,7 +251,9 @@ export default function TerminalScreen() {
               <View style={styles.caret} />
 
               <Pressable
-                onPress={() => runCommand(input)}
+                onPress={() => {
+                  void runCommand(input);
+                }}
                 style={[styles.btn, terminalLocked && { opacity: 0.55 }]}
               >
                 <Text style={styles.btnTxt}>Run</Text>
