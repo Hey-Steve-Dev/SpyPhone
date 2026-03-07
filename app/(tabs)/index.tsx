@@ -32,13 +32,7 @@ const APPS: AppTile[] = [
     route: "/messages",
     color: "#ff9a7a",
   },
-  {
-    key: "sat",
-    label: "SAT/Relay",
-    icon: "⟲",
-    route: "/sat",
-    color: "#00d6c7",
-  },
+
   {
     key: "network",
     label: "Network",
@@ -94,6 +88,13 @@ const APPS: AppTile[] = [
     icon: "◷",
     route: "/ops",
     color: "#ff7043",
+  },
+  {
+    key: "log",
+    label: "Log",
+    icon: "≡",
+    route: "/log",
+    color: "#8fa3ff",
   },
 ];
 

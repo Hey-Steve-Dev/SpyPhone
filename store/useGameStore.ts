@@ -106,6 +106,31 @@ type ScannerState = {
   scriptedChatterPlayed: boolean;
 };
 
+export type GlobalLogKind =
+  | "system"
+  | "mission"
+  | "thread"
+  | "banner"
+  | "network"
+  | "jammer"
+  | "scanner"
+  | "camera"
+  | "notes"
+  | "mask"
+  | "trace"
+  | "timer"
+  | "terminal";
+
+export type GlobalLogItem = {
+  id: string;
+  at: number;
+  kind: GlobalLogKind;
+  text: string;
+};
+
+export type GameLogKind = GlobalLogKind;
+export type GameLogItem = GlobalLogItem;
+
 function makeId() {
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
@@ -247,6 +272,10 @@ type GameState = {
   booted: boolean;
   bootGame: () => void;
 
+  log: GlobalLogItem[];
+  pushLog: (kind: GlobalLogKind, text: string) => void;
+  clearLog: () => void;
+
   network: NetworkState;
   setNetwork: (patch: Partial<NetworkState>) => void;
   appendNetworkLog: (item: NetworkLogItem) => void;
@@ -379,9 +408,31 @@ export const useGameStore = create<GameState>((set, get) => ({
   secondsLeft: 150,
   timerRunning: true,
   hallwayOneOccupied: false,
-  setHallwayOneOccupied: (occupied) => set({ hallwayOneOccupied: occupied }),
+  setHallwayOneOccupied: (occupied) => {
+    set({ hallwayOneOccupied: occupied });
+    get().pushLog(
+      "camera",
+      `Hallway occupancy manually set to ${occupied ? "occupied" : "clear"}.`,
+    );
+  },
 
   booted: false,
+
+  log: [
+    {
+      id: makeId(),
+      at: Date.now(),
+      kind: "system",
+      text: "Ghost phone system initialized.",
+    },
+  ],
+
+  pushLog: (kind, text) =>
+    set((s) => ({
+      log: [...s.log, { id: makeId(), at: Date.now(), kind, text }].slice(-500),
+    })),
+
+  clearLog: () => set({ log: [] }),
 
   network: {
     preferredBand: "LTE",
@@ -398,6 +449,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (s.booted) return;
 
     set({ booted: true });
+    get().pushLog("system", "Boot sequence started.");
     get().setTerminalLocked(true);
     get().setMissionStep(0);
     get().clearThread();
@@ -427,6 +479,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     get().clearReplyChips();
     get().pushThread("player", "moving now");
+    get().pushLog(
+      "mission",
+      `Player attempted movement while hall was ${occupied ? "occupied" : "clear"}.`,
+    );
 
     if (occupied) {
       await get().pushHandlerSequence([
@@ -434,6 +490,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       ]);
 
       get().bannerPush("ALERT", "Compromised.", 1800);
+      get().pushLog("mission", "Movement denied. Player compromised.");
 
       setTimeout(() => {
         if (
@@ -455,6 +512,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().bannerPush("MOVE", "Proceed.", 1600);
     get().stopCameraSim();
     get().setTerminalLocked(false);
+    get().pushLog("mission", "Movement approved. Terminal access restored.");
   },
 
   setNetwork: (patch) =>
@@ -468,10 +526,33 @@ export const useGameStore = create<GameState>((set, get) => ({
       const justLinked = prev.connectedId == null && connectedNow;
       const outState: { network: NetworkState } = { network: next };
 
+      if ("preferredBand" in patch && patch.preferredBand) {
+        get().pushLog(
+          "network",
+          `Preferred band set to ${patch.preferredBand}.`,
+        );
+      }
+      if ("autoHop" in patch && typeof patch.autoHop === "boolean") {
+        get().pushLog(
+          "network",
+          `Auto-hop ${patch.autoHop ? "enabled" : "disabled"}.`,
+        );
+      }
+      if ("stealth" in patch && typeof patch.stealth === "boolean") {
+        get().pushLog(
+          "network",
+          `Network stealth ${patch.stealth ? "enabled" : "disabled"}.`,
+        );
+      }
+
       if (justLinked) {
         const meta = (patch.connectedMeta ??
           next.connectedMeta) as NetworkConnectedMeta | null;
 
+        get().pushLog(
+          "network",
+          `Linked to ${meta?.ssid ?? "network"} on ${meta?.band ?? "unknown band"}.`,
+        );
         get().clearReplyChips();
         get().pushThread(
           "handler",
@@ -489,13 +570,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     set((s) => {
       const next = [...s.network.logs, item];
       const trimmed = next.length > 250 ? next.slice(next.length - 250) : next;
+      get().pushLog("network", `[${item.level}] ${item.text}`);
       return { network: { ...s.network, logs: trimmed } };
     }),
 
   clearNetworkLog: () =>
-    set((s) => ({
-      network: { ...s.network, logs: [] },
-    })),
+    set((s) => {
+      get().pushLog("network", "Network log cleared.");
+      return {
+        network: { ...s.network, logs: [] },
+      };
+    }),
 
   heartbeatOn: false,
 
@@ -504,6 +589,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (s.heartbeatOn) return;
 
     set({ heartbeatOn: true });
+    get().pushLog("timer", "Heartbeat started.");
 
     const id = setInterval(() => {
       const st = get();
@@ -519,6 +605,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const id = fn?._id;
     if (id) clearInterval(id);
     set({ heartbeatOn: false });
+    get().pushLog("timer", "Heartbeat stopped.");
   },
 
   commsConnected: false,
@@ -536,9 +623,18 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   setJammer: (patch) =>
-    set((s) => ({
-      jammer: { ...s.jammer, ...patch },
-    })),
+    set((s) => {
+      const next = { ...s.jammer, ...patch };
+      const changed = Object.entries(patch).map(
+        ([k, v]) => `${k}=${String(v)}`,
+      );
+      if (changed.length) {
+        get().pushLog("jammer", `Jammer updated: ${changed.join(" | ")}`);
+      }
+      return {
+        jammer: next,
+      };
+    }),
 
   mask: "ghost",
 
@@ -576,11 +672,17 @@ export const useGameStore = create<GameState>((set, get) => ({
     const profile = state.masks.find((m) => m.id === id);
     if (!profile) return;
 
+    const nextTrace = clamp(state.trace + profile.traceModifier, 0, 100);
+
     set({
       mask: id,
-      trace: clamp(state.trace + profile.traceModifier, 0, 100),
+      trace: nextTrace,
     });
 
+    get().pushLog(
+      "mask",
+      `Mask switched to ${profile.label}. Trace adjusted to ${nextTrace}%.`,
+    );
     get().bannerPush(
       "MASK SWITCHED",
       `Identity changed to ${profile.label}`,
@@ -589,9 +691,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   audioScannerOn: false,
-  setAudioScannerOn: (on) => set({ audioScannerOn: on }),
+  setAudioScannerOn: (on) => {
+    set({ audioScannerOn: on });
+    get().pushLog("scanner", `Audio scanner ${on ? "enabled" : "disabled"}.`);
+  },
   toggleAudioScanner: () =>
-    set((state) => ({ audioScannerOn: !state.audioScannerOn })),
+    set((state) => {
+      const next = !state.audioScannerOn;
+      get().pushLog(
+        "scanner",
+        `Audio scanner ${next ? "enabled" : "disabled"}.`,
+      );
+      return { audioScannerOn: next };
+    }),
 
   scanner: {
     poweredOn: false,
@@ -602,41 +714,56 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   setScannerPower: (on) =>
-    set((s) => ({
-      scanner: {
-        ...s.scanner,
-        poweredOn: on,
-      },
-    })),
+    set((s) => {
+      get().pushLog("scanner", `Scanner power ${on ? "on" : "off"}.`);
+      return {
+        scanner: {
+          ...s.scanner,
+          poweredOn: on,
+        },
+      };
+    }),
 
   toggleScannerPower: () =>
-    set((s) => ({
-      scanner: {
-        ...s.scanner,
-        poweredOn: !s.scanner.poweredOn,
-      },
-    })),
+    set((s) => {
+      const next = !s.scanner.poweredOn;
+      get().pushLog("scanner", `Scanner power ${next ? "on" : "off"}.`);
+      return {
+        scanner: {
+          ...s.scanner,
+          poweredOn: next,
+        },
+      };
+    }),
 
   setScannerHold: (on) =>
-    set((s) => ({
-      scanner: {
-        ...s.scanner,
-        hold: on,
-      },
-    })),
+    set((s) => {
+      get().pushLog("scanner", `Scanner hold ${on ? "enabled" : "released"}.`);
+      return {
+        scanner: {
+          ...s.scanner,
+          hold: on,
+        },
+      };
+    }),
 
   setScannerActiveFreq: (freq) =>
-    set((s) => ({
-      scanner: {
-        ...s.scanner,
-        activeFreq: freq,
-      },
-    })),
+    set((s) => {
+      get().pushLog("scanner", `Active frequency set to ${freq ?? "none"}.`);
+      return {
+        scanner: {
+          ...s.scanner,
+          activeFreq: freq,
+        },
+      };
+    }),
 
   appendScannerLog: (item) =>
     set((s) => {
       const next = [...s.scanner.logs, item];
       const trimmed = next.length > 150 ? next.slice(next.length - 150) : next;
+
+      get().pushLog("scanner", `${item.label} ${item.freq}: ${item.text}`);
 
       return {
         scanner: {
@@ -647,12 +774,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   clearScannerLog: () =>
-    set((s) => ({
-      scanner: {
-        ...s.scanner,
-        logs: [],
-      },
-    })),
+    set((s) => {
+      get().pushLog("scanner", "Scanner log cleared.");
+      return {
+        scanner: {
+          ...s.scanner,
+          logs: [],
+        },
+      };
+    }),
 
   setScannerScriptedChatterPlayed: (on) =>
     set((s) => ({
@@ -663,16 +793,19 @@ export const useGameStore = create<GameState>((set, get) => ({
     })),
 
   resetScanner: () =>
-    set((s) => ({
-      scanner: {
-        ...s.scanner,
-        poweredOn: false,
-        hold: false,
-        activeFreq: null,
-        logs: [],
-        scriptedChatterPlayed: false,
-      },
-    })),
+    set((s) => {
+      get().pushLog("scanner", "Scanner reset to defaults.");
+      return {
+        scanner: {
+          ...s.scanner,
+          poweredOn: false,
+          hold: false,
+          activeFreq: null,
+          logs: [],
+          scriptedChatterPlayed: false,
+        },
+      };
+    }),
 
   triggerScannerMissionChatter: async () => {
     const s = get();
@@ -704,24 +837,38 @@ export const useGameStore = create<GameState>((set, get) => ({
       },
     ]);
 
+    get().pushLog("mission", "Scanner chatter advanced the mission.");
     get().setMissionStep(4);
   },
 
   terminalLocked: false,
 
   banner: { on: false, title: "SECURE COMMS", message: "…" },
-  setBanner: (banner) => set({ banner }),
+  setBanner: (banner) => {
+    set({ banner });
+    get().pushLog(
+      "banner",
+      `${banner.on ? "SHOW" : "SET"} ${banner.title}: ${banner.message}`,
+    );
+  },
 
   thread: [],
   pushThread: (from, text) => {
     const item: ThreadItem = { id: makeId(), at: Date.now(), from, text };
     set((s) => ({ thread: [...s.thread, item] }));
+    get().pushLog("thread", `${from.toUpperCase()}: ${text}`);
   },
   addThreadItem: (item) =>
-    set((s) => ({
-      thread: [...s.thread, item],
-    })),
-  clearThread: () => set({ thread: [] }),
+    set((s) => {
+      get().pushLog("thread", `${item.from.toUpperCase()}: ${item.text}`);
+      return {
+        thread: [...s.thread, item],
+      };
+    }),
+  clearThread: () => {
+    set({ thread: [] });
+    get().pushLog("thread", "Thread cleared.");
+  },
 
   replyChips: [],
   setReplyChips: (chips) => set({ replyChips: chips }),
@@ -780,6 +927,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       default: {
         get().pushThread("player", label);
         get().clearReplyChips();
+        get().pushLog("thread", `Player selected reply action: ${action}`);
 
         switch (action) {
           case "review_phone": {
@@ -837,17 +985,33 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   mission: { missionId: "bootcamp_01", step: 0 },
-  setMissionStep: (step) => set((s) => ({ mission: { ...s.mission, step } })),
-  resetMission: () => set({ mission: { missionId: "bootcamp_01", step: 0 } }),
+  setMissionStep: (step) =>
+    set((s) => {
+      get().pushLog("mission", `Mission step set to ${step}.`);
+      return { mission: { ...s.mission, step } };
+    }),
+  resetMission: () => {
+    set({ mission: { missionId: "bootcamp_01", step: 0 } });
+    get().pushLog("mission", "Mission reset to bootcamp_01 step 0.");
+  },
 
   missionDeadlineAt: null,
-  setMissionDeadlineMsFromNow: (ms) =>
-    set({ missionDeadlineAt: Date.now() + ms }),
-  clearMissionDeadline: () => set({ missionDeadlineAt: null }),
+  setMissionDeadlineMsFromNow: (ms) => {
+    set({ missionDeadlineAt: Date.now() + ms });
+    get().pushLog("mission", `Mission deadline set ${ms}ms from now.`);
+  },
+  clearMissionDeadline: () => {
+    set({ missionDeadlineAt: null });
+    get().pushLog("mission", "Mission deadline cleared.");
+  },
 
   setTrace: (next, reason) => {
     const v = clamp(next, 0, 100);
     set({ trace: v });
+    get().pushLog(
+      "trace",
+      `Trace set to ${v}%${reason ? ` (${reason})` : ""}.`,
+    );
 
     if (v >= 100) {
       set({
@@ -858,8 +1022,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           message: "Trace hit 100%. You're compromised.",
         },
       });
-    } else if (reason) {
-      // no-op
+      get().pushLog("trace", "Trace hit 100%. Mission compromised.");
     }
   },
 
@@ -868,7 +1031,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     setTrace(trace + delta, reason);
   },
 
-  setTimerRunning: (on) => set({ timerRunning: on }),
+  setTimerRunning: (on) => {
+    set({ timerRunning: on });
+    get().pushLog("timer", `Mission timer ${on ? "started" : "paused"}.`);
+  },
 
   tick: () => {
     const s = get();
@@ -883,11 +1049,17 @@ export const useGameStore = create<GameState>((set, get) => ({
           message: "Time expired. Mission failed.",
         },
       });
+      get().pushLog("timer", "Timer expired. Mission failed.");
       get().bumpTrace(10, "timeout");
       return;
     }
 
     set({ secondsLeft: s.secondsLeft - 1 });
+
+    const nextSeconds = s.secondsLeft - 1;
+    if (nextSeconds > 0 && nextSeconds % 30 === 0) {
+      get().pushLog("timer", `${nextSeconds}s remaining.`);
+    }
 
     const j = get().jammer;
     if (j.enabled && s.secondsLeft % 5 === 0) {
@@ -898,22 +1070,30 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setTerminalLocked: (on) => {
     set({ terminalLocked: on });
+    get().pushLog("terminal", `Terminal ${on ? "locked" : "unlocked"}.`);
     if (on) get().bannerPush("LOCK", "Stay on task. Terminal only.", 1800);
   },
 
   bannerPush: (title, message, ms = 4200) => {
     set({ banner: { on: true, title, message } });
+    get().pushLog("banner", `${title}: ${message}`);
+
     if (ms > 0) {
       setTimeout(() => {
         const b = get().banner;
         if (b.title === title && b.message === message) {
           set({ banner: { ...b, on: false } });
+          get().pushLog("banner", `${title} cleared.`);
         }
       }, ms);
     }
   },
 
-  bannerClear: () => set((s) => ({ banner: { ...s.banner, on: false } })),
+  bannerClear: () =>
+    set((s) => {
+      get().pushLog("banner", `${s.banner.title} manually cleared.`);
+      return { banner: { ...s.banner, on: false } };
+    }),
 
   connectComms: () => {
     const s = get();
@@ -921,11 +1101,16 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     if (s.commsJammed) {
       set({ commsConnected: false, commsConnecting: false });
+      get().pushLog("network", "Secure connection blocked by jammer.");
       get().bannerPush("COMMS", "Connection blocked.", 2500);
       return;
     }
 
     set({ commsConnecting: true, commsConnected: false });
+    get().pushLog(
+      "network",
+      `Secure handshake started on ${j.band} at ${j.strength}% power.`,
+    );
     get().bannerPush("SECURE COMMS", "Securing connection…", 700);
 
     const band = j.band ?? "UHF";
@@ -952,6 +1137,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       if (st.commsJammed) {
         set({ commsConnecting: false, commsConnected: false });
+        get().pushLog(
+          "network",
+          "Handshake aborted because jammer became active.",
+        );
         return;
       }
 
@@ -959,6 +1148,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       if (fail) {
         set({ commsConnecting: false, commsConnected: false });
+        get().pushLog("network", "Handshake failed.");
         get().bannerPush("COMMS", "Handshake failed.", 2600);
 
         void get().pushHandlerSequence([
@@ -977,6 +1167,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
       } else {
         set({ commsConnecting: false, commsConnected: true });
+        get().pushLog("network", "Secure link established.");
         get().bannerPush("COMMS", "Secure link established.", 1800);
 
         void (async () => {
@@ -1004,6 +1195,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   setCommsJammed: (on) => {
     set({ commsJammed: on });
     set((s) => ({ jammer: { ...s.jammer, enabled: on } }));
+    get().pushLog("jammer", `Comms jam ${on ? "enabled" : "disabled"}.`);
 
     if (on) {
       set({ commsConnected: false, commsConnecting: false });
@@ -1027,6 +1219,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const cam = s.cameras[id];
 
     set({ selectedCamId: id });
+    get().pushLog("camera", `Selected ${cam?.label ?? `CAM ${id}`}.`);
 
     if (id === 12) {
       const occupied = cam?.state === "occupied" || cam?.state === "motion";
@@ -1050,56 +1243,78 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   setCameraState: (id, state) =>
-    set((s) => ({
-      hallwayOneOccupied:
-        id === 12
-          ? state === "occupied" || state === "motion"
-          : s.hallwayOneOccupied,
-      cameras: {
-        ...s.cameras,
-        [id]: {
-          ...s.cameras[id],
-          state,
-          alert: state === "motion" || state === "occupied",
-          hasTarget: state === "occupied" ? s.cameras[id].hasTarget : false,
-          lastSeenAt:
-            state === "motion" || state === "occupied"
-              ? Date.now()
-              : s.cameras[id].lastSeenAt,
+    set((s) => {
+      const prev = s.cameras[id];
+      if (prev && prev.state !== state) {
+        get().pushLog(
+          "camera",
+          `${prev.label} changed from ${prev.state} to ${state}.`,
+        );
+      }
+
+      return {
+        hallwayOneOccupied:
+          id === 12
+            ? state === "occupied" || state === "motion"
+            : s.hallwayOneOccupied,
+        cameras: {
+          ...s.cameras,
+          [id]: {
+            ...s.cameras[id],
+            state,
+            alert: state === "motion" || state === "occupied",
+            hasTarget: state === "occupied" ? s.cameras[id].hasTarget : false,
+            lastSeenAt:
+              state === "motion" || state === "occupied"
+                ? Date.now()
+                : s.cameras[id].lastSeenAt,
+          },
         },
-      },
-    })),
+      };
+    }),
 
   triggerCameraTarget: (id) =>
-    set((s) => ({
-      hallwayOneOccupied: id === 12 ? true : s.hallwayOneOccupied,
-      cameras: {
-        ...s.cameras,
-        [id]: {
-          ...s.cameras[id],
-          state: "occupied",
-          alert: true,
-          hasTarget: true,
-          lastSeenAt: Date.now(),
+    set((s) => {
+      get().pushLog(
+        "camera",
+        `${s.cameras[id]?.label ?? `CAM ${id}`} target detected.`,
+      );
+      return {
+        hallwayOneOccupied: id === 12 ? true : s.hallwayOneOccupied,
+        cameras: {
+          ...s.cameras,
+          [id]: {
+            ...s.cameras[id],
+            state: "occupied",
+            alert: true,
+            hasTarget: true,
+            lastSeenAt: Date.now(),
+          },
         },
-      },
-      targetCameraId: id,
-    })),
+        targetCameraId: id,
+      };
+    }),
 
   clearCameraTarget: (id) =>
-    set((s) => ({
-      hallwayOneOccupied: id === 12 ? false : s.hallwayOneOccupied,
-      cameras: {
-        ...s.cameras,
-        [id]: {
-          ...s.cameras[id],
-          state: "empty",
-          alert: false,
-          hasTarget: false,
+    set((s) => {
+      get().pushLog(
+        "camera",
+        `${s.cameras[id]?.label ?? `CAM ${id}`} target cleared.`,
+      );
+      return {
+        hallwayOneOccupied: id === 12 ? false : s.hallwayOneOccupied,
+        cameras: {
+          ...s.cameras,
+          [id]: {
+            ...s.cameras[id],
+            state: "empty",
+            alert: false,
+            hasTarget: false,
+          },
         },
-      },
-      targetCameraId: s.targetCameraId === id ? null : s.targetCameraId,
-    })),
+        targetCameraId: s.targetCameraId === id ? null : s.targetCameraId,
+      };
+    }),
 
   startCameraObjective: (targetId = 12) => {
     get().resetCameras();
@@ -1110,6 +1325,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       targetCameraId: targetId,
     });
 
+    get().pushLog("mission", `Camera objective started on CAM ${targetId}.`);
     get().setCameraState(12, "occupied");
     get().bannerPush("CAMERAS", "Watch camera 12.", 1800);
   },
@@ -1123,6 +1339,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       cameraObjectiveActive: false,
     });
 
+    get().pushLog("mission", "Camera objective resolved. Hall is clear.");
     get().bannerPush("OBJECTIVE", "Hall is clear.", 1800);
   },
 
@@ -1140,6 +1357,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const s = get();
     if (s.cameraSimTimer) return;
 
+    get().pushLog("camera", "Camera simulation started.");
+
     const timer = setInterval(() => {
       const st = get();
       if (st.standbyMode) return;
@@ -1149,6 +1368,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         const age = cam12?.lastSeenAt ? Date.now() - cam12.lastSeenAt : 0;
 
         if (cam12?.state === "occupied" && age > 4500) {
+          get().pushLog("camera", "CAM 12 auto-cleared after inactivity.");
           set((prev) => ({
             hallwayOneOccupied: false,
             cameras: {
@@ -1180,6 +1400,13 @@ export const useGameStore = create<GameState>((set, get) => ({
         const current = prev.cameras[pickedId];
         if (!current) return prev;
 
+        if (current.state !== nextState) {
+          get().pushLog(
+            "camera",
+            `${current.label} simulated state ${nextState}.`,
+          );
+        }
+
         return {
           cameras: {
             ...prev.cameras,
@@ -1205,30 +1432,45 @@ export const useGameStore = create<GameState>((set, get) => ({
     const s = get();
     if (s.cameraSimTimer) clearInterval(s.cameraSimTimer);
     set({ cameraSimTimer: null });
+    get().pushLog("camera", "Camera simulation stopped.");
   },
 
   notes: [],
 
   addNote: (note) =>
-    set((s) => ({
-      notes: [note, ...s.notes],
-    })),
+    set((s) => {
+      get().pushLog("notes", `Note added: ${note.title || "Untitled"}.`);
+      return {
+        notes: [note, ...s.notes],
+      };
+    }),
 
   updateNote: (id, patch) =>
-    set((s) => ({
-      notes: s.notes.map((note) =>
-        note.id === id
-          ? {
-              ...note,
-              ...patch,
-              updatedAt: Date.now(),
-            }
-          : note,
-      ),
-    })),
+    set((s) => {
+      const target = s.notes.find((note) => note.id === id);
+      get().pushLog(
+        "notes",
+        `Note updated: ${patch.title ?? target?.title ?? id}.`,
+      );
+      return {
+        notes: s.notes.map((note) =>
+          note.id === id
+            ? {
+                ...note,
+                ...patch,
+                updatedAt: Date.now(),
+              }
+            : note,
+        ),
+      };
+    }),
 
   deleteNote: (id) =>
-    set((s) => ({
-      notes: s.notes.filter((note) => note.id !== id),
-    })),
+    set((s) => {
+      const target = s.notes.find((note) => note.id === id);
+      get().pushLog("notes", `Note deleted: ${target?.title ?? id}.`);
+      return {
+        notes: s.notes.filter((note) => note.id !== id),
+      };
+    }),
 }));

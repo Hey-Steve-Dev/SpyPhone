@@ -12,15 +12,13 @@ export default function PhoneLayout() {
       <Stack.Screen name="network" />
       <Stack.Screen name="audio-scanner" />
       <Stack.Screen name="scanner" />
-
-      <Stack.Screen name="sat" />
       <Stack.Screen name="jammer" />
       <Stack.Screen name="cameras" />
       <Stack.Screen name="notes" />
       <Stack.Screen name="mask" />
       <Stack.Screen name="vault" />
       <Stack.Screen name="ops" />
-      <Stack.Screen name="video-test" />
+      <Stack.Screen name="log" />
     </Stack>
   );
 }
