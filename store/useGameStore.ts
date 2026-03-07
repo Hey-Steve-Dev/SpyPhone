@@ -246,6 +246,14 @@ type GameState = {
   setReplyChips: (chips: ReplyChip[]) => void;
   clearReplyChips: () => void;
 
+  messagesInputEnabled: boolean;
+  messagesSendEnabled: boolean;
+  setMessagesInputEnabled: (enabled: boolean) => void;
+  setMessagesSendEnabled: (enabled: boolean) => void;
+
+  handleMessageReplyAction: (action: string, label: string) => void;
+  submitMessageText: (text: string) => void;
+
   mission: MissionState;
   setMissionStep: (step: number) => void;
   resetMission: () => void;
@@ -409,21 +417,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   heartbeatOn: false,
 
-  jammer: {
-    enabled: false,
-    band: "UHF",
-    strength: 62,
-    sweep: "narrow",
-    burst: "med",
-    stealth: true,
-    autoMask: false,
-  },
-
-  setJammer: (patch) =>
-    set((s) => ({
-      jammer: { ...s.jammer, ...patch },
-    })),
-
   startHeartbeat: () => {
     const s = get();
     if (s.heartbeatOn) return;
@@ -450,6 +443,21 @@ export const useGameStore = create<GameState>((set, get) => ({
   commsConnecting: false,
   commsJammed: false,
 
+  jammer: {
+    enabled: false,
+    band: "UHF",
+    strength: 62,
+    sweep: "narrow",
+    burst: "med",
+    stealth: true,
+    autoMask: false,
+  },
+
+  setJammer: (patch) =>
+    set((s) => ({
+      jammer: { ...s.jammer, ...patch },
+    })),
+
   terminalLocked: false,
 
   banner: { on: false, title: "SECURE COMMS", message: "…" },
@@ -469,6 +477,75 @@ export const useGameStore = create<GameState>((set, get) => ({
   replyChips: [],
   setReplyChips: (chips) => set({ replyChips: chips }),
   clearReplyChips: () => set({ replyChips: [] }),
+
+  messagesInputEnabled: true,
+  messagesSendEnabled: true,
+  setMessagesInputEnabled: (enabled) => set({ messagesInputEnabled: enabled }),
+  setMessagesSendEnabled: (enabled) => set({ messagesSendEnabled: enabled }),
+
+  handleMessageReplyAction: (action, label) => {
+    switch (action) {
+      case "moving_now": {
+        get().attemptMoveNow();
+        return;
+      }
+
+      default: {
+        get().pushThread("player", label);
+        get().clearReplyChips();
+
+        switch (action) {
+          case "review_phone": {
+            get().pushThread(
+              "handler",
+              "Ghost phone review: messages are local-first, terminal is for controlled actions, jammer buys time, network helps you pivot fast.",
+            );
+            get().pushThread(
+              "handler",
+              "You only get short burst comms. Read fast, act local, keep moving.",
+            );
+            get().setReplyChips([
+              { id: "review_ack", label: "Got it", action: "review_ack" },
+            ]);
+            return;
+          }
+
+          case "skip_review": {
+            get().pushThread(
+              "handler",
+              "Good. Stay dark and follow instructions exactly. We only get short burst windows.",
+            );
+            get().pushThread(
+              "handler",
+              "First action: get us on a network. Open Network and link up.",
+            );
+            return;
+          }
+
+          case "review_ack": {
+            get().pushThread(
+              "handler",
+              "Good. First action: get us on a network. Open Network and link up.",
+            );
+            return;
+          }
+
+          default:
+            return;
+        }
+      }
+    }
+  },
+
+  submitMessageText: (text) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+
+    const s = get();
+    if (!s.messagesInputEnabled || !s.messagesSendEnabled) return;
+
+    get().pushThread("player", trimmed);
+  },
 
   mission: { missionId: "bootcamp_01", step: 0 },
   setMissionStep: (step) => set((s) => ({ mission: { ...s.mission, step } })),
