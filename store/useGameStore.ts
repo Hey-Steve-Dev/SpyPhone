@@ -1,3 +1,8 @@
+import {
+  initGameAudio,
+  playIncomingMessageFx,
+  setGameSoundEnabled,
+} from "@/lib/gameAudio";
 import type { MissionState } from "@/lib/missionEngine";
 import { create } from "zustand";
 
@@ -278,6 +283,10 @@ type GameState = {
   booted: boolean;
   bootGame: () => void;
 
+  soundEnabled: boolean;
+  setSoundEnabled: (enabled: boolean) => Promise<void>;
+  toggleSoundEnabled: () => Promise<void>;
+
   log: GlobalLogItem[];
   pushLog: (kind: GlobalLogKind, text: string) => void;
   clearLog: () => void;
@@ -429,6 +438,23 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   booted: false,
 
+  soundEnabled: false,
+
+  setSoundEnabled: async (enabled) => {
+    if (enabled) {
+      await initGameAudio();
+    }
+
+    setGameSoundEnabled(enabled);
+    set({ soundEnabled: enabled });
+    get().pushLog("system", `Game sound ${enabled ? "enabled" : "disabled"}.`);
+  },
+
+  toggleSoundEnabled: async () => {
+    const next = !get().soundEnabled;
+    await get().setSoundEnabled(next);
+  },
+
   log: [
     {
       id: makeId(),
@@ -458,6 +484,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   bootGame: () => {
     const s = get();
     if (s.booted) return;
+
+    void initGameAudio();
 
     set({ booted: true });
     get().pushLog("system", "Boot sequence started.");
@@ -875,6 +903,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     const item: ThreadItem = { id: makeId(), at: Date.now(), from, text };
     set((s) => ({ thread: [...s.thread, item] }));
     get().pushLog("thread", `${from.toUpperCase()}: ${text}`);
+
+    if (from === "handler" || from === "system") {
+      void playIncomingMessageFx();
+    }
   },
   addThreadItem: (item) =>
     set((s) => {
