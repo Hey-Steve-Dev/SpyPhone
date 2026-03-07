@@ -13,12 +13,8 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
-
-// Slight comms latency so OPS doesn’t feel omniscient
 const OPS_BASE_LAG_MS = 650;
 const OPS_JITTER_MS = 550;
-
-type Line = { id: string; kind: "out" | "cmd"; text: string };
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -42,21 +38,19 @@ export default function TerminalScreen() {
 
   const pushThread = useGameStore((s) => s.pushThread);
 
-  // ✅ NEW: boot + gating flags
   const bootGame = useGameStore((s) => s.bootGame);
   const booted = useGameStore((s) => s.booted);
   const terminalLocked = useGameStore((s) => s.terminalLocked);
   const commsConnected = useGameStore((s) => s.commsConnected);
 
-  const [cwd] = useState("~/ops");
-  const [mode, setModeState] = useState<"easy" | "strict">("easy");
-  const [input, setInput] = useState("");
-  const [lines, setLines] = useState<Line[]>([
-    { id: "l1", kind: "out", text: "Secure shell — Git Bash (simulated)" },
-    { id: "l2", kind: "out", text: "Type `help` to list available commands." },
-  ]);
+  const cwd = useGameStore((s) => s.terminal.cwd);
+  const mode = useGameStore((s) => s.terminal.mode);
+  const lines = useGameStore((s) => s.terminal.lines);
+  const appendTerminalLine = useGameStore((s) => s.appendTerminalLine);
+  const clearTerminalLines = useGameStore((s) => s.clearTerminalLines);
+  const setTerminalMode = useGameStore((s) => s.setTerminalMode);
 
-  // ✅ NEW: intro should only fire once, AFTER network handshake unlocks terminal
+  const [input, setInput] = useState("");
   const [introFired, setIntroFired] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
@@ -64,12 +58,8 @@ export default function TerminalScreen() {
 
   const prompt = useMemo(() => `${cwd} $`, [cwd]);
 
-  function append(kind: Line["kind"], text: string) {
-    setLines((prev) => [
-      ...prev,
-      { id: String(Date.now()) + Math.random(), kind, text },
-    ]);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 0);
+  function append(kind: "out" | "cmd", text: string) {
+    appendTerminalLine(kind, text);
   }
 
   function jitter() {
@@ -82,12 +72,18 @@ export default function TerminalScreen() {
     return clamp(base + text.length * perChar, 1200, 2600);
   }
 
-  // Keep input focused whenever a banner pops in (store update can blur RN TextInput)
   useEffect(() => {
     if (!bannerOn) return;
     const id = setTimeout(() => inputRef.current?.focus(), 50);
     return () => clearTimeout(id);
   }, [bannerOn]);
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated: false });
+    }, 0);
+    return () => clearTimeout(id);
+  }, [lines]);
 
   function opsBurstDelayed(msgs: string[], msgMsEach = 3500, gap = 250) {
     const startDelay = jitter();
@@ -124,16 +120,11 @@ export default function TerminalScreen() {
     });
   }
 
-  // ✅ STEP 0: ensure bootGame runs once when Terminal mounts
   useEffect(() => {
     if (booted) return;
     bootGame();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [booted]);
+  }, [booted, bootGame]);
 
-  // ✅ STEP 1: run the mission intro ONLY after:
-  // - terminal is unlocked (handshake succeeded)
-  // - commsConnected is true (extra safety)
   useEffect(() => {
     if (introFired) return;
 
@@ -144,20 +135,17 @@ export default function TerminalScreen() {
 
     setIntroFired(true);
 
-    // This is the “connecting to shell / intro” beat
     const handlerLines = missionIntro(mission);
     if (handlerLines?.length) {
       opsBurstDelayed(handlerLines, 3500, 250);
       opsThreadDelayed(handlerLines);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [terminalLocked, commsConnected, introFired]);
+  }, [terminalLocked, commsConnected, introFired, mission]);
 
   function runCommand(raw: string) {
     const cmd = raw.trim();
     if (!cmd) return;
 
-    // ✅ Hard gate: terminal is locked until network + handshake
     if (terminalLocked) {
       append("out", "LOCKED: No secure shell.");
       append("out", "Open Network → Scan → Link to establish comms.");
@@ -167,7 +155,6 @@ export default function TerminalScreen() {
       return;
     }
 
-    // deadline enforcement (only while a deadline is active)
     if (missionDeadlineAt && Date.now() > missionDeadlineAt) {
       append("out", "WINDOW MISSED: link dropped.");
       append("out", "Trace spike.");
@@ -184,7 +171,7 @@ export default function TerminalScreen() {
     setTimeout(() => inputRef.current?.focus(), 10);
 
     if (cmd.toLowerCase() === "clear") {
-      setLines([]);
+      clearTerminalLines();
       setTimeout(() => inputRef.current?.focus(), 10);
       return;
     }
@@ -195,7 +182,6 @@ export default function TerminalScreen() {
 
       if (missionRes.nextState) {
         const nextStep = missionRes.nextState.step;
-
         const opsLines = missionRes.handlerOut?.length
           ? missionRes.handlerOut
           : [];
@@ -249,7 +235,7 @@ export default function TerminalScreen() {
             onPress={() => {
               const next = mode === "easy" ? "strict" : "easy";
               setMode(next);
-              setModeState(next);
+              setTerminalMode(next);
               setTimeout(() => inputRef.current?.focus(), 50);
             }}
             style={styles.modeBtn}
@@ -305,7 +291,7 @@ export default function TerminalScreen() {
                 style={styles.inputCmd}
                 onSubmitEditing={() => runCommand(input)}
                 returnKeyType="go"
-                editable={true}
+                editable
               />
 
               <View style={styles.caret} />
@@ -415,7 +401,7 @@ const styles = StyleSheet.create({
   inputCmd: {
     flex: 1,
     fontSize: 13,
-    color: "#00e0ff", // player command color
+    color: "#00e0ff",
     fontFamily: "monospace" as any,
     paddingVertical: 0,
     paddingHorizontal: 0,

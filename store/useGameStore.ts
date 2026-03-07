@@ -116,6 +116,18 @@ type GoDarkState = {
   message: string;
 };
 
+type TerminalLine = {
+  id: string;
+  kind: "out" | "cmd";
+  text: string;
+};
+
+type TerminalState = {
+  cwd: string;
+  mode: "easy" | "strict";
+  lines: TerminalLine[];
+};
+
 export type GlobalLogKind =
   | "system"
   | "mission"
@@ -159,6 +171,21 @@ function rand(min: number, max: number) {
 }
 
 const CAMERA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+
+function makeInitialTerminal(): TerminalState {
+  return {
+    cwd: "~/ops",
+    mode: "easy",
+    lines: [
+      { id: "l1", kind: "out", text: "Secure shell — Git Bash (simulated)" },
+      {
+        id: "l2",
+        kind: "out",
+        text: "Type `help` to list available commands.",
+      },
+    ],
+  };
+}
 
 function makeInitialCameras(): Record<number, CameraFeed> {
   return {
@@ -330,6 +357,13 @@ type GameState = {
 
   terminalLocked: boolean;
 
+  terminal: TerminalState;
+  appendTerminalLine: (kind: TerminalLine["kind"], text: string) => void;
+  clearTerminalLines: () => void;
+  resetTerminalSession: () => void;
+  setTerminalMode: (mode: "easy" | "strict") => void;
+  setTerminalCwd: (cwd: string) => void;
+
   banner: Banner;
   setBanner: (banner: Banner) => void;
 
@@ -492,6 +526,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().setTerminalLocked(true);
     get().setMissionStep(0);
     get().clearThread();
+    get().resetTerminalSession();
 
     void (async () => {
       await get().pushHandlerSequence([
@@ -888,6 +923,63 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   terminalLocked: false,
+
+  terminal: makeInitialTerminal(),
+
+  appendTerminalLine: (kind, text) =>
+    set((s) => ({
+      terminal: {
+        ...s.terminal,
+        lines: [
+          ...s.terminal.lines,
+          {
+            id: makeId(),
+            kind,
+            text,
+          },
+        ],
+      },
+    })),
+
+  clearTerminalLines: () =>
+    set((s) => {
+      get().pushLog("terminal", "Terminal lines cleared.");
+      return {
+        terminal: {
+          ...s.terminal,
+          lines: [],
+        },
+      };
+    }),
+
+  resetTerminalSession: () => {
+    set({
+      terminal: makeInitialTerminal(),
+    });
+    get().pushLog("terminal", "Terminal session reset.");
+  },
+
+  setTerminalMode: (mode) =>
+    set((s) => {
+      get().pushLog("terminal", `Terminal mode set to ${mode}.`);
+      return {
+        terminal: {
+          ...s.terminal,
+          mode,
+        },
+      };
+    }),
+
+  setTerminalCwd: (cwd) =>
+    set((s) => {
+      get().pushLog("terminal", `Terminal cwd set to ${cwd}.`);
+      return {
+        terminal: {
+          ...s.terminal,
+          cwd,
+        },
+      };
+    }),
 
   banner: { on: false, title: "SECURE COMMS", message: "…" },
   setBanner: (banner) => {
