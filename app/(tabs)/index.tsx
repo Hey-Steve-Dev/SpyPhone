@@ -32,7 +32,6 @@ const APPS: AppTile[] = [
     route: "/messages",
     color: "#ff9a7a",
   },
-
   {
     key: "network",
     label: "Network",
@@ -43,13 +42,13 @@ const APPS: AppTile[] = [
   {
     key: "echoscan",
     label: "EchoScan",
-    icon: "◉",
+    icon: "◍",
     route: "/audio-scanner",
     color: "#5da8ff",
   },
   {
     key: "scanner",
-    label: "Scanner",
+    label: "RF Scanner",
     icon: "⌯",
     route: "/scanner",
     color: "#6df3ac",
@@ -116,10 +115,23 @@ export default function HomePhoneScreen() {
                 pressed && styles.tilePressed,
               ]}
             >
-              <View style={[styles.icon, { backgroundColor: a.color + "22" }]}>
-                <Text style={styles.iconText}>{a.icon}</Text>
+              <View style={styles.tileInner}>
+                <View
+                  style={[
+                    styles.icon,
+                    {
+                      backgroundColor: a.color + "2E",
+                      borderColor: a.color + "66",
+                    },
+                  ]}
+                >
+                  <Text style={[styles.iconText, { color: a.color }]}>
+                    {a.icon}
+                  </Text>
+                </View>
+
+                <Text style={styles.label}>{a.label}</Text>
               </View>
-              <Text style={styles.label}>{a.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -140,37 +152,46 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    rowGap: 14,
+    rowGap: 16,
     marginTop: 4,
   },
+
   tile: {
     width: "33.3333%",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 10,
+  },
+
+  tileInner: {
     alignItems: "center",
     justifyContent: "center",
   },
+
   tilePressed: {
-    transform: [{ scale: 0.96 }],
+    transform: [{ scale: 0.94 }],
     opacity: 0.9,
   },
 
   icon: {
-    width: 56,
-    height: 56,
+    width: 58,
+    height: 58,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
+    borderWidth: 1,
   },
+
   iconText: {
-    fontSize: 20,
-    color: "rgba(255,255,255,0.95)",
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "800",
   },
 
   label: {
     fontSize: 11,
     textAlign: "center",
-    color: "rgba(255,255,255,0.68)",
+    color: "rgba(255,255,255,0.85)",
+    fontWeight: "600",
   },
 });
