@@ -16,7 +16,6 @@ export default function MessagesScreen() {
   const bootGame = useGameStore((s) => s.bootGame);
   const thread = useGameStore((s) => s.thread);
   const replyChips = useGameStore((s) => s.replyChips);
-  const banner = useGameStore((s) => s.banner);
   const inputEnabled = useGameStore((s) => s.messagesInputEnabled);
   const sendEnabled = useGameStore((s) => s.messagesSendEnabled);
   const submitMessageText = useGameStore((s) => s.submitMessageText);
@@ -37,7 +36,7 @@ export default function MessagesScreen() {
     }, 40);
 
     return () => clearTimeout(id);
-  }, [thread.length, banner.on, banner.message, replyChips.length]);
+  }, [thread.length, replyChips.length]);
 
   function handleSend(raw?: string) {
     if (!inputEnabled || !sendEnabled) return;
@@ -62,9 +61,7 @@ export default function MessagesScreen() {
         <View style={styles.header}>
           <Text style={styles.kicker}>SECURE COMMS</Text>
           <Text style={styles.title}>Messages</Text>
-          <Text style={styles.subtle}>
-            {banner.on ? "burst traffic active" : "channel idle"}
-          </Text>
+          <Text style={styles.subtle}>channel active</Text>
         </View>
 
         <View style={styles.threadWrap}>
