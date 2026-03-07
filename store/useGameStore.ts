@@ -106,6 +106,11 @@ type ScannerState = {
   scriptedChatterPlayed: boolean;
 };
 
+type GoDarkState = {
+  active: boolean;
+  message: string;
+};
+
 export type GlobalLogKind =
   | "system"
   | "mission"
@@ -119,7 +124,8 @@ export type GlobalLogKind =
   | "mask"
   | "trace"
   | "timer"
-  | "terminal";
+  | "terminal"
+  | "godark";
 
 export type GlobalLogItem = {
   id: string;
@@ -394,6 +400,11 @@ type GameState = {
   startCameraSim: () => void;
   stopCameraSim: () => void;
 
+  goDark: GoDarkState;
+  goDarkTimer: ReturnType<typeof setTimeout> | null;
+  triggerGoDark: (durationMs?: number, message?: string) => void;
+  clearGoDark: () => void;
+
   notes: NoteItem[];
   addNote: (note: NoteItem) => void;
   updateNote: (
@@ -504,15 +515,22 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
+    await get().pushHandlerSequence([{ text: "Good. Window is clear. Move." }]);
+
+    get().stopCameraSim();
+    get().triggerGoDark(3200, "STANDBY");
+
+    await wait(900);
+
     await get().pushHandlerSequence([
-      { text: "Good. Window is clear. Move." },
       { text: "Secure shell is live. Open Terminal." },
     ]);
 
-    get().bannerPush("MOVE", "Proceed.", 1600);
-    get().stopCameraSim();
     get().setTerminalLocked(false);
-    get().pushLog("mission", "Movement approved. Terminal access restored.");
+    get().pushLog(
+      "mission",
+      "Movement approved. Go dark triggered. Terminal access restored.",
+    );
   },
 
   setNetwork: (patch) =>
@@ -1361,7 +1379,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const timer = setInterval(() => {
       const st = get();
-      if (st.standbyMode) return;
+      if (st.standbyMode || st.goDark.active) return;
 
       if (st.cameraObjectiveActive && st.targetCameraId === 12) {
         const cam12 = st.cameras[12];
@@ -1433,6 +1451,59 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (s.cameraSimTimer) clearInterval(s.cameraSimTimer);
     set({ cameraSimTimer: null });
     get().pushLog("camera", "Camera simulation stopped.");
+  },
+
+  goDark: {
+    active: false,
+    message: "STANDBY",
+  },
+  goDarkTimer: null,
+
+  triggerGoDark: (durationMs = 3200, message = "STANDBY") => {
+    const existingTimer = get().goDarkTimer;
+    if (existingTimer) clearTimeout(existingTimer);
+
+    set({
+      goDark: {
+        active: true,
+        message,
+      },
+      goDarkTimer: null,
+      messagesTyping: false,
+    });
+
+    get().pushLog(
+      "godark",
+      `Go dark triggered for ${durationMs}ms${message ? ` with message "${message}".` : "."}`,
+    );
+
+    const timer = setTimeout(() => {
+      set({
+        goDark: {
+          active: false,
+          message,
+        },
+        goDarkTimer: null,
+      });
+      get().pushLog("godark", "Go dark cleared.");
+    }, durationMs);
+
+    set({ goDarkTimer: timer });
+  },
+
+  clearGoDark: () => {
+    const timer = get().goDarkTimer;
+    if (timer) clearTimeout(timer);
+
+    set({
+      goDark: {
+        active: false,
+        message: "STANDBY",
+      },
+      goDarkTimer: null,
+    });
+
+    get().pushLog("godark", "Go dark manually cleared.");
   },
 
   notes: [],

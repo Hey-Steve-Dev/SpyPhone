@@ -1,6 +1,7 @@
 import BannerComms from "@/components/BannerComms";
 import HomeGestureBar from "@/components/HomeGestureBar";
 import StatusBarFake from "@/components/StatusBarFake";
+import GoDarkOverlay from "@/constants/goDarkOverlay";
 import { useGameStore } from "@/store/useGameStore";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect } from "react";
@@ -57,12 +58,15 @@ export default function PhoneFrame({ children, overlay }: Props) {
   }
 
   return (
-    <View style={styles.stageWeb}>
-      <View style={styles.frameOuter}>
-        <View style={styles.frameMetal}>
-          <View style={styles.screenHousing}>
-            <View style={styles.topBezel} />
-            <View style={styles.screenWeb}>{Inner}</View>
+    <View style={{ flex: 1 }}>
+      <View style={styles.stageWeb}>
+        <View style={styles.frameOuter}>
+          <View style={styles.frameMetal}>
+            <View style={styles.screenHousing}>
+              <View style={styles.topBezel} />
+              <View style={styles.screenWeb}>{Inner}</View>
+              <GoDarkOverlay />
+            </View>
           </View>
         </View>
       </View>
@@ -120,6 +124,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(210, 215, 225, 0.75)",
   },
   screenHousing: {
+    position: "relative",
     borderRadius: 30,
     backgroundColor: "#000",
     overflow: "hidden",
