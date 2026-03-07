@@ -379,8 +379,8 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontFamily: "monospace" as any,
   },
-  lineOut: { color: "rgba(255,255,255,0.82)" },
-  lineCmd: { color: "rgba(255,255,255,0.95)" },
+  lineOut: { color: "#7CFF9E" },
+  lineCmd: { color: "#00e0ff" },
 
   inputDock: {
     paddingHorizontal: 12,
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
 
   prompt: {
     fontSize: 12.5,
-    color: "rgba(255,255,255,0.78)",
+    color: "#7CFF9E",
     fontFamily: "monospace" as any,
     marginRight: 8,
     maxWidth: 90,
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   inputCmd: {
     flex: 1,
     fontSize: 13,
-    color: "rgba(255,255,255,0.92)",
+    color: "#00e0ff", // player command color
     fontFamily: "monospace" as any,
     paddingVertical: 0,
     paddingHorizontal: 0,

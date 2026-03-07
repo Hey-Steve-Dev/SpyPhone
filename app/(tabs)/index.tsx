@@ -1,5 +1,4 @@
 import PhoneFrame from "@/components/PhoneFrame";
-import { useGameStore } from "@/store/useGameStore";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -40,13 +39,19 @@ const APPS: AppTile[] = [
     route: "/sat",
     color: "#00d6c7",
   },
-
   {
     key: "network",
     label: "Network",
     icon: "⌁",
     route: "/network",
     color: "#00bcd4",
+  },
+  {
+    key: "echoscan",
+    label: "EchoScan",
+    icon: "◉",
+    route: "/audio-scanner",
+    color: "#5da8ff",
   },
   {
     key: "jammer",
@@ -62,8 +67,13 @@ const APPS: AppTile[] = [
     route: "/notes",
     color: "#cfd8dc",
   },
-
-  { key: "mask", label: "Mask", icon: "◉", route: "/mask", color: "#9575cd" },
+  {
+    key: "mask",
+    label: "Mask",
+    icon: "◉",
+    route: "/mask",
+    color: "#9575cd",
+  },
   {
     key: "vault",
     label: "Vault",
@@ -71,14 +81,17 @@ const APPS: AppTile[] = [
     route: "/vault",
     color: "#4db6ac",
   },
-  { key: "ops", label: "Ops HUD", icon: "◷", route: "/ops", color: "#ff7043" },
+  {
+    key: "ops",
+    label: "Ops HUD",
+    icon: "◷",
+    route: "/ops",
+    color: "#ff7043",
+  },
 ];
 
 export default function HomePhoneScreen() {
   const router = useRouter();
-
-  const terminalLocked = useGameStore((s) => s.terminalLocked);
-  const bannerPush = useGameStore((s) => s.bannerPush);
 
   return (
     <PhoneFrame>
@@ -96,10 +109,6 @@ export default function HomePhoneScreen() {
             <Pressable
               key={a.key}
               onPress={() => {
-                if (a.key === "messages") {
-                  router.push("/messages" as any);
-                  return;
-                }
                 router.push(a.route as any);
               }}
               style={({ pressed }) => [
@@ -119,8 +128,8 @@ export default function HomePhoneScreen() {
           <Text style={styles.noteTitle}>Prototype</Text>
           <Text style={styles.noteBody}>
             Handler-driven missions. Some beats force quick app actions (SAT,
-            jammer, network), then lock you into Terminal under a short access
-            window.
+            jammer, network, EchoScan), then lock you into Terminal under a
+            short access window.
           </Text>
         </View>
       </View>
