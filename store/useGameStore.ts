@@ -73,6 +73,14 @@ type CameraFeed = {
   lastSeenAt: number | null;
 };
 
+type NoteItem = {
+  id: string;
+  title: string;
+  body: string;
+  createdAt: number;
+  updatedAt: number;
+};
+
 function makeId() {
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
@@ -279,6 +287,14 @@ type GameState = {
   resetCameras: () => void;
   startCameraSim: () => void;
   stopCameraSim: () => void;
+
+  notes: NoteItem[];
+  addNote: (note: NoteItem) => void;
+  updateNote: (
+    id: string,
+    patch: Partial<Pick<NoteItem, "title" | "body">>,
+  ) => void;
+  deleteNote: (id: string) => void;
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -819,4 +835,29 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (s.cameraSimTimer) clearInterval(s.cameraSimTimer);
     set({ cameraSimTimer: null });
   },
+
+  notes: [],
+
+  addNote: (note) =>
+    set((s) => ({
+      notes: [note, ...s.notes],
+    })),
+
+  updateNote: (id, patch) =>
+    set((s) => ({
+      notes: s.notes.map((note) =>
+        note.id === id
+          ? {
+              ...note,
+              ...patch,
+              updatedAt: Date.now(),
+            }
+          : note,
+      ),
+    })),
+
+  deleteNote: (id) =>
+    set((s) => ({
+      notes: s.notes.filter((note) => note.id !== id),
+    })),
 }));
