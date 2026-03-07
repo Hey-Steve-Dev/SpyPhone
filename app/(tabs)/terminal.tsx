@@ -295,6 +295,7 @@ export default function TerminalScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 spellCheck={false}
+                contextMenuHidden={false}
                 placeholder={
                   terminalLocked
                     ? "locked: connect via Network…"
@@ -304,7 +305,7 @@ export default function TerminalScreen() {
                 style={styles.inputCmd}
                 onSubmitEditing={() => runCommand(input)}
                 returnKeyType="go"
-                editable={!terminalLocked}
+                editable={true}
               />
 
               <View style={styles.caret} />

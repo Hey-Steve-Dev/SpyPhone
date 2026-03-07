@@ -20,6 +20,15 @@ type ReplyChip = {
   action: string;
 };
 
+type MaskId = "ghost" | "corp" | "admin" | "burner";
+
+type MaskProfile = {
+  id: MaskId;
+  label: string;
+  traceModifier: number;
+  description: string;
+};
+
 type JammerBand = "VHF" | "UHF" | "LTE" | "SAT" | "WIFI";
 type JammerSweep = "narrow" | "wide";
 type JammerBurst = "low" | "med" | "high";
@@ -255,6 +264,10 @@ type GameState = {
 
   jammer: JammerConfig;
   setJammer: (patch: Partial<JammerConfig>) => void;
+
+  mask: MaskId;
+  masks: MaskProfile[];
+  switchMask: (id: MaskId) => void;
 
   audioScannerOn: boolean;
   setAudioScannerOn: (on: boolean) => void;
@@ -526,6 +539,54 @@ export const useGameStore = create<GameState>((set, get) => ({
     set((s) => ({
       jammer: { ...s.jammer, ...patch },
     })),
+
+  mask: "ghost",
+
+  masks: [
+    {
+      id: "ghost",
+      label: "Ghost",
+      traceModifier: -2,
+      description: "Minimal network footprint. Harder to detect.",
+    },
+    {
+      id: "corp",
+      label: "Corporate Device",
+      traceModifier: 0,
+      description: "Spoofs a corporate laptop fingerprint.",
+    },
+    {
+      id: "admin",
+      label: "Admin Terminal",
+      traceModifier: 2,
+      description: "Elevated permissions but higher trace risk.",
+    },
+    {
+      id: "burner",
+      label: "Burner Device",
+      traceModifier: -4,
+      description: "Disposable identity. Clears tracking fingerprints.",
+    },
+  ],
+
+  switchMask: (id) => {
+    const state = get();
+    if (state.mask === id) return;
+
+    const profile = state.masks.find((m) => m.id === id);
+    if (!profile) return;
+
+    set({
+      mask: id,
+      trace: clamp(state.trace + profile.traceModifier, 0, 100),
+    });
+
+    get().bannerPush(
+      "MASK SWITCHED",
+      `Identity changed to ${profile.label}`,
+      1800,
+    );
+  },
 
   audioScannerOn: false,
   setAudioScannerOn: (on) => set({ audioScannerOn: on }),
