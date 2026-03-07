@@ -89,6 +89,14 @@ function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
 
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function rand(min: number, max: number) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 const CAMERA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 function makeInitialCameras(): Record<number, CameraFeed> {
@@ -227,7 +235,7 @@ type GameState = {
   commsConnecting: boolean;
   commsJammed: boolean;
 
-  attemptMoveNow: () => void;
+  attemptMoveNow: () => Promise<void>;
 
   jammer: JammerConfig;
   setJammer: (patch: Partial<JammerConfig>) => void;
@@ -251,7 +259,24 @@ type GameState = {
   setMessagesInputEnabled: (enabled: boolean) => void;
   setMessagesSendEnabled: (enabled: boolean) => void;
 
-  handleMessageReplyAction: (action: string, label: string) => void;
+  messagesTyping: boolean;
+  setMessagesTyping: (on: boolean) => void;
+
+  pushHandlerMessageDelayed: (
+    text: string,
+    typingMs?: number,
+    afterMs?: number,
+  ) => Promise<void>;
+
+  pushHandlerSequence: (
+    items: Array<{
+      text: string;
+      typingMs?: number;
+      afterMs?: number;
+    }>,
+  ) => Promise<void>;
+
+  handleMessageReplyAction: (action: string, label: string) => Promise<void>;
   submitMessageText: (text: string) => void;
 
   mission: MissionState;
@@ -333,18 +358,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().setMissionStep(0);
     get().clearThread();
 
-    get().pushThread(
-      "handler",
-      "You’re online. Quick review of your ghost phone?",
-    );
+    void (async () => {
+      await get().pushHandlerSequence([
+        {
+          text: "You’re online. Quick review of your ghost phone?",
+        },
+      ]);
 
-    get().setReplyChips([
-      { id: "boot_review_yes", label: "Sure", action: "review_phone" },
-      { id: "boot_review_no", label: "Nah, I'm ready", action: "skip_review" },
-    ]);
+      get().setReplyChips([
+        { id: "boot_review_yes", label: "Sure", action: "review_phone" },
+        {
+          id: "boot_review_no",
+          label: "Nah, I'm ready",
+          action: "skip_review",
+        },
+      ]);
+    })();
   },
 
-  attemptMoveNow: () => {
+  attemptMoveNow: async () => {
     const s = get();
     const cam12 = s.cameras[12];
     const occupied = cam12?.state === "occupied" || cam12?.state === "motion";
@@ -353,7 +385,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().pushThread("player", "moving now");
 
     if (occupied) {
-      get().pushThread("handler", "Negative. Guard still in the hall.");
+      await get().pushHandlerSequence([
+        { text: "Negative. Guard still in the hall." },
+      ]);
+
       get().bannerPush("ALERT", "Compromised.", 1800);
 
       setTimeout(() => {
@@ -368,8 +403,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       return;
     }
 
-    get().pushThread("handler", "Good. Window is clear. Move.");
-    get().pushThread("handler", "Secure shell is live. Open Terminal.");
+    await get().pushHandlerSequence([
+      { text: "Good. Window is clear. Move." },
+      { text: "Secure shell is live. Open Terminal." },
+    ]);
+
     get().bannerPush("MOVE", "Proceed.", 1600);
     get().stopCameraSim();
     get().setTerminalLocked(false);
@@ -483,10 +521,54 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMessagesInputEnabled: (enabled) => set({ messagesInputEnabled: enabled }),
   setMessagesSendEnabled: (enabled) => set({ messagesSendEnabled: enabled }),
 
-  handleMessageReplyAction: (action, label) => {
+  messagesTyping: false,
+  setMessagesTyping: (on) => set({ messagesTyping: on }),
+
+  pushHandlerMessageDelayed: async (text, typingMs, afterMs = 650) => {
+    const reactionDelay = 1000 + rand(0, 1000); // 1–2 seconds before typing
+
+    const autoTypingDelay =
+      900 + Math.min(text.length * 18, 1100) + rand(120, 320);
+
+    const typingDelay = typingMs ?? autoTypingDelay;
+
+    // OPS thinking delay before typing begins
+    await wait(reactionDelay);
+
+    // Start typing animation
+    set({ messagesTyping: true });
+
+    await wait(typingDelay);
+
+    // Stop typing animation
+    set({ messagesTyping: false });
+
+    // Deliver message
+    get().pushThread("handler", text);
+
+    // Pause before next message in a sequence
+    if (afterMs > 0) {
+      await wait(afterMs);
+    }
+  },
+
+  pushHandlerSequence: async (items) => {
+    for (const item of items) {
+      await get().pushHandlerMessageDelayed(
+        item.text,
+        item.typingMs,
+        item.afterMs,
+      );
+    }
+  },
+
+  handleMessageReplyAction: async (action, label) => {
+    const s = get();
+    if (s.messagesTyping) return;
+
     switch (action) {
       case "moving_now": {
-        get().attemptMoveNow();
+        await get().attemptMoveNow();
         return;
       }
 
@@ -496,14 +578,15 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         switch (action) {
           case "review_phone": {
-            get().pushThread(
-              "handler",
-              "Ghost phone review: messages are local-first, terminal is for controlled actions, jammer buys time, network helps you pivot fast.",
-            );
-            get().pushThread(
-              "handler",
-              "You only get short burst comms. Read fast, act local, keep moving.",
-            );
+            await get().pushHandlerSequence([
+              {
+                text: "Ghost phone review: messages are local-first, terminal is for controlled actions, jammer buys time, network helps you pivot fast.",
+              },
+              {
+                text: "You only get short burst comms. Read fast, act local, keep moving.",
+              },
+            ]);
+
             get().setReplyChips([
               { id: "review_ack", label: "Got it", action: "review_ack" },
             ]);
@@ -511,22 +594,23 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
 
           case "skip_review": {
-            get().pushThread(
-              "handler",
-              "Good. Stay dark and follow instructions exactly. We only get short burst windows.",
-            );
-            get().pushThread(
-              "handler",
-              "First action: get us on a network. Open Network and link up.",
-            );
+            await get().pushHandlerSequence([
+              {
+                text: "Good. Stay dark and follow instructions exactly. We only get short burst windows.",
+              },
+              {
+                text: "First action: get us on a network. Open Network and link up.",
+              },
+            ]);
             return;
           }
 
           case "review_ack": {
-            get().pushThread(
-              "handler",
-              "Good. First action: get us on a network. Open Network and link up.",
-            );
+            await get().pushHandlerSequence([
+              {
+                text: "Good. First action: get us on a network. Open Network and link up.",
+              },
+            ]);
             return;
           }
 
@@ -671,10 +755,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (fail) {
         set({ commsConnecting: false, commsConnected: false });
         get().bannerPush("COMMS", "Handshake failed.", 2600);
-        get().pushThread(
-          "handler",
-          "Handshake failed. Try a different network or band.",
-        );
+
+        void get().pushHandlerSequence([
+          { text: "Handshake failed. Try a different network or band." },
+        ]);
 
         const jNow = get().jammer;
         if (jNow.autoMask && !get().commsJammed) {
@@ -690,15 +774,20 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ commsConnecting: false, commsConnected: true });
         get().bannerPush("COMMS", "Secure link established.", 1800);
 
-        get().pushThread(
-          "handler",
-          "Secure shell is live. Check camera 12 and wait for the guard to pass.",
-        );
-        get().pushThread("handler", "Text when you're moving.");
+        void (async () => {
+          await get().pushHandlerSequence([
+            {
+              text: "Secure shell is live. Check camera 12 and wait for the guard to pass.",
+            },
+            {
+              text: "Text when you're moving.",
+            },
+          ]);
 
-        get().setReplyChips([
-          { id: "move_now", label: "moving now", action: "moving_now" },
-        ]);
+          get().setReplyChips([
+            { id: "move_now", label: "moving now", action: "moving_now" },
+          ]);
+        })();
 
         get().setTerminalLocked(true);
         get().startCameraObjective(12);

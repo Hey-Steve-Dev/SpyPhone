@@ -18,12 +18,14 @@ export default function MessagesScreen() {
   const replyChips = useGameStore((s) => s.replyChips);
   const inputEnabled = useGameStore((s) => s.messagesInputEnabled);
   const sendEnabled = useGameStore((s) => s.messagesSendEnabled);
+  const messagesTyping = useGameStore((s) => s.messagesTyping);
   const submitMessageText = useGameStore((s) => s.submitMessageText);
   const handleMessageReplyAction = useGameStore(
     (s) => s.handleMessageReplyAction,
   );
 
   const [input, setInput] = useState("");
+  const [dots, setDots] = useState("...");
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -31,15 +33,31 @@ export default function MessagesScreen() {
   }, [bootGame]);
 
   useEffect(() => {
+    if (!messagesTyping) {
+      setDots("...");
+      return;
+    }
+
+    let i = 0;
+    const frames = [".", "..", "..."];
+    const id = setInterval(() => {
+      i = (i + 1) % frames.length;
+      setDots(frames[i]);
+    }, 260);
+
+    return () => clearInterval(id);
+  }, [messagesTyping]);
+
+  useEffect(() => {
     const id = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     }, 40);
 
     return () => clearTimeout(id);
-  }, [thread.length, replyChips.length]);
+  }, [thread.length, replyChips.length, messagesTyping]);
 
   function handleSend(raw?: string) {
-    if (!inputEnabled || !sendEnabled) return;
+    if (!inputEnabled || !sendEnabled || messagesTyping) return;
 
     const text = (raw ?? input).trim();
     if (!text) return;
@@ -61,7 +79,9 @@ export default function MessagesScreen() {
         <View style={styles.header}>
           <Text style={styles.kicker}>SECURE COMMS</Text>
           <Text style={styles.title}>Messages</Text>
-          <Text style={styles.subtle}>channel active</Text>
+          <Text style={styles.subtle}>
+            {messagesTyping ? "ops typing" : "channel active"}
+          </Text>
         </View>
 
         <View style={styles.threadWrap}>
@@ -100,6 +120,15 @@ export default function MessagesScreen() {
                 </View>
               );
             })}
+
+            {messagesTyping && (
+              <View style={[styles.row, styles.rowLeft]}>
+                <View style={[styles.bubble, styles.handlerBubble]}>
+                  <Text style={[styles.meta, styles.handlerMeta]}>OPS</Text>
+                  <Text style={styles.typingText}>{dots}</Text>
+                </View>
+              </View>
+            )}
           </ScrollView>
         </View>
 
@@ -116,7 +145,11 @@ export default function MessagesScreen() {
                   onPress={() =>
                     handleMessageReplyAction(item.action, item.label)
                   }
-                  style={styles.quickBtn}
+                  style={[
+                    styles.quickBtn,
+                    messagesTyping ? styles.quickBtnDisabled : undefined,
+                  ]}
+                  disabled={messagesTyping}
                 >
                   <Text style={styles.quickBtnText}>{item.label}</Text>
                 </Pressable>
@@ -139,23 +172,23 @@ export default function MessagesScreen() {
             ]}
             onSubmitEditing={() => handleSend()}
             returnKeyType="send"
-            editable={inputEnabled}
+            editable={inputEnabled && !messagesTyping}
           />
 
           <Pressable
             onPress={() => handleSend()}
             style={[
               styles.sendBtn,
-              !inputEnabled || !sendEnabled
+              !inputEnabled || !sendEnabled || messagesTyping
                 ? styles.sendBtnDisabled
                 : undefined,
             ]}
-            disabled={!inputEnabled || !sendEnabled}
+            disabled={!inputEnabled || !sendEnabled || messagesTyping}
           >
             <Text
               style={[
                 styles.sendBtnText,
-                !inputEnabled || !sendEnabled
+                !inputEnabled || !sendEnabled || messagesTyping
                   ? styles.sendBtnTextDisabled
                   : undefined,
               ]}
@@ -271,6 +304,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  typingText: {
+    fontSize: 18,
+    lineHeight: 20,
+    color: "rgba(255,255,255,0.95)",
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+
   quickBar: {
     paddingTop: 6,
     paddingBottom: 8,
@@ -288,6 +329,10 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.07)",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
+  },
+
+  quickBtnDisabled: {
+    opacity: 0.45,
   },
 
   quickBtnText: {
