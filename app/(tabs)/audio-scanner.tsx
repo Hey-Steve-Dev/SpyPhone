@@ -1,5 +1,7 @@
 import PhoneFrame from "@/components/PhoneFrame";
+import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import type { DimensionValue } from "react-native";
 import {
   Animated,
   Easing,
@@ -11,7 +13,6 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
-
 const FAKE_BARS = 34;
 
 function clamp(n: number, min: number, max: number) {
@@ -26,16 +27,29 @@ function randomBars(count: number) {
   });
 }
 
+function idleBars(count: number) {
+  return Array.from({ length: count }, () => 0.08);
+}
+
 export default function AudioScannerScreen() {
-  const [listening, setListening] = useState(true);
+  const listening = useGameStore((s) => s.audioScannerOn);
+  const toggleAudioScanner = useGameStore((s) => s.toggleAudioScanner);
+
   const [sensitivity, setSensitivity] = useState<"LOW" | "MED" | "HIGH">(
     "HIGH",
   );
-  const [bars, setBars] = useState<number[]>(() => randomBars(FAKE_BARS));
-  const [dbLevel, setDbLevel] = useState(-62);
+  const [bars, setBars] = useState<number[]>(() => idleBars(FAKE_BARS));
+  const [dbLevel, setDbLevel] = useState(-80);
+
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!listening) {
+      setBars(idleBars(FAKE_BARS));
+      setDbLevel(-80);
+      return;
+    }
+
     const id = setInterval(() => {
       const next = randomBars(FAKE_BARS).map((v) => {
         const scale =
@@ -57,9 +71,15 @@ export default function AudioScannerScreen() {
     }, 220);
 
     return () => clearInterval(id);
-  }, [sensitivity]);
+  }, [listening, sensitivity]);
 
   useEffect(() => {
+    if (!listening) {
+      pulse.stopAnimation();
+      pulse.setValue(0);
+      return;
+    }
+
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, {
@@ -79,7 +99,7 @@ export default function AudioScannerScreen() {
 
     loop.start();
     return () => loop.stop();
-  }, [pulse]);
+  }, [listening, pulse]);
 
   const pulseScale = pulse.interpolate({
     inputRange: [0, 1],
@@ -91,7 +111,7 @@ export default function AudioScannerScreen() {
     outputRange: [0.35, 0.9],
   });
 
-  const meterFill = useMemo((): `${number}%` => {
+  const meterFill = useMemo<DimensionValue>(() => {
     const normalized = clamp((dbLevel + 80) / 40, 0, 1);
     return `${normalized * 100}%`;
   }, [dbLevel]);
@@ -105,15 +125,18 @@ export default function AudioScannerScreen() {
             <Text style={styles.headerSub}>Passive Acoustic Monitor</Text>
           </View>
 
-          <View
-            style={[
+          <Pressable
+            onPress={toggleAudioScanner}
+            style={({ pressed }) => [
               styles.statusPill,
               listening ? styles.statusPillLive : styles.statusPillIdle,
+              pressed && styles.statusPillPressed,
             ]}
           >
             <Animated.View
               style={[
                 styles.statusDot,
+                listening ? styles.statusDotLive : styles.statusDotIdle,
                 listening && {
                   transform: [{ scale: pulseScale }],
                   opacity: pulseOpacity,
@@ -121,9 +144,9 @@ export default function AudioScannerScreen() {
               ]}
             />
             <Text style={styles.statusText}>
-              {listening ? "LISTENING" : "IDLE"}
+              {listening ? "LISTENING" : "OFF"}
             </Text>
-          </View>
+          </Pressable>
         </View>
 
         <ScrollView
@@ -134,7 +157,9 @@ export default function AudioScannerScreen() {
           <View style={styles.screenCard}>
             <View style={styles.cardTopRow}>
               <Text style={styles.cardLabel}>LIVE INPUT</Text>
-              <Text style={styles.cardMeta}>NOISE FLOOR {dbLevel} dB</Text>
+              <Text style={styles.cardMeta}>
+                {listening ? `NOISE FLOOR ${dbLevel} dB` : "SCANNER OFF"}
+              </Text>
             </View>
 
             <View style={styles.wavePanel}>
@@ -146,6 +171,7 @@ export default function AudioScannerScreen() {
                     <View
                       style={[
                         styles.barFill,
+                        !listening && styles.barFillIdle,
                         {
                           height: `${Math.max(8, v * 100)}%`,
                         },
@@ -164,7 +190,7 @@ export default function AudioScannerScreen() {
           </View>
 
           <View style={styles.dualRow}>
-            <View style={[styles.infoCard, styles.infoCardLeft]}>
+            <View style={styles.infoCard}>
               <Text style={styles.infoLabel}>GAIN</Text>
               <Text style={styles.infoValue}>{sensitivity}</Text>
 
@@ -194,12 +220,20 @@ export default function AudioScannerScreen() {
               </View>
             </View>
 
-            <View style={[styles.infoCard, styles.infoCardRight]}>
+            <View style={styles.infoCard}>
               <Text style={styles.infoLabel}>SIGNAL</Text>
-              <Text style={styles.infoValue}>{dbLevel} dB</Text>
+              <Text style={styles.infoValue}>
+                {listening ? `${dbLevel} dB` : "—"}
+              </Text>
 
               <View style={styles.meterTrack}>
-                <View style={[styles.meterFill, { width: meterFill }]} />
+                <View
+                  style={[
+                    styles.meterFill,
+                    !listening && styles.meterFillIdle,
+                    { width: meterFill },
+                  ]}
+                />
               </View>
 
               <View style={styles.meterLabels}>
@@ -213,33 +247,42 @@ export default function AudioScannerScreen() {
           <View style={styles.lockCard}>
             <View style={styles.cardTopRow}>
               <Text style={styles.cardLabel}>SOURCE LOCK</Text>
-              <Text style={styles.cardMeta}>PASSIVE MODE</Text>
+              <Text style={styles.cardMeta}>
+                {listening ? "PASSIVE MODE" : "STANDBY"}
+              </Text>
             </View>
 
             <View style={styles.lockGrid}>
               <View style={styles.lockCell}>
                 <Text style={styles.lockKey}>Direction</Text>
-                <Text style={styles.lockVal}>UNRESOLVED</Text>
+                <Text style={styles.lockVal}>
+                  {listening ? "UNRESOLVED" : "—"}
+                </Text>
               </View>
               <View style={styles.lockCell}>
                 <Text style={styles.lockKey}>Range</Text>
-                <Text style={styles.lockVal}>~ 12 m</Text>
+                <Text style={styles.lockVal}>{listening ? "~ 12 m" : "—"}</Text>
               </View>
               <View style={styles.lockCell}>
                 <Text style={styles.lockKey}>Pattern</Text>
-                <Text style={styles.lockVal}>INTERMITTENT</Text>
+                <Text style={styles.lockVal}>
+                  {listening ? "INTERMITTENT" : "—"}
+                </Text>
               </View>
               <View style={styles.lockCell}>
                 <Text style={styles.lockKey}>Type</Text>
-                <Text style={styles.lockVal}>MOVEMENT</Text>
+                <Text style={styles.lockVal}>
+                  {listening ? "MOVEMENT" : "—"}
+                </Text>
               </View>
             </View>
           </View>
 
           <View style={styles.hintCard}>
             <Text style={styles.hintText}>
-              Increase gain to detect faint movement through walls. High gain
-              may amplify ambient interference.
+              {listening
+                ? "Scanner is active. Increase gain to detect faint movement through walls."
+                : "Scanner is off. Tap the top status pill to begin listening."}
             </Text>
           </View>
 
@@ -293,11 +336,20 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.06)",
     borderColor: "rgba(255,255,255,0.12)",
   },
+  statusPillPressed: {
+    transform: [{ scale: 0.97 }],
+    opacity: 0.95,
+  },
   statusDot: {
     width: 8,
     height: 8,
     borderRadius: 999,
+  },
+  statusDotLive: {
     backgroundColor: "#41d98a",
+  },
+  statusDotIdle: {
+    backgroundColor: "rgba(255,255,255,0.35)",
   },
   statusText: {
     fontSize: 11,
@@ -376,6 +428,10 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 0 },
   },
+  barFillIdle: {
+    backgroundColor: "rgba(255,255,255,0.16)",
+    shadowOpacity: 0,
+  },
   waveFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -400,8 +456,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
   },
-  infoCardLeft: {},
-  infoCardRight: {},
 
   infoLabel: {
     fontSize: 11,
@@ -456,6 +510,9 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 999,
     backgroundColor: "#41d98a",
+  },
+  meterFillIdle: {
+    backgroundColor: "rgba(255,255,255,0.18)",
   },
   meterLabels: {
     marginTop: 8,

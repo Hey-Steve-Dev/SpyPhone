@@ -11,6 +11,7 @@ export default function PhoneLayout() {
       <Stack.Screen name="messages" />
       <Stack.Screen name="network" />
       <Stack.Screen name="audio-scanner" />
+      <Stack.Screen name="scanner" />
 
       <Stack.Screen name="sat" />
       <Stack.Screen name="jammer" />

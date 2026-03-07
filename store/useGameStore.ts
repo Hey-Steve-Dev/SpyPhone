@@ -81,6 +81,22 @@ type NoteItem = {
   updatedAt: number;
 };
 
+type ScannerLogItem = {
+  id: string;
+  at: number;
+  freq: string;
+  label: string;
+  text: string;
+};
+
+type ScannerState = {
+  poweredOn: boolean;
+  hold: boolean;
+  activeFreq: string | null;
+  logs: ScannerLogItem[];
+  scriptedChatterPlayed: boolean;
+};
+
 function makeId() {
   return `${Date.now()}_${Math.random().toString(16).slice(2)}`;
 }
@@ -239,6 +255,21 @@ type GameState = {
 
   jammer: JammerConfig;
   setJammer: (patch: Partial<JammerConfig>) => void;
+
+  audioScannerOn: boolean;
+  setAudioScannerOn: (on: boolean) => void;
+  toggleAudioScanner: () => void;
+
+  scanner: ScannerState;
+  setScannerPower: (on: boolean) => void;
+  toggleScannerPower: () => void;
+  setScannerHold: (on: boolean) => void;
+  setScannerActiveFreq: (freq: string | null) => void;
+  appendScannerLog: (item: ScannerLogItem) => void;
+  clearScannerLog: () => void;
+  setScannerScriptedChatterPlayed: (on: boolean) => void;
+  resetScanner: () => void;
+  triggerScannerMissionChatter: () => Promise<void>;
 
   terminalLocked: boolean;
 
@@ -496,6 +527,125 @@ export const useGameStore = create<GameState>((set, get) => ({
       jammer: { ...s.jammer, ...patch },
     })),
 
+  audioScannerOn: false,
+  setAudioScannerOn: (on) => set({ audioScannerOn: on }),
+  toggleAudioScanner: () =>
+    set((state) => ({ audioScannerOn: !state.audioScannerOn })),
+
+  scanner: {
+    poweredOn: false,
+    hold: false,
+    activeFreq: null,
+    logs: [],
+    scriptedChatterPlayed: false,
+  },
+
+  setScannerPower: (on) =>
+    set((s) => ({
+      scanner: {
+        ...s.scanner,
+        poweredOn: on,
+      },
+    })),
+
+  toggleScannerPower: () =>
+    set((s) => ({
+      scanner: {
+        ...s.scanner,
+        poweredOn: !s.scanner.poweredOn,
+      },
+    })),
+
+  setScannerHold: (on) =>
+    set((s) => ({
+      scanner: {
+        ...s.scanner,
+        hold: on,
+      },
+    })),
+
+  setScannerActiveFreq: (freq) =>
+    set((s) => ({
+      scanner: {
+        ...s.scanner,
+        activeFreq: freq,
+      },
+    })),
+
+  appendScannerLog: (item) =>
+    set((s) => {
+      const next = [...s.scanner.logs, item];
+      const trimmed = next.length > 150 ? next.slice(next.length - 150) : next;
+
+      return {
+        scanner: {
+          ...s.scanner,
+          logs: trimmed,
+        },
+      };
+    }),
+
+  clearScannerLog: () =>
+    set((s) => ({
+      scanner: {
+        ...s.scanner,
+        logs: [],
+      },
+    })),
+
+  setScannerScriptedChatterPlayed: (on) =>
+    set((s) => ({
+      scanner: {
+        ...s.scanner,
+        scriptedChatterPlayed: on,
+      },
+    })),
+
+  resetScanner: () =>
+    set((s) => ({
+      scanner: {
+        ...s.scanner,
+        poweredOn: false,
+        hold: false,
+        activeFreq: null,
+        logs: [],
+        scriptedChatterPlayed: false,
+      },
+    })),
+
+  triggerScannerMissionChatter: async () => {
+    const s = get();
+    if (!s.scanner.poweredOn) return;
+    if (s.scanner.scriptedChatterPlayed) return;
+
+    await wait(1800 + rand(400, 1200));
+
+    const latest = get();
+    if (!latest.scanner.poweredOn) return;
+    if (latest.scanner.scriptedChatterPlayed) return;
+
+    const hit: ScannerLogItem = {
+      id: makeId(),
+      at: Date.now(),
+      freq: "460.225",
+      label: "Metro Patrol",
+      text: "Unit 4, possible movement near the lower service corridor. Check the east entrance.",
+    };
+
+    get().appendScannerLog(hit);
+    get().setScannerActiveFreq(hit.freq);
+    get().setScannerHold(true);
+    get().setScannerScriptedChatterPlayed(true);
+
+    await get().pushHandlerSequence([
+      {
+        text: "There. You heard that too. East entrance. Move.",
+      },
+    ]);
+
+    get().setMissionStep(4);
+  },
+
   terminalLocked: false,
 
   banner: { on: false, title: "SECURE COMMS", message: "…" },
@@ -525,28 +675,22 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMessagesTyping: (on) => set({ messagesTyping: on }),
 
   pushHandlerMessageDelayed: async (text, typingMs, afterMs = 650) => {
-    const reactionDelay = 1000 + rand(0, 1000); // 1–2 seconds before typing
-
+    const reactionDelay = 1000 + rand(0, 1000);
     const autoTypingDelay =
       900 + Math.min(text.length * 18, 1100) + rand(120, 320);
 
     const typingDelay = typingMs ?? autoTypingDelay;
 
-    // OPS thinking delay before typing begins
     await wait(reactionDelay);
 
-    // Start typing animation
     set({ messagesTyping: true });
 
     await wait(typingDelay);
 
-    // Stop typing animation
     set({ messagesTyping: false });
 
-    // Deliver message
     get().pushThread("handler", text);
 
-    // Pause before next message in a sequence
     if (afterMs > 0) {
       await wait(afterMs);
     }

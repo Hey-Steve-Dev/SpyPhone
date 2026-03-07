@@ -54,6 +54,13 @@ const APPS: AppTile[] = [
     color: "#5da8ff",
   },
   {
+    key: "scanner",
+    label: "Scanner",
+    icon: "⌯",
+    route: "/scanner",
+    color: "#6df3ac",
+  },
+  {
     key: "jammer",
     label: "Jammer",
     icon: "〰",
@@ -96,14 +103,6 @@ export default function HomePhoneScreen() {
   return (
     <PhoneFrame>
       <View style={styles.screen}>
-        <View style={styles.idleCard}>
-          <Text style={styles.idleTitle}>—</Text>
-          <Text style={styles.idleSub}>No active sessions.</Text>
-          <Text style={[styles.idleSub, styles.muted]}>
-            Awaiting secure comms…
-          </Text>
-        </View>
-
         <View style={styles.grid}>
           {APPS.map((a) => (
             <Pressable
@@ -123,15 +122,6 @@ export default function HomePhoneScreen() {
             </Pressable>
           ))}
         </View>
-
-        <View style={styles.noteCard}>
-          <Text style={styles.noteTitle}>Prototype</Text>
-          <Text style={styles.noteBody}>
-            Handler-driven missions. Some beats force quick app actions (SAT,
-            jammer, network, EchoScan), then lock you into Terminal under a
-            short access window.
-          </Text>
-        </View>
       </View>
     </PhoneFrame>
   );
@@ -142,37 +132,15 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 18,
     paddingHorizontal: 16,
-  },
-
-  idleCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.05)",
-    padding: 14,
-    alignItems: "center",
-  },
-  idleTitle: {
-    fontSize: 22,
-    letterSpacing: 0.5,
-    color: "rgba(255,255,255,0.86)",
-    marginBottom: 6,
-  },
-  idleSub: {
-    fontSize: 12.6,
-    color: "rgba(255,255,255,0.70)",
-  },
-  muted: {
-    color: "rgba(255,255,255,0.62)",
-    marginTop: 2,
+    justifyContent: "flex-start",
   },
 
   grid: {
-    marginTop: 14,
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
     rowGap: 14,
+    marginTop: 4,
   },
   tile: {
     width: "33.3333%",
@@ -202,26 +170,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     textAlign: "center",
-    color: "rgba(255,255,255,0.68)",
-  },
-
-  noteCard: {
-    marginTop: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.05)",
-    padding: 12,
-  },
-  noteTitle: {
-    fontSize: 13,
-    fontWeight: "800",
-    color: "rgba(255,255,255,0.92)",
-    marginBottom: 6,
-  },
-  noteBody: {
-    fontSize: 12.4,
-    lineHeight: 17,
     color: "rgba(255,255,255,0.68)",
   },
 });
