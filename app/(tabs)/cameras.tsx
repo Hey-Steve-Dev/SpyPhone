@@ -5,7 +5,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 
 const HOME_BAR_SPACE = 44;
-const GRID_IDS = [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+const GRID_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 type CamState = "occupied" | "empty" | "jammed" | "offline" | string;
 type HallwayState = "empty" | "occupied";
@@ -41,9 +41,16 @@ function SmallCameraFeed({ state }: { state: CamState }) {
   );
 }
 
-function FeaturedHallwayOne() {
+function FeaturedCameraView() {
+  const cameras = useGameStore((s) => s.cameras);
+  const selectedCamId = useGameStore((s) => s.selectedCamId);
   const hallwayOneOccupied = useGameStore((s) => s.hallwayOneOccupied);
   const setHallwayOneOccupied = useGameStore((s) => s.setHallwayOneOccupied);
+
+  const activeCamId = selectedCamId ?? 12;
+  const cam = cameras[activeCamId];
+  const camLabel = cam?.label ?? `CAM ${activeCamId}`;
+  const camState = (cam?.state ?? "offline") as CamState;
 
   const hallwayState: HallwayState = hallwayOneOccupied ? "occupied" : "empty";
 
@@ -53,7 +60,10 @@ function FeaturedHallwayOne() {
   const nativeVideoRef = useRef<Video>(null);
   const webVideoRef = useRef<HTMLVideoElement | null>(null);
 
+  const isHallwayCam = activeCamId === 12;
+
   useEffect(() => {
+    if (!isHallwayCam) return;
     if (hallwayState !== "empty") return;
 
     timeoutRef.current = setTimeout(() => {
@@ -64,7 +74,7 @@ function FeaturedHallwayOne() {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [hallwayState, setHallwayOneOccupied]);
+  }, [hallwayState, isHallwayCam, setHallwayOneOccupied]);
 
   useEffect(() => {
     return () => {
@@ -73,6 +83,8 @@ function FeaturedHallwayOne() {
   }, []);
 
   useEffect(() => {
+    if (!isHallwayCam) return;
+
     if (Platform.OS === "web") {
       const el = webVideoRef.current;
       if (!el) return;
@@ -110,8 +122,8 @@ function FeaturedHallwayOne() {
       } catch {}
     };
 
-    runNative();
-  }, [hallwayState, playKey]);
+    void runNative();
+  }, [hallwayState, isHallwayCam, playKey]);
 
   const endOccupiedCycle = () => {
     setHallwayOneOccupied(false);
@@ -120,52 +132,66 @@ function FeaturedHallwayOne() {
   return (
     <View style={styles.featuredCard}>
       <View style={styles.featuredHeader}>
-        <Text style={styles.featuredTitle}>CAM 12</Text>
+        <Text style={styles.featuredTitle}>{camLabel}</Text>
         <Text style={styles.featuredMeta}>
-          HALLWAY 1 • {hallwayState.toUpperCase()}
+          {isHallwayCam
+            ? `HALLWAY 1 • ${hallwayState.toUpperCase()}`
+            : camState.toUpperCase()}
         </Text>
       </View>
 
       <View style={styles.featuredFrame}>
-        {Platform.OS === "web" ? (
-          <View style={styles.featuredWebWrap}>
-            {/* @ts-ignore */}
-            <video
-              key={`hallway1-web-${playKey}`}
-              ref={(node) => {
-                webVideoRef.current = node;
-              }}
-              src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-left-to-right.mp4"
-              muted
-              playsInline
-              preload="auto"
-              onEnded={endOccupiedCycle}
-              style={{
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                display: "block",
-                backgroundColor: "#000",
+        {isHallwayCam ? (
+          Platform.OS === "web" ? (
+            <View style={styles.featuredWebWrap}>
+              {/* @ts-ignore */}
+              <video
+                key={`hallway1-web-${playKey}`}
+                ref={(node) => {
+                  webVideoRef.current = node;
+                }}
+                src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-left-to-right.mp4"
+                muted
+                playsInline
+                preload="auto"
+                onEnded={endOccupiedCycle}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  display: "block",
+                  backgroundColor: "#000",
+                }}
+              />
+            </View>
+          ) : (
+            <Video
+              key={`hallway1-native-${playKey}`}
+              ref={nativeVideoRef}
+              source={require("../../assets/cams/hallway1/guard-left-to-right.mp4")}
+              style={styles.featuredMedia}
+              resizeMode={ResizeMode.CONTAIN}
+              shouldPlay={false}
+              isLooping={false}
+              isMuted
+              onPlaybackStatusUpdate={(status) => {
+                if (!status.isLoaded) return;
+                if (status.didJustFinish) {
+                  endOccupiedCycle();
+                }
               }}
             />
-          </View>
+          )
         ) : (
-          <Video
-            key={`hallway1-native-${playKey}`}
-            ref={nativeVideoRef}
-            source={require("../../assets/cams/hallway1/guard-left-to-right.mp4")}
-            style={styles.featuredMedia}
-            resizeMode={ResizeMode.CONTAIN}
-            shouldPlay={false}
-            isLooping={false}
-            isMuted
-            onPlaybackStatusUpdate={(status) => {
-              if (!status.isLoaded) return;
-              if (status.didJustFinish) {
-                endOccupiedCycle();
-              }
-            }}
-          />
+          <View style={styles.featuredStaticFeed}>
+            <SmallCameraFeed state={camState} />
+            <View pointerEvents="none" style={styles.featuredOverlay}>
+              <Text style={styles.featuredOverlayText}>{camLabel}</Text>
+              <Text style={styles.featuredOverlayTextSmall}>
+                {camState.toUpperCase()}
+              </Text>
+            </View>
+          </View>
         )}
       </View>
     </View>
@@ -197,7 +223,7 @@ export default function CamerasScreen() {
   return (
     <PhoneFrame>
       <View style={styles.wrap}>
-        <FeaturedHallwayOne />
+        <FeaturedCameraView />
 
         <View style={styles.grid}>
           {tiles.map((id) => {
@@ -293,6 +319,36 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     backgroundColor: "#000",
+  },
+
+  featuredStaticFeed: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
+    backgroundColor: "#000",
+  },
+
+  featuredOverlay: {
+    position: "absolute",
+    left: 10,
+    top: 10,
+    right: 10,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  featuredOverlayText: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+  },
+
+  featuredOverlayTextSmall: {
+    color: "rgba(255,255,255,0.72)",
+    fontSize: 10,
+    letterSpacing: 0.7,
   },
 
   grid: {
