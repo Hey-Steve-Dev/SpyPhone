@@ -99,53 +99,66 @@ const APPS: AppTile[] = [
   },
 ];
 
+const DOCK_KEYS = ["messages", "terminal"];
+
 export default function HomePhoneScreen() {
   const router = useRouter();
-
   const unreadMessages = useGameStore((s) => s.unreadMessages);
 
+  const dockApps = APPS.filter((app) => DOCK_KEYS.includes(app.key)).sort(
+    (a, b) => DOCK_KEYS.indexOf(a.key) - DOCK_KEYS.indexOf(b.key),
+  );
+
+  const gridApps = APPS.filter((app) => !DOCK_KEYS.includes(app.key));
+
+  const renderApp = (a: AppTile, inDock = false) => (
+    <Pressable
+      key={a.key}
+      onPress={() => {
+        router.push(a.route as any);
+      }}
+      style={({ pressed }) => [
+        inDock ? styles.dockTile : styles.tile,
+        pressed && styles.tilePressed,
+      ]}
+    >
+      <View style={styles.tileInner}>
+        <View
+          style={[
+            styles.icon,
+            {
+              backgroundColor: a.color + "2E",
+              borderColor: a.color + "66",
+            },
+          ]}
+        >
+          <Text style={[styles.iconText, { color: a.color }]}>{a.icon}</Text>
+
+          {a.key === "messages" && unreadMessages > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadMessages > 9 ? "9+" : unreadMessages}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        <Text style={styles.label}>{a.label}</Text>
+      </View>
+    </Pressable>
+  );
+
   return (
-    <PhoneFrame>
+    <PhoneFrame showGestureBar={false}>
       <View style={styles.screen}>
-        <View style={styles.grid}>
-          {APPS.map((a) => (
-            <Pressable
-              key={a.key}
-              onPress={() => {
-                router.push(a.route as any);
-              }}
-              style={({ pressed }) => [
-                styles.tile,
-                pressed && styles.tilePressed,
-              ]}
-            >
-              <View style={styles.tileInner}>
-                <View
-                  style={[
-                    styles.icon,
-                    {
-                      backgroundColor: a.color + "2E",
-                      borderColor: a.color + "66",
-                    },
-                  ]}
-                >
-                  <Text style={[styles.iconText, { color: a.color }]}>
-                    {a.icon}
-                  </Text>
+        <View style={styles.mainArea}>
+          <View style={styles.grid}>{gridApps.map((a) => renderApp(a))}</View>
+        </View>
 
-                  {a.key === "messages" && unreadMessages > 0 && (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>
-                        {unreadMessages > 9 ? "9+" : unreadMessages}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <Text style={styles.label}>{a.label}</Text>
-              </View>
-            </Pressable>
-          ))}
+        <View style={styles.dockWrap}>
+          <View style={styles.dock}>
+            {dockApps.map((a) => renderApp(a, true))}
+          </View>
         </View>
       </View>
     </PhoneFrame>
@@ -157,6 +170,11 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 18,
     paddingHorizontal: 16,
+    justifyContent: "space-between",
+  },
+
+  mainArea: {
+    flex: 1,
     justifyContent: "flex-start",
   },
 
@@ -173,6 +191,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 10,
+  },
+
+  dockTile: {
+    width: "48%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
   },
 
   tileInner: {
@@ -205,6 +230,23 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "rgba(255,255,255,0.85)",
     fontWeight: "600",
+  },
+
+  dockWrap: {
+    paddingTop: 12,
+    paddingBottom: 10,
+  },
+
+  dock: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
   },
 
   badge: {
