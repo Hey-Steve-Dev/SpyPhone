@@ -15,10 +15,20 @@ import {
 const HOME_BAR_SPACE = 44;
 const IS_NATIVE_DEVICE = Platform.OS === "ios" || Platform.OS === "android";
 
-const TERMINAL_SYMBOL_ROWS = [
-  ["~", "/", "\\", "|", "-", "_"],
-  [".", ">", "<", "$", "*", ":"],
+const TERMINAL_KEYBOARD_ALPHA_ROWS = [
+  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+  [".", "/", "-", "z", "x", "c", "v", "b", "n", "m"],
 ];
+
+const TERMINAL_KEYBOARD_SYMBOL_ROWS = [
+  ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+  ["~", "\\", "|", "_", "=", "$", "*", ":"],
+  ["(", ")", "[", "]", "{", "}", "&", ";"],
+  ["'", '"', "!", "?", "+", "@", "#"],
+];
+
+type KeyboardMode = "alpha" | "symbols";
 
 type MissionDispatchResult = {
   handled: boolean;
@@ -68,12 +78,17 @@ export default function TerminalScreen() {
   const [introFired, setIntroFired] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const [keyboardMode, setKeyboardMode] = useState<KeyboardMode>("alpha");
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
   const prompt = useMemo(() => `${cwd} $`, [cwd]);
-  const showSymbolBar = IS_NATIVE_DEVICE && inputFocused;
+  const showCustomKeyboard = IS_NATIVE_DEVICE && inputFocused;
+  const activeRows =
+    keyboardMode === "alpha"
+      ? TERMINAL_KEYBOARD_ALPHA_ROWS
+      : TERMINAL_KEYBOARD_SYMBOL_ROWS;
 
   function append(kind: "out" | "cmd", text: string) {
     appendTerminalLine(kind, text);
@@ -92,6 +107,37 @@ export default function TerminalScreen() {
 
     setInput(nextValue);
     setSelection({ start: nextCaret, end: nextCaret });
+    focusInput();
+  }
+
+  function backspaceAtCursor() {
+    const start = selection.start ?? input.length;
+    const end = selection.end ?? input.length;
+
+    if (start !== end) {
+      const nextValue = input.slice(0, start) + input.slice(end);
+      setInput(nextValue);
+      setSelection({ start, end: start });
+      focusInput();
+      return;
+    }
+
+    if (start <= 0) return;
+
+    const nextValue = input.slice(0, start - 1) + input.slice(end);
+    const nextCaret = start - 1;
+
+    setInput(nextValue);
+    setSelection({ start: nextCaret, end: nextCaret });
+    focusInput();
+  }
+
+  function moveCursor(delta: number) {
+    const next = Math.max(
+      0,
+      Math.min(input.length, (selection.start ?? 0) + delta),
+    );
+    setSelection({ start: next, end: next });
     focusInput();
   }
 
@@ -200,6 +246,33 @@ export default function TerminalScreen() {
     setTimeout(() => inputRef.current?.focus(), 50);
   }
 
+  function renderKeyboardRow(row: string[], rowIndex: number) {
+    return (
+      <View
+        key={`${keyboardMode}-row-${rowIndex}`}
+        style={[
+          styles.keyboardRow,
+          row.length <= 8 && styles.keyboardRowNarrow,
+          row.length === 9 && styles.keyboardRowMedium,
+        ]}
+      >
+        {row.map((keyValue) => (
+          <Pressable
+            key={`${keyboardMode}-${keyValue}`}
+            onPress={() => insertAtCursor(keyValue)}
+            style={({ pressed }) => [
+              styles.key,
+              styles.charKey,
+              pressed && styles.keyPressed,
+            ]}
+          >
+            <Text style={styles.keyText}>{keyValue}</Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  }
+
   return (
     <PhoneFrame>
       <View style={styles.wrap}>
@@ -249,28 +322,13 @@ export default function TerminalScreen() {
           </ScrollView>
 
           <View style={styles.inputDock}>
-            {showSymbolBar && (
-              <View style={styles.symbolBar}>
-                {TERMINAL_SYMBOL_ROWS.map((row, rowIndex) => (
-                  <View key={`row-${rowIndex}`} style={styles.symbolRow}>
-                    {row.map((symbol) => (
-                      <Pressable
-                        key={symbol}
-                        onPress={() => insertAtCursor(symbol)}
-                        style={({ pressed }) => [
-                          styles.symbolKey,
-                          pressed && styles.symbolKeyPressed,
-                        ]}
-                      >
-                        <Text style={styles.symbolKeyTxt}>{symbol}</Text>
-                      </Pressable>
-                    ))}
-                  </View>
-                ))}
-              </View>
-            )}
-
-            <View style={styles.termInput}>
+            <Pressable
+              onPress={focusInput}
+              style={({ pressed }) => [
+                styles.termInput,
+                pressed && styles.termInputPressed,
+              ]}
+            >
               <Text style={styles.prompt} numberOfLines={1}>
                 {prompt}
               </Text>
@@ -301,19 +359,119 @@ export default function TerminalScreen() {
                 }}
                 returnKeyType="go"
                 editable
+                showSoftInputOnFocus={!IS_NATIVE_DEVICE}
               />
 
               <View style={styles.caret} />
+            </Pressable>
 
-              <Pressable
-                onPress={() => {
-                  void runCommand(input);
-                }}
-                style={[styles.btn, terminalLocked && { opacity: 0.55 }]}
-              >
-                <Text style={styles.btnTxt}>Run</Text>
-              </Pressable>
-            </View>
+            {showCustomKeyboard && (
+              <View style={styles.keyboardWrap}>
+                <View style={styles.keyboardModeRow}>
+                  <Pressable
+                    onPress={() => setKeyboardMode("alpha")}
+                    style={({ pressed }) => [
+                      styles.modeKey,
+                      keyboardMode === "alpha" && styles.modeKeyActive,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modeKeyText,
+                        keyboardMode === "alpha" && styles.modeKeyTextActive,
+                      ]}
+                    >
+                      ABC
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setKeyboardMode("symbols")}
+                    style={({ pressed }) => [
+                      styles.modeKey,
+                      keyboardMode === "symbols" && styles.modeKeyActive,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modeKeyText,
+                        keyboardMode === "symbols" && styles.modeKeyTextActive,
+                      ]}
+                    >
+                      #+=
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => moveCursor(-1)}
+                    style={({ pressed }) => [
+                      styles.modeKey,
+                      styles.utilityKey,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.modeKeyText}>◀</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => moveCursor(1)}
+                    style={({ pressed }) => [
+                      styles.modeKey,
+                      styles.utilityKey,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.modeKeyText}>▶</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={backspaceAtCursor}
+                    style={({ pressed }) => [
+                      styles.modeKey,
+                      styles.utilityKey,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.modeKeyText}>⌫</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.keyboardRows}>
+                  {activeRows.map((row, rowIndex) =>
+                    renderKeyboardRow(row, rowIndex),
+                  )}
+                </View>
+
+                <View style={styles.keyboardBottomRow}>
+                  <Pressable
+                    onPress={() => insertAtCursor(" ")}
+                    style={({ pressed }) => [
+                      styles.key,
+                      styles.spaceKey,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.keyText}>space</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      void runCommand(input);
+                    }}
+                    style={({ pressed }) => [
+                      styles.key,
+                      styles.enterKey,
+                      terminalLocked && styles.enterKeyDisabled,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.enterKeyText}>RUN</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -322,20 +480,27 @@ export default function TerminalScreen() {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, padding: 14 },
+  wrap: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingTop: 10,
+    paddingBottom: 8,
+  },
 
   header: {
-    paddingHorizontal: 4,
-    paddingBottom: 10,
+    paddingHorizontal: 2,
+    paddingBottom: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
+
   headerTitle: {
     fontSize: 18,
     fontWeight: "800",
     color: "rgba(255,255,255,0.92)",
   },
+
   headerSub: {
     marginTop: 2,
     fontSize: 12,
@@ -350,6 +515,7 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.12)",
     backgroundColor: "rgba(255,255,255,0.06)",
   },
+
   modeTxt: {
     color: "rgba(255,255,255,0.88)",
     fontWeight: "800",
@@ -358,7 +524,7 @@ const styles = StyleSheet.create({
 
   screen: {
     flex: 1,
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(0,0,0,0.55)",
@@ -366,9 +532,11 @@ const styles = StyleSheet.create({
   },
 
   scroll: { flex: 1 },
+
   scrollContent: {
-    padding: 14,
-    paddingBottom: 20,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 14,
     gap: 6,
   },
 
@@ -377,60 +545,34 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     fontFamily: "monospace" as any,
   },
+
   lineOut: { color: "#7CFF9E" },
   lineCmd: { color: "#00e0ff" },
 
   inputDock: {
-    paddingHorizontal: 12,
-    paddingTop: 10,
-    paddingBottom: 12 + HOME_BAR_SPACE,
+    paddingHorizontal: 8,
+    paddingTop: 8,
+    paddingBottom: 8 + HOME_BAR_SPACE,
     backgroundColor: "rgba(0,0,0,0.22)",
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.08)",
   },
 
-  symbolBar: {
-    marginBottom: 10,
-    gap: 8,
-  },
-
-  symbolRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-
-  symbolKey: {
-    flex: 1,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.06)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  symbolKeyPressed: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-
-  symbolKeyTxt: {
-    color: "rgba(255,255,255,0.92)",
-    fontSize: 16,
-    fontWeight: "700",
-    fontFamily: "monospace" as any,
-  },
-
   termInput: {
     flexDirection: "row",
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(15,15,15,0.85)",
     paddingLeft: 10,
-    paddingRight: 8,
-    height: 44,
+    paddingRight: 10,
+    height: 42,
+    marginBottom: 8,
+  },
+
+  termInputPressed: {
+    borderColor: "rgba(255,255,255,0.14)",
   },
 
   prompt: {
@@ -453,24 +595,116 @@ const styles = StyleSheet.create({
   caret: {
     width: 1,
     height: 18,
-    marginHorizontal: 10,
+    marginLeft: 10,
     backgroundColor: "rgba(255,255,255,0.28)",
   },
 
-  btn: {
-    height: 30,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+  keyboardWrap: {
+    gap: 6,
+  },
+
+  keyboardModeRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+
+  keyboardRows: {
+    gap: 6,
+  },
+
+  keyboardRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+
+  keyboardRowMedium: {
+    paddingHorizontal: 10,
+  },
+
+  keyboardRowNarrow: {
+    paddingHorizontal: 18,
+  },
+
+  keyboardBottomRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+
+  key: {
+    height: 36,
+    borderRadius: 9,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center",
   },
-  btnTxt: {
-    color: "rgba(255,255,255,0.9)",
+
+  charKey: {
+    flex: 1,
+  },
+
+  modeKey: {
+    flex: 1,
+    height: 34,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  utilityKey: {
+    flex: 0.85,
+  },
+
+  modeKeyActive: {
+    backgroundColor: "rgba(124,255,178,0.14)",
+    borderColor: "rgba(124,255,178,0.45)",
+  },
+
+  modeKeyText: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 12,
     fontWeight: "800",
-    fontSize: 12.5,
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
+    fontFamily: "monospace" as any,
+  },
+
+  modeKeyTextActive: {
+    color: "#7CFF9E",
+  },
+
+  keyPressed: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+
+  keyText: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 15,
+    fontWeight: "700",
+    fontFamily: "monospace" as any,
+  },
+
+  spaceKey: {
+    flex: 1,
+  },
+
+  enterKey: {
+    width: 82,
+    backgroundColor: "rgba(0,224,255,0.14)",
+    borderColor: "rgba(0,224,255,0.30)",
+  },
+
+  enterKeyDisabled: {
+    opacity: 0.55,
+  },
+
+  enterKeyText: {
+    color: "#00e0ff",
+    fontWeight: "900",
+    fontSize: 13,
+    letterSpacing: 0.4,
   },
 });
