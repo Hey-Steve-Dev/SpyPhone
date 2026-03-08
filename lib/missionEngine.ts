@@ -154,6 +154,16 @@ function normLower(s: string) {
   return norm(s).toLowerCase();
 }
 
+function opsLine(text: string, typingMs = 1400, afterMs = 900) {
+  return { text, typingMs, afterMs };
+}
+
+function opsSequence(lines: string[]) {
+  return lines.map((text, index) =>
+    opsLine(text, 1300 + index * 150, 950 + Math.min(index, 2) * 150),
+  );
+}
+
 function matches(
   inputRaw: string,
   exact: string,
@@ -300,7 +310,13 @@ export function handleMissionEvent(
         { type: "reset_terminal" },
         {
           type: "handler_sequence",
-          items: [{ text: "You’re online. Quick review of your ghost phone?" }],
+          items: [
+            opsLine(
+              "You’re online. Quick review of your ghost phone?",
+              1500,
+              1100,
+            ),
+          ],
         },
         {
           type: "set_reply_chips",
@@ -332,12 +348,16 @@ export function handleMissionEvent(
             {
               type: "handler_sequence",
               items: [
-                {
-                  text: "Ghost phone review: messages are local-first, terminal is for controlled actions, jammer buys time, network helps you pivot fast.",
-                },
-                {
-                  text: "You only get short burst comms. Read fast, act local, keep moving.",
-                },
+                opsLine(
+                  "Ghost phone review: messages are local-first, terminal is for controlled actions, jammer buys time, network helps you pivot fast.",
+                  1700,
+                  1200,
+                ),
+                opsLine(
+                  "You only get short burst comms. Read fast, act local, keep moving.",
+                  1500,
+                  1300,
+                ),
               ],
             },
             {
@@ -363,12 +383,16 @@ export function handleMissionEvent(
             {
               type: "handler_sequence",
               items: [
-                {
-                  text: "Good. Stay dark and follow instructions exactly. We only get short burst windows.",
-                },
-                {
-                  text: "First action: get us on a network. Open Network and link up.",
-                },
+                opsLine(
+                  "Good. Stay dark and follow instructions exactly. We only get short burst windows.",
+                  1600,
+                  1200,
+                ),
+                opsLine(
+                  "First action: get us on a network. Open Network and link up.",
+                  1450,
+                  1300,
+                ),
               ],
             },
           ],
@@ -388,9 +412,11 @@ export function handleMissionEvent(
             {
               type: "handler_sequence",
               items: [
-                {
-                  text: "Good. First action: get us on a network. Open Network and link up.",
-                },
+                opsLine(
+                  "Good. First action: get us on a network. Open Network and link up.",
+                  1450,
+                  1200,
+                ),
               ],
             },
           ],
@@ -427,12 +453,12 @@ export function handleMissionEvent(
         {
           type: "handler_sequence",
           items: [
-            {
-              text: "Secure shell is live. Check camera 12 and wait for the guard to pass.",
-            },
-            {
-              text: "Text when you're moving.",
-            },
+            opsLine(
+              "Secure shell is live. Check camera 12 and wait for the guard to pass.",
+              1500,
+              1200,
+            ),
+            opsLine("Text when you're moving.", 1300, 1300),
           ],
         },
         {
@@ -456,7 +482,13 @@ export function handleMissionEvent(
       effects: [
         {
           type: "handler_sequence",
-          items: [{ text: "There. You heard that too. East entrance. Move." }],
+          items: [
+            opsLine(
+              "There. You heard that too. East entrance. Move.",
+              1550,
+              1300,
+            ),
+          ],
         },
       ],
     };
@@ -469,7 +501,7 @@ export function handleMissionEvent(
         effects: [
           {
             type: "handler_sequence",
-            items: [{ text: "Negative. Guard still in the hall." }],
+            items: [opsLine("Negative. Guard still in the hall.", 1450, 1200)],
           },
           {
             type: "mission_failed",
@@ -488,7 +520,7 @@ export function handleMissionEvent(
       effects: [
         {
           type: "handler_sequence",
-          items: [{ text: "Good. Window is clear. Move." }],
+          items: [opsLine("Good. Window is clear. Move.", 1400, 1400)],
         },
         { type: "stop_camera_sim" },
         { type: "resolve_camera_objective" },
@@ -499,7 +531,7 @@ export function handleMissionEvent(
         },
         {
           type: "handler_sequence",
-          items: [{ text: "Secure shell is live. Open Terminal." }],
+          items: [opsLine("Secure shell is live. Open Terminal.", 1450, 1200)],
         },
         { type: "set_terminal_locked", on: false },
       ],
@@ -514,7 +546,7 @@ export function handleMissionEvent(
       effects: [
         {
           type: "handler_sequence",
-          items: missionIntro(nextState).map((text) => ({ text })),
+          items: opsSequence(missionIntro(nextState)),
         },
       ],
     };
@@ -556,7 +588,7 @@ export function handleMissionEvent(
           ? [
               {
                 type: "handler_sequence",
-                items: result.handlerOut.map((text) => ({ text })),
+                items: opsSequence(result.handlerOut),
               } as MissionEffect,
             ]
           : []),

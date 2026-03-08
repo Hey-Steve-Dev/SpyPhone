@@ -990,11 +990,12 @@ export const useGameStore = create<GameState>((set, get) => ({
     await wait(reactionDelay);
 
     set({ messagesTyping: true });
+    get().bannerPush("OPS", "…", typingDelay);
 
     await wait(typingDelay);
 
     set({ messagesTyping: false });
-
+    get().bannerPush("OPS", text, 3500);
     get().pushThread("handler", text);
 
     if (afterMs > 0) {
@@ -1024,17 +1025,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         case "handler_message": {
           const typingMs = effect.typingMs ?? typingMsFor(effect.text);
 
-          get().bannerPush("OPS", "…", typingMs);
-          await wait(typingMs);
-
-          get().bannerPush("OPS", effect.text, 3500);
-          get().pushThread("handler", effect.text);
-
-          if (effect.afterMs && effect.afterMs > 0) {
-            await wait(effect.afterMs);
-          } else {
-            await wait(250);
-          }
+          await get().pushHandlerMessageDelayed(
+            effect.text,
+            typingMs,
+            effect.afterMs ?? 250,
+          );
           break;
         }
 
@@ -1042,17 +1037,11 @@ export const useGameStore = create<GameState>((set, get) => ({
           for (const item of effect.items) {
             const typingMs = item.typingMs ?? typingMsFor(item.text);
 
-            get().bannerPush("OPS", "…", typingMs);
-            await wait(typingMs);
-
-            get().bannerPush("OPS", item.text, 3500);
-            get().pushThread("handler", item.text);
-
-            if (item.afterMs && item.afterMs > 0) {
-              await wait(item.afterMs);
-            } else {
-              await wait(250);
-            }
+            await get().pushHandlerMessageDelayed(
+              item.text,
+              typingMs,
+              item.afterMs ?? 250,
+            );
           }
           break;
         }

@@ -25,7 +25,7 @@ export default function MessagesScreen() {
   );
 
   const [input, setInput] = useState("");
-  const [dots, setDots] = useState("...");
+  const [dots, setDots] = useState("…");
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function MessagesScreen() {
 
   useEffect(() => {
     if (!messagesTyping) {
-      setDots("...");
+      setDots("…");
       return;
     }
 
