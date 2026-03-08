@@ -507,6 +507,18 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   booted: false,
 
+  bootGame: () => {
+    const s = get();
+    if (s.booted) return;
+
+    void initGameAudio();
+
+    set({ booted: true });
+    get().pushLog("system", "Boot sequence started.");
+
+    void get().dispatchMissionEvent({ type: "BOOT" });
+  },
+
   soundEnabled: false,
 
   setSoundEnabled: async (enabled) => {
@@ -548,18 +560,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     connectedMeta: null,
     logs: [],
     scanCache: [],
-  },
-
-  bootGame: () => {
-    const s = get();
-    if (s.booted) return;
-
-    void initGameAudio();
-
-    set({ booted: true });
-    get().pushLog("system", "Boot sequence started.");
-
-    void get().dispatchMissionEvent({ type: "BOOT" });
   },
 
   attemptMoveNow: async () => {

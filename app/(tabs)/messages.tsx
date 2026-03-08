@@ -13,7 +13,6 @@ import {
 const HOME_BAR_SPACE = 44;
 
 export default function MessagesScreen() {
-  const bootGame = useGameStore((s) => s.bootGame);
   const thread = useGameStore((s) => s.thread);
   const replyChips = useGameStore((s) => s.replyChips);
   const inputEnabled = useGameStore((s) => s.messagesInputEnabled);
@@ -27,10 +26,6 @@ export default function MessagesScreen() {
   const [input, setInput] = useState("");
   const [dots, setDots] = useState("…");
   const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    bootGame();
-  }, [bootGame]);
 
   useEffect(() => {
     if (!messagesTyping) {
