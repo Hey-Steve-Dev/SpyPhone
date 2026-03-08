@@ -2,7 +2,20 @@ export type Mode = "easy" | "strict";
 
 export type MissionPhase =
   | "boot_intro"
-  | "phone_review"
+  | "boot_confirm_online"
+  | "phone_review_offer"
+  | "review_messages"
+  | "review_terminal"
+  | "review_network"
+  | "review_cameras"
+  | "review_scanner"
+  | "review_audio_scanner"
+  | "review_jammer"
+  | "review_mask"
+  | "review_notes"
+  | "review_vault"
+  | "review_ops"
+  | "review_log"
   | "network_objective"
   | "camera_watch"
   | "move_prompt"
@@ -183,6 +196,197 @@ function enemyUnknown(cmd: string) {
   return cmd ? [`bash: ${cmd}: command not found`] : [];
 }
 
+function reviewSetIndexForPhase(phase: MissionPhase): number {
+  switch (phase) {
+    case "review_messages":
+      return 0;
+    case "review_terminal":
+      return 1;
+    case "review_network":
+      return 2;
+    case "review_cameras":
+      return 3;
+    case "review_scanner":
+      return 4;
+    case "review_audio_scanner":
+      return 5;
+    case "review_jammer":
+      return 6;
+    case "review_mask":
+      return 7;
+    case "review_notes":
+      return 8;
+    case "review_vault":
+      return 9;
+    case "review_ops":
+      return 10;
+    case "review_log":
+      return 11;
+    default:
+      return 0;
+  }
+}
+
+function reviewAckChips(phase: MissionPhase): ReplyChip[] {
+  const chipSets: Array<[ack1: string, ack2: string, skip: string]> = [
+    ["OK", "Got it", "Let's get to the mission"],
+    ["OK", "Copy", "I am ready to roll"],
+    ["Understood", "Roger", "Skip this, I get it"],
+    ["Copy that", "Got it", "Let's move"],
+    ["OK", "Understood", "I am good, move on"],
+    ["Roger", "Copy", "Skip the tutorial"],
+  ];
+
+  const [ack1, ack2, skip] =
+    chipSets[reviewSetIndexForPhase(phase) % chipSets.length];
+
+  return [
+    { id: `${phase}_ack_1`, label: ack1, action: "review_ack" },
+    { id: `${phase}_ack_2`, label: ack2, action: "review_ack" },
+    { id: `${phase}_skip`, label: skip, action: "skip_review" },
+  ];
+}
+
+function isReviewPhase(phase: MissionPhase) {
+  return (
+    phase === "review_messages" ||
+    phase === "review_terminal" ||
+    phase === "review_network" ||
+    phase === "review_cameras" ||
+    phase === "review_scanner" ||
+    phase === "review_audio_scanner" ||
+    phase === "review_jammer" ||
+    phase === "review_mask" ||
+    phase === "review_notes" ||
+    phase === "review_vault" ||
+    phase === "review_ops" ||
+    phase === "review_log"
+  );
+}
+
+function nextReviewPhase(phase: MissionPhase): MissionPhase {
+  switch (phase) {
+    case "review_messages":
+      return "review_terminal";
+    case "review_terminal":
+      return "review_network";
+    case "review_network":
+      return "review_cameras";
+    case "review_cameras":
+      return "review_scanner";
+    case "review_scanner":
+      return "review_audio_scanner";
+    case "review_audio_scanner":
+      return "review_jammer";
+    case "review_jammer":
+      return "review_mask";
+    case "review_mask":
+      return "review_notes";
+    case "review_notes":
+      return "review_vault";
+    case "review_vault":
+      return "review_ops";
+    case "review_ops":
+      return "review_log";
+    case "review_log":
+      return "network_objective";
+    default:
+      return "network_objective";
+  }
+}
+
+function reviewLinesForPhase(phase: MissionPhase): string[] {
+  switch (phase) {
+    case "review_messages":
+      return [
+        "Messages is your comms line.",
+        "Ops speaks here. Read fast and answer clean.",
+      ];
+    case "review_terminal":
+      return [
+        "Terminal is where you'll do most of your work.",
+        "You'll use it to inspect systems, move through directories, and run actions on target.",
+        "When in doubt, slow down and type clean. This app matters.",
+      ];
+    case "review_network":
+      return ["Network gets you linked.", "No link, no remote access."];
+    case "review_cameras":
+      return ["Cameras shows live sightlines. Use it before you move."];
+    case "review_scanner":
+      return [
+        "Scanner sweeps the air.",
+        "Use it to catch nearby signal activity.",
+      ];
+    case "review_audio_scanner":
+      return ["Audio Scanner pulls chatter and ambient noise."];
+    case "review_jammer":
+      return ["Jammer buys you time.", "Mask up before noisy actions."];
+    case "review_mask":
+      return ["Mask shifts your profile. Wrong face, wrong trail."];
+    case "review_notes":
+      return ["Notes holds field reference when memory gets expensive."];
+    case "review_vault":
+      return [
+        "Vault stores protected material. Codes, fragments, sensitive pulls.",
+      ];
+    case "review_ops":
+      return ["Ops is mission control. Objectives, pressure, status."];
+    case "review_log":
+      return ["Log tracks what already happened so you can rebuild the run."];
+    default:
+      return ["Stand by."];
+  }
+}
+
+function reviewAdvanceEffects(
+  state: MissionState,
+  event: Extract<MissionEvent, { type: "REPLY_SELECTED" }>,
+): MissionEventResult {
+  const nextPhase = nextReviewPhase(state.phase);
+  const nextState = withPhase(state, nextPhase);
+
+  if (nextPhase === "network_objective") {
+    return {
+      nextState,
+      effects: [
+        { type: "clear_reply_chips" },
+        ...(event.label
+          ? [{ type: "player_message", text: event.label } as MissionEffect]
+          : []),
+        {
+          type: "handler_sequence",
+          items: [
+            opsLine("Good. That's enough to move.", 1450, 1100),
+            opsLine(
+              "First action: get us on a network. Open Network and link up.",
+              1450,
+              1300,
+            ),
+          ],
+        },
+      ],
+    };
+  }
+
+  return {
+    nextState,
+    effects: [
+      { type: "clear_reply_chips" },
+      ...(event.label
+        ? [{ type: "player_message", text: event.label } as MissionEffect]
+        : []),
+      {
+        type: "handler_sequence",
+        items: opsSequence(reviewLinesForPhase(nextState.phase)),
+      },
+      {
+        type: "set_reply_chips",
+        chips: reviewAckChips(nextState.phase),
+      },
+    ],
+  };
+}
+
 export function makeInitialMissionState(): MissionState {
   return {
     missionId: "bootcamp_01",
@@ -275,9 +479,23 @@ export function missionIntro(state: MissionState): string[] {
 
   switch (state.phase) {
     case "boot_intro":
-      return ["You’re online. Quick review of your ghost phone?"];
-    case "phone_review":
-      return ["Your call. Review fast or skip it."];
+    case "boot_confirm_online":
+      return ["Are you online?"];
+    case "phone_review_offer":
+      return ["Want a quick ghost phone review?"];
+    case "review_messages":
+    case "review_terminal":
+    case "review_network":
+    case "review_cameras":
+    case "review_scanner":
+    case "review_audio_scanner":
+    case "review_jammer":
+    case "review_mask":
+    case "review_notes":
+    case "review_vault":
+    case "review_ops":
+    case "review_log":
+      return reviewLinesForPhase(state.phase);
     case "network_objective":
       return ["First action: get us on a network. Open Network and link up."];
     case "camera_watch":
@@ -300,7 +518,7 @@ export function handleMissionEvent(
   ctx: MissionContext,
 ): MissionEventResult {
   if (event.type === "BOOT") {
-    const nextState = withPhase(state, "boot_intro");
+    const nextState = withPhase(state, "boot_confirm_online");
 
     return {
       nextState,
@@ -310,22 +528,15 @@ export function handleMissionEvent(
         { type: "reset_terminal" },
         {
           type: "handler_sequence",
-          items: [
-            opsLine(
-              "You’re online. Quick review of your ghost phone?",
-              1500,
-              1100,
-            ),
-          ],
+          items: [opsLine("Are you online?", 1500, 1100)],
         },
         {
           type: "set_reply_chips",
           chips: [
-            { id: "boot_review_yes", label: "Sure", action: "review_phone" },
             {
-              id: "boot_review_no",
-              label: "Nah, I'm ready",
-              action: "skip_review",
+              id: "boot_online",
+              label: "Online",
+              action: "confirm_online",
             },
           ],
         },
@@ -334,9 +545,9 @@ export function handleMissionEvent(
   }
 
   if (event.type === "REPLY_SELECTED") {
-    if (state.phase === "boot_intro" || state.phase === "phone_review") {
-      if (event.action === "review_phone") {
-        const nextState = withPhase(state, "phone_review");
+    if (state.phase === "boot_intro" || state.phase === "boot_confirm_online") {
+      if (event.action === "confirm_online") {
+        const nextState = withPhase(state, "phone_review_offer");
 
         return {
           nextState,
@@ -348,23 +559,47 @@ export function handleMissionEvent(
             {
               type: "handler_sequence",
               items: [
-                opsLine(
-                  "Ghost phone review: messages are local-first, terminal is for controlled actions, jammer buys time, network helps you pivot fast.",
-                  1700,
-                  1200,
-                ),
-                opsLine(
-                  "You only get short burst comms. Read fast, act local, keep moving.",
-                  1500,
-                  1300,
-                ),
+                opsLine("Good. Want a quick ghost phone review?", 1450, 1200),
               ],
             },
             {
               type: "set_reply_chips",
               chips: [
-                { id: "review_ack", label: "Got it", action: "review_ack" },
+                {
+                  id: "boot_review_yes",
+                  label: "Sure",
+                  action: "review_phone",
+                },
+                {
+                  id: "boot_review_no",
+                  label: "Let's get to the mission",
+                  action: "skip_review",
+                },
               ],
+            },
+          ],
+        };
+      }
+    }
+
+    if (state.phase === "phone_review_offer") {
+      if (event.action === "review_phone") {
+        const nextState = withPhase(state, "review_messages");
+
+        return {
+          nextState,
+          effects: [
+            { type: "clear_reply_chips" },
+            ...(event.label
+              ? [{ type: "player_message", text: event.label } as MissionEffect]
+              : []),
+            {
+              type: "handler_sequence",
+              items: opsSequence(reviewLinesForPhase(nextState.phase)),
+            },
+            {
+              type: "set_reply_chips",
+              chips: reviewAckChips(nextState.phase),
             },
           ],
         };
@@ -384,9 +619,9 @@ export function handleMissionEvent(
               type: "handler_sequence",
               items: [
                 opsLine(
-                  "Good. Stay dark and follow instructions exactly. We only get short burst windows.",
-                  1600,
-                  1200,
+                  "Good. Stay dark and follow instructions exactly.",
+                  1500,
+                  1100,
                 ),
                 opsLine(
                   "First action: get us on a network. Open Network and link up.",
@@ -398,8 +633,14 @@ export function handleMissionEvent(
           ],
         };
       }
+    }
 
+    if (isReviewPhase(state.phase)) {
       if (event.action === "review_ack") {
+        return reviewAdvanceEffects(state, event);
+      }
+
+      if (event.action === "skip_review") {
         const nextState = withPhase(state, "network_objective");
 
         return {
@@ -412,10 +653,11 @@ export function handleMissionEvent(
             {
               type: "handler_sequence",
               items: [
+                opsLine("Good. That's enough. Move.", 1400, 1100),
                 opsLine(
-                  "Good. First action: get us on a network. Open Network and link up.",
+                  "First action: get us on a network. Open Network and link up.",
                   1450,
-                  1200,
+                  1300,
                 ),
               ],
             },
