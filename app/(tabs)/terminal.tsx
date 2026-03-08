@@ -3,6 +3,7 @@ import { runCommandEngine, setMode } from "@/lib/commandEngine";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,12 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
+const IS_NATIVE_DEVICE = Platform.OS === "ios" || Platform.OS === "android";
+
+const TERMINAL_SYMBOL_ROWS = [
+  ["~", "/", "\\", "|", "-", "_"],
+  [".", ">", "<", "$", "*", ":"],
+];
 
 type MissionDispatchResult = {
   handled: boolean;
@@ -59,14 +66,33 @@ export default function TerminalScreen() {
 
   const [input, setInput] = useState("");
   const [introFired, setIntroFired] = useState(false);
+  const [inputFocused, setInputFocused] = useState(false);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
   const prompt = useMemo(() => `${cwd} $`, [cwd]);
+  const showSymbolBar = IS_NATIVE_DEVICE && inputFocused;
 
   function append(kind: "out" | "cmd", text: string) {
     appendTerminalLine(kind, text);
+  }
+
+  function focusInput() {
+    setTimeout(() => inputRef.current?.focus(), 10);
+  }
+
+  function insertAtCursor(textToInsert: string) {
+    const start = selection.start ?? input.length;
+    const end = selection.end ?? input.length;
+
+    const nextValue = input.slice(0, start) + textToInsert + input.slice(end);
+    const nextCaret = start + textToInsert.length;
+
+    setInput(nextValue);
+    setSelection({ start: nextCaret, end: nextCaret });
+    focusInput();
   }
 
   useEffect(() => {
@@ -108,7 +134,8 @@ export default function TerminalScreen() {
       append("out", "Open Network → Scan → Link to establish comms.");
       bannerPush("LOCK", "Get on a network first.", 1400);
       setInput("");
-      setTimeout(() => inputRef.current?.focus(), 10);
+      setSelection({ start: 0, end: 0 });
+      focusInput();
       return;
     }
 
@@ -125,11 +152,12 @@ export default function TerminalScreen() {
 
     append("cmd", `${prompt}${cmd}`);
     setInput("");
-    setTimeout(() => inputRef.current?.focus(), 10);
+    setSelection({ start: 0, end: 0 });
+    focusInput();
 
     if (cmd.toLowerCase() === "clear") {
       clearTerminalLines();
-      setTimeout(() => inputRef.current?.focus(), 10);
+      focusInput();
       return;
     }
 
@@ -221,6 +249,27 @@ export default function TerminalScreen() {
           </ScrollView>
 
           <View style={styles.inputDock}>
+            {showSymbolBar && (
+              <View style={styles.symbolBar}>
+                {TERMINAL_SYMBOL_ROWS.map((row, rowIndex) => (
+                  <View key={`row-${rowIndex}`} style={styles.symbolRow}>
+                    {row.map((symbol) => (
+                      <Pressable
+                        key={symbol}
+                        onPress={() => insertAtCursor(symbol)}
+                        style={({ pressed }) => [
+                          styles.symbolKey,
+                          pressed && styles.symbolKeyPressed,
+                        ]}
+                      >
+                        <Text style={styles.symbolKeyTxt}>{symbol}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ))}
+              </View>
+            )}
+
             <View style={styles.termInput}>
               <Text style={styles.prompt} numberOfLines={1}>
                 {prompt}
@@ -230,6 +279,12 @@ export default function TerminalScreen() {
                 ref={inputRef}
                 value={input}
                 onChangeText={setInput}
+                selection={selection}
+                onSelectionChange={(e) => {
+                  setSelection(e.nativeEvent.selection);
+                }}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
                 autoCapitalize="none"
                 autoCorrect={false}
                 spellCheck={false}
@@ -332,6 +387,38 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.22)",
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.08)",
+  },
+
+  symbolBar: {
+    marginBottom: 10,
+    gap: 8,
+  },
+
+  symbolRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  symbolKey: {
+    flex: 1,
+    height: 36,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  symbolKeyPressed: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+
+  symbolKeyTxt: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 16,
+    fontWeight: "700",
+    fontFamily: "monospace" as any,
   },
 
   termInput: {

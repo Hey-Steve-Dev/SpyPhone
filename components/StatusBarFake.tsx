@@ -2,9 +2,11 @@ import { useGameStore } from "@/store/useGameStore";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function StatusBarFake() {
   const [time, setTime] = useState("");
+  const insets = useSafeAreaInsets();
 
   const router = useRouter();
   const pathname = usePathname();
@@ -36,79 +38,85 @@ export default function StatusBarFake() {
   }, []);
 
   return (
-    <View style={styles.container}>
-      <View style={styles.left}>
-        {/* HOME BUTTON */}
-        <Pressable
-          onPress={() => {
-            if (!onHome) router.replace("/(tabs)");
-          }}
-          hitSlop={10}
-          accessibilityRole="button"
-          accessibilityLabel="Go to home screen"
-          style={({ pressed }) => [
-            styles.homeButton,
-            onHome && styles.homeButtonActive,
-            pressed && styles.homeButtonPressed,
-          ]}
-        >
-          <Text style={[styles.homeIcon, onHome && styles.homeIconActive]}>
-            ⌂
-          </Text>
-        </Pressable>
-
-        {/* SOUND TOGGLE */}
-        <Pressable
-          onPress={() => {
-            void toggleSoundEnabled();
-          }}
-          hitSlop={10}
-          accessibilityRole="button"
-          style={({ pressed }) => [
-            styles.soundButton,
-            soundEnabled ? styles.soundButtonOn : styles.soundButtonOff,
-            pressed && styles.soundButtonPressed,
-          ]}
-        >
-          <Text
-            style={[
-              styles.soundButtonText,
-              soundEnabled
-                ? styles.soundButtonTextOn
-                : styles.soundButtonTextOff,
+    <View style={[styles.safeTop, { paddingTop: isWeb ? 0 : insets.top }]}>
+      <View style={styles.container}>
+        <View style={styles.left}>
+          {/* HOME BUTTON */}
+          <Pressable
+            onPress={() => {
+              if (!onHome) router.replace("/(tabs)");
+            }}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Go to home screen"
+            style={({ pressed }) => [
+              styles.homeButton,
+              onHome && styles.homeButtonActive,
+              pressed && styles.homeButtonPressed,
             ]}
           >
-            {soundEnabled ? "SOUND ON" : "SILENT"}
-          </Text>
-        </Pressable>
+            <Text style={[styles.homeIcon, onHome && styles.homeIconActive]}>
+              ⌂
+            </Text>
+          </Pressable>
 
-        <Text style={styles.time}>{time}</Text>
-      </View>
+          {/* SOUND TOGGLE */}
+          <Pressable
+            onPress={() => {
+              void toggleSoundEnabled();
+            }}
+            hitSlop={10}
+            accessibilityRole="button"
+            style={({ pressed }) => [
+              styles.soundButton,
+              soundEnabled ? styles.soundButtonOn : styles.soundButtonOff,
+              pressed && styles.soundButtonPressed,
+            ]}
+          >
+            <Text
+              style={[
+                styles.soundButtonText,
+                soundEnabled
+                  ? styles.soundButtonTextOn
+                  : styles.soundButtonTextOff,
+              ]}
+            >
+              {soundEnabled ? "SOUND ON" : "SILENT"}
+            </Text>
+          </Pressable>
 
-      {/* CENTER ICONS (trimmed down) */}
-      <View style={styles.center}>
-        <Text style={styles.icon}>🛡</Text>
-        <Text style={styles.icon}>⟲</Text>
-      </View>
+          <Text style={styles.time}>{time}</Text>
+        </View>
 
-      <View style={styles.right}>
-        {isWeb ? <Text style={styles.icon}>WEB</Text> : null}
-        <Text style={styles.icon}>▂▄▆█</Text>
-        <Text style={styles.icon}>🔋 86%</Text>
+        {/* CENTER ICONS (trimmed down) */}
+        <View style={styles.center}>
+          <Text style={styles.icon}>🛡</Text>
+          <Text style={styles.icon}>⟲</Text>
+        </View>
+
+        <View style={styles.right}>
+          {isWeb ? <Text style={styles.icon}>WEB</Text> : null}
+          <Text style={styles.icon}>▂▄▆█</Text>
+          <Text style={styles.icon}>🔋 86%</Text>
+        </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  safeTop: {
+    backgroundColor: "rgba(0,0,0,0.35)",
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(255,255,255,0.08)",
+  },
+
   container: {
     height: 46,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(0,0,0,0.35)",
   },
 

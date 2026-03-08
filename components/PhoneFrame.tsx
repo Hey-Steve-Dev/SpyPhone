@@ -6,6 +6,7 @@ import { useGameStore } from "@/store/useGameStore";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { Platform, StyleSheet, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 type Props = {
   children: React.ReactNode;
@@ -61,7 +62,11 @@ export default function PhoneFrame({
   );
 
   if (!isWeb) {
-    return <View style={styles.nativeScreen}>{Inner}</View>;
+    return (
+      <SafeAreaView style={styles.nativeScreen} edges={["bottom"]}>
+        {Inner}
+      </SafeAreaView>
+    );
   }
 
   return (

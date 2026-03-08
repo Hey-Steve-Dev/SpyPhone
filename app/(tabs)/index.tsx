@@ -168,7 +168,7 @@ export default function HomePhoneScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    paddingTop: 18,
+    paddingTop: 64,
     paddingHorizontal: 16,
     justifyContent: "space-between",
   },

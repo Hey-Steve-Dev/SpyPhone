@@ -3,6 +3,9 @@ import { usePathname } from "expo-router";
 import React, { useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, Text, View } from "react-native";
 
+const STATUS_BAR_HEIGHT = 34;
+const STATUS_BAR_GAP = 40;
+
 export default function BannerComms() {
   const banner = useGameStore((s) => s.banner);
   const pathname = usePathname();
@@ -102,9 +105,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
-    top: 0,
+    top: STATUS_BAR_HEIGHT + STATUS_BAR_GAP,
     paddingHorizontal: 10,
-    paddingTop: 10,
     zIndex: 100,
   },
 
