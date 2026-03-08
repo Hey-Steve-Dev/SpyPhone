@@ -18,7 +18,7 @@ const IS_NATIVE_DEVICE = Platform.OS === "ios" || Platform.OS === "android";
 const TERMINAL_KEYBOARD_ALPHA_ROWS = [
   ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
   ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
-  [".", "/", "-", "z", "x", "c", "v", "b", "n", "m"],
+  ["-", "z", "x", "c", "v", "b", "n", "m", ".", "/"],
 ];
 
 const TERMINAL_KEYBOARD_SYMBOL_ROWS = [
@@ -360,9 +360,21 @@ export default function TerminalScreen() {
                 returnKeyType="go"
                 editable
                 showSoftInputOnFocus={!IS_NATIVE_DEVICE}
+                caretHidden
               />
 
-              <View style={styles.caret} />
+              <Pressable
+                onPress={() => {
+                  void runCommand(input);
+                }}
+                style={({ pressed }) => [
+                  styles.inputRunBtn,
+                  terminalLocked && styles.inputRunBtnDisabled,
+                  pressed && styles.inputRunBtnPressed,
+                ]}
+              >
+                <Text style={styles.inputRunBtnTxt}>↻</Text>
+              </Pressable>
             </Pressable>
 
             {showCustomKeyboard && (
@@ -425,17 +437,6 @@ export default function TerminalScreen() {
                   >
                     <Text style={styles.modeKeyText}>▶</Text>
                   </Pressable>
-
-                  <Pressable
-                    onPress={backspaceAtCursor}
-                    style={({ pressed }) => [
-                      styles.modeKey,
-                      styles.utilityKey,
-                      pressed && styles.keyPressed,
-                    ]}
-                  >
-                    <Text style={styles.modeKeyText}>⌫</Text>
-                  </Pressable>
                 </View>
 
                 <View style={styles.keyboardRows}>
@@ -457,17 +458,14 @@ export default function TerminalScreen() {
                   </Pressable>
 
                   <Pressable
-                    onPress={() => {
-                      void runCommand(input);
-                    }}
+                    onPress={backspaceAtCursor}
                     style={({ pressed }) => [
                       styles.key,
-                      styles.enterKey,
-                      terminalLocked && styles.enterKeyDisabled,
+                      styles.deleteKey,
                       pressed && styles.keyPressed,
                     ]}
                   >
-                    <Text style={styles.enterKeyText}>RUN</Text>
+                    <Text style={styles.keyText}>⌫</Text>
                   </Pressable>
                 </View>
               </View>
@@ -482,13 +480,13 @@ export default function TerminalScreen() {
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
-    paddingHorizontal: 10,
+    paddingHorizontal: 0,
     paddingTop: 10,
-    paddingBottom: 8,
+    paddingBottom: 0,
   },
 
   header: {
-    paddingHorizontal: 2,
+    paddingHorizontal: 10,
     paddingBottom: 8,
     flexDirection: "row",
     alignItems: "center",
@@ -524,8 +522,11 @@ const styles = StyleSheet.create({
 
   screen: {
     flex: 1,
-    borderRadius: 18,
-    borderWidth: 1,
+    borderRadius: 0,
+    borderTopWidth: 1,
+    borderBottomWidth: 0,
+    borderLeftWidth: 0,
+    borderRightWidth: 0,
     borderColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(0,0,0,0.55)",
     overflow: "hidden",
@@ -566,9 +567,10 @@ const styles = StyleSheet.create({
     borderColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(15,15,15,0.85)",
     paddingLeft: 10,
-    paddingRight: 10,
+    paddingRight: 8,
     height: 42,
     marginBottom: 8,
+    marginHorizontal: 0,
   },
 
   termInputPressed: {
@@ -592,11 +594,31 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
 
-  caret: {
-    width: 1,
-    height: 18,
-    marginLeft: 10,
-    backgroundColor: "rgba(255,255,255,0.28)",
+  inputRunBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "rgba(0,224,255,0.30)",
+    backgroundColor: "rgba(0,224,255,0.14)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  inputRunBtnDisabled: {
+    opacity: 0.55,
+  },
+
+  inputRunBtnPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
+  },
+
+  inputRunBtnTxt: {
+    color: "#00e0ff",
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 16,
   },
 
   keyboardWrap: {
@@ -631,7 +653,6 @@ const styles = StyleSheet.create({
   },
 
   key: {
-    height: 36,
     borderRadius: 9,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
@@ -642,6 +663,7 @@ const styles = StyleSheet.create({
 
   charKey: {
     flex: 1,
+    height: 54,
   },
 
   modeKey: {
@@ -689,22 +711,11 @@ const styles = StyleSheet.create({
 
   spaceKey: {
     flex: 1,
+    height: 36,
   },
 
-  enterKey: {
+  deleteKey: {
     width: 82,
-    backgroundColor: "rgba(0,224,255,0.14)",
-    borderColor: "rgba(0,224,255,0.30)",
-  },
-
-  enterKeyDisabled: {
-    opacity: 0.55,
-  },
-
-  enterKeyText: {
-    color: "#00e0ff",
-    fontWeight: "900",
-    fontSize: 13,
-    letterSpacing: 0.4,
+    height: 36,
   },
 });
