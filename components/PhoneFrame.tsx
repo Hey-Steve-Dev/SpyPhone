@@ -51,11 +51,11 @@ export default function PhoneFrame({
 
         {overlay ? <View style={styles.overlay}>{overlay}</View> : null}
 
-        {showGestureBar && (
+        {isWeb && showGestureBar ? (
           <View style={styles.gestureDock}>
             <HomeGestureBar />
           </View>
-        )}
+        ) : null}
       </View>
     </>
   );
