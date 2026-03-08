@@ -394,6 +394,10 @@ type GameState = {
   banner: Banner;
   setBanner: (banner: Banner) => void;
 
+  unreadMessages: number;
+  setUnreadMessages: (count: number) => void;
+  clearUnreadMessages: () => void;
+
   thread: ThreadItem[];
   pushThread: (from: ThreadItem["from"], text: string) => void;
   addThreadItem: (item: ThreadItem) => void;
@@ -946,25 +950,52 @@ export const useGameStore = create<GameState>((set, get) => ({
     );
   },
 
+  unreadMessages: 0,
+
+  setUnreadMessages: (count) => {
+    const next = Math.max(0, count);
+    set({ unreadMessages: next });
+    get().pushLog("thread", `Unread messages set to ${next}.`);
+  },
+
+  clearUnreadMessages: () => {
+    set({ unreadMessages: 0 });
+    get().pushLog("thread", "Unread messages cleared.");
+  },
+
   thread: [],
   pushThread: (from, text) => {
     const item: ThreadItem = { id: makeId(), at: Date.now(), from, text };
-    set((s) => ({ thread: [...s.thread, item] }));
+
+    set((s) => ({
+      thread: [...s.thread, item],
+      unreadMessages:
+        from === "handler" || from === "system"
+          ? s.unreadMessages + 1
+          : s.unreadMessages,
+    }));
+
     get().pushLog("thread", `${from.toUpperCase()}: ${text}`);
 
     if (from === "handler" || from === "system") {
       void playIncomingMessageFx();
     }
   },
+
   addThreadItem: (item) =>
     set((s) => {
       get().pushLog("thread", `${item.from.toUpperCase()}: ${item.text}`);
       return {
         thread: [...s.thread, item],
+        unreadMessages:
+          item.from === "handler" || item.from === "system"
+            ? s.unreadMessages + 1
+            : s.unreadMessages,
       };
     }),
+
   clearThread: () => {
-    set({ thread: [] });
+    set({ thread: [], unreadMessages: 0 });
     get().pushLog("thread", "Thread cleared.");
   },
 

@@ -1,5 +1,7 @@
 import PhoneFrame from "@/components/PhoneFrame";
+import { useGameStore } from "@/store/useGameStore";
 import { useRouter } from "expo-router";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 type AppTile = {
@@ -100,6 +102,8 @@ const APPS: AppTile[] = [
 export default function HomePhoneScreen() {
   const router = useRouter();
 
+  const unreadMessages = useGameStore((s) => s.unreadMessages);
+
   return (
     <PhoneFrame>
       <View style={styles.screen}>
@@ -128,6 +132,14 @@ export default function HomePhoneScreen() {
                   <Text style={[styles.iconText, { color: a.color }]}>
                     {a.icon}
                   </Text>
+
+                  {a.key === "messages" && unreadMessages > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>
+                        {unreadMessages > 9 ? "9+" : unreadMessages}
+                      </Text>
+                    </View>
+                  )}
                 </View>
 
                 <Text style={styles.label}>{a.label}</Text>
@@ -193,5 +205,26 @@ const styles = StyleSheet.create({
     textAlign: "center",
     color: "rgba(255,255,255,0.85)",
     fontWeight: "600",
+  },
+
+  badge: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    backgroundColor: "#ff3b30",
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: "rgba(0,0,0,0.4)",
+  },
+
+  badgeText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "800",
   },
 });

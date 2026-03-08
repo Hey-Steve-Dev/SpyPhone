@@ -1,6 +1,7 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
-import React, { useEffect, useRef, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -14,6 +15,7 @@ const HOME_BAR_SPACE = 44;
 
 export default function MessagesScreen() {
   const thread = useGameStore((s) => s.thread);
+  const clearUnreadMessages = useGameStore((s) => s.clearUnreadMessages);
   const replyChips = useGameStore((s) => s.replyChips);
   const inputEnabled = useGameStore((s) => s.messagesInputEnabled);
   const sendEnabled = useGameStore((s) => s.messagesSendEnabled);
@@ -26,6 +28,12 @@ export default function MessagesScreen() {
   const [input, setInput] = useState("");
   const [dots, setDots] = useState("…");
   const scrollRef = useRef<ScrollView>(null);
+
+  useFocusEffect(
+    useCallback(() => {
+      clearUnreadMessages();
+    }, [clearUnreadMessages]),
+  );
 
   useEffect(() => {
     if (!messagesTyping) {
