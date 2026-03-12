@@ -13,6 +13,8 @@ export type MissionPhase =
   | "camera_watch"
   | "move_prompt"
   | "post_move_confirm"
+  | "laptop_objective"
+  | "laptop_access_confirm"
   | "terminal_intro"
   | "terminal_pwd"
   | "terminal_ls_root"
@@ -108,6 +110,10 @@ export type MissionEffect =
       durationMs?: number;
     }
   | {
+      type: "start_guard_wait_window";
+      timeoutMs?: number;
+    }
+  | {
       type: "set_mission_state";
       state: MissionState;
     }
@@ -144,9 +150,11 @@ export type MissionEvent =
   | { type: "BOOT" }
   | { type: "REPLY_SELECTED"; action: string; label?: string }
   | { type: "NETWORK_LINKED"; ssid?: string }
+  | { type: "TUNNEL_LINKED"; deviceId?: string; deviceName?: string }
   | { type: "CAMERA_VIEWED"; cameraId: number }
   | { type: "MOVE_ATTEMPT" }
   | { type: "SCANNER_CHATTER_HEARD" }
+  | { type: "GUARD_WAIT_EXPIRED" }
   | { type: "TERMINAL_READY" }
   | { type: "TERMINAL_COMMAND"; input: string; mode: Mode };
 
@@ -312,11 +320,6 @@ function reviewAdvanceEffects(
           type: "handler_sequence",
           items: [
             opsLine(
-              "OK, we need to get you behind the firewall on the 3rd floor quietly.",
-              1550,
-              1000,
-            ),
-            opsLine(
               "We need to find an elevator passcode down here before we can move.",
               1500,
               1000,
@@ -438,6 +441,31 @@ function handlerForTerminalPhase(phase: MissionPhase): string[] {
   }
 }
 
+function makeSuccessfulMoveEffects(): MissionEffect[] {
+  return [
+    {
+      type: "handler_sequence",
+      items: [opsLine("Go. Go. Go.", 1200, 800)],
+    },
+    { type: "stop_camera_sim" },
+    { type: "resolve_camera_objective" },
+    { type: "set_hallway_occupied", on: false },
+    {
+      type: "trigger_go_dark",
+      durationMs: 3200,
+      message: "STANDBY",
+    },
+    {
+      type: "trigger_biometric_scan",
+      durationMs: 900,
+    },
+    {
+      type: "set_reply_chips",
+      chips: [{ id: "post_move_in", label: "I'm in", action: "post_move_in" }],
+    },
+  ];
+}
+
 export function missionIntro(state: MissionState): string[] {
   if (state.phase.startsWith("terminal_") || state.phase === "complete") {
     return handlerForTerminalPhase(state.phase);
@@ -459,7 +487,6 @@ export function missionIntro(state: MissionState): string[] {
 
     case "network_objective":
       return [
-        "OK, we need to get you behind the firewall on the 3rd floor quietly.",
         "We need to find an elevator passcode down here before we can move.",
         "There should be an access point for the cameras in the room next to you.",
         "Open Tunnel and access it.",
@@ -472,7 +499,8 @@ export function missionIntro(state: MissionState): string[] {
     case "camera_watch":
       return [
         "OK. Good.",
-        "Check camera 12 and wait for the guard to pass.",
+        "I'm hearing chatter on the band. One of the guards is on patrol.",
+        "Go to Camera 12 and wait for him to pass.",
         "Signal when you're moving.",
       ];
 
@@ -482,8 +510,19 @@ export function missionIntro(state: MissionState): string[] {
     case "post_move_confirm":
       return ["Signal when you're in."];
 
+    case "laptop_objective":
+      return [
+        "Good. Stay quiet.",
+        "We need access to the laptop in that room.",
+        "Run a scan and tunnel into it.",
+        "Signal when you're connected.",
+      ];
+
+    case "laptop_access_confirm":
+      return ["Signal when you're connected."];
+
     case "terminal_intro":
-      return ["Good. Stay quiet. Open Terminal."];
+      return ["Good.", "Let's see what they left open.", "Open Terminal."];
 
     default:
       return ["Stand by."];
@@ -614,11 +653,6 @@ export function handleMissionEvent(
               type: "handler_sequence",
               items: [
                 opsLine(
-                  "OK, we need to get you behind the firewall on the 3rd floor quietly.",
-                  1550,
-                  1000,
-                ),
-                opsLine(
                   "We need to find an elevator passcode down here before we can move.",
                   1500,
                   1000,
@@ -656,11 +690,6 @@ export function handleMissionEvent(
               type: "handler_sequence",
               items: [
                 opsLine(
-                  "OK, we need to get you behind the firewall on the 3rd floor quietly.",
-                  1550,
-                  1000,
-                ),
-                opsLine(
                   "We need to find an elevator passcode down here before we can move.",
                   1500,
                   1000,
@@ -697,10 +726,11 @@ export function handleMissionEvent(
             items: [
               opsLine("OK. Good.", 1350, 900),
               opsLine(
-                "Check camera 12 and wait for the guard to pass.",
-                1500,
-                1100,
+                "I'm hearing chatter on the band. One of the guards is on patrol.",
+                1550,
+                1000,
               ),
+              opsLine("Go to Camera 12 and wait for him to pass.", 1500, 1000),
               opsLine("Signal when you're moving.", 1300, 1200),
             ],
           },
@@ -711,6 +741,7 @@ export function handleMissionEvent(
           { type: "start_camera_objective", targetId: 12 },
           { type: "start_camera_sim" },
           { type: "set_hallway_occupied", on: false },
+          { type: "start_guard_wait_window", timeoutMs: 25000 },
         ],
       };
     }
@@ -738,7 +769,7 @@ export function handleMissionEvent(
       state.phase === "post_move_confirm" &&
       event.action === "post_move_in"
     ) {
-      const nextState = withPhase(state, "terminal_intro");
+      const nextState = withPhase(state, "laptop_objective");
 
       return {
         nextState,
@@ -751,7 +782,34 @@ export function handleMissionEvent(
             type: "handler_sequence",
             items: [
               opsLine("Good. Stay quiet.", 1350, 900),
-              opsLine("Open Terminal.", 1350, 1100),
+              opsLine("We need access to the laptop in that room.", 1450, 950),
+              opsLine("Run a scan and tunnel into it.", 1400, 950),
+              opsLine("Signal when you're connected.", 1400, 1100),
+            ],
+          },
+        ],
+      };
+    }
+
+    if (
+      state.phase === "laptop_access_confirm" &&
+      event.action === "laptop_access_confirm"
+    ) {
+      const nextState = withPhase(state, "terminal_intro");
+
+      return {
+        nextState,
+        effects: [
+          { type: "clear_reply_chips" },
+          ...(event.label
+            ? [{ type: "player_message", text: event.label } as MissionEffect]
+            : []),
+          {
+            type: "handler_sequence",
+            items: [
+              opsLine("Good.", 1200, 800),
+              opsLine("Let's see what they left open.", 1450, 900),
+              opsLine("Open Terminal.", 1300, 1100),
             ],
           },
           { type: "set_terminal_locked", on: false },
@@ -781,6 +839,37 @@ export function handleMissionEvent(
           ],
         },
         { type: "set_terminal_locked", on: true },
+      ],
+    };
+  }
+
+  if (event.type === "TUNNEL_LINKED") {
+    if (state.phase !== "laptop_objective") {
+      return {
+        nextState: state,
+        effects: [],
+      };
+    }
+
+    const nextState = withPhase(state, "laptop_access_confirm");
+
+    return {
+      nextState,
+      effects: [
+        {
+          type: "handler_sequence",
+          items: [opsLine("Signal when you're connected.", 1400, 1000)],
+        },
+        {
+          type: "set_reply_chips",
+          chips: [
+            {
+              id: "laptop_access_confirm",
+              label: "I'm connected",
+              action: "laptop_access_confirm",
+            },
+          ],
+        },
       ],
     };
   }
@@ -829,6 +918,37 @@ export function handleMissionEvent(
     };
   }
 
+  if (event.type === "GUARD_WAIT_EXPIRED") {
+    if (state.phase !== "camera_watch") {
+      return {
+        nextState: state,
+        effects: [],
+      };
+    }
+
+    const nextState = withPhase(state, "post_move_confirm");
+
+    return {
+      nextState,
+      effects: [
+        { type: "clear_reply_chips" },
+        {
+          type: "handler_sequence",
+          items: [
+            opsLine(
+              "OK, he must be past now, move it, we're wasting time.",
+              1550,
+              900,
+            ),
+          ],
+        },
+        { type: "set_hallway_occupied", on: false },
+        { type: "player_message", text: "Moving" },
+        ...makeSuccessfulMoveEffects(),
+      ],
+    };
+  }
+
   if (event.type === "MOVE_ATTEMPT") {
     if (ctx.hallwayOccupied) {
       return {
@@ -854,30 +974,7 @@ export function handleMissionEvent(
 
     return {
       nextState,
-      effects: [
-        {
-          type: "handler_sequence",
-          items: [opsLine("Go. Go. Go.", 1200, 800)],
-        },
-        { type: "stop_camera_sim" },
-        { type: "resolve_camera_objective" },
-        { type: "set_hallway_occupied", on: false },
-        {
-          type: "trigger_go_dark",
-          durationMs: 3200,
-          message: "STANDBY",
-        },
-        {
-          type: "trigger_biometric_scan",
-          durationMs: 900,
-        },
-        {
-          type: "set_reply_chips",
-          chips: [
-            { id: "post_move_in", label: "I'm in", action: "post_move_in" },
-          ],
-        },
-      ],
+      effects: makeSuccessfulMoveEffects(),
     };
   }
 

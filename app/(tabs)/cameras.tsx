@@ -1,5 +1,6 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
+import { useIsFocused } from "@react-navigation/native";
 import { AVPlaybackStatus, ResizeMode, Video } from "expo-av";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -62,6 +63,48 @@ function FeaturedCameraView({ width }: { width: number }) {
   const isHallwayCam12 = activeCamId === 12 && !isCamOffline;
   const isStandingLoopCam13 = activeCamId === 13 && !isCamOffline;
 
+  const tryStartCam12Playback = async () => {
+    if (!isHallwayCam12) return;
+    if (!hallwayOneOccupied) return;
+    if (cam12HasPlayedRef.current) return;
+    if (cam12HasStartedRef.current) return;
+
+    if (Platform.OS === "web") {
+      const el = cam12WebRef.current;
+      if (!el) return;
+
+      try {
+        cam12HasStartedRef.current = true;
+        el.currentTime = 0;
+        el.playbackRate = 0.65;
+        await el.play();
+      } catch {
+        cam12HasStartedRef.current = false;
+      }
+      return;
+    }
+
+    const player = cam12NativeRef.current;
+    if (!player) return;
+    if (!cam12NativeLoaded) return;
+
+    try {
+      cam12HasStartedRef.current = true;
+      await player.setPositionAsync(0);
+      await player.playAsync();
+      await player.setRateAsync(0.65, true);
+    } catch {
+      cam12HasStartedRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    if (hallwayOneOccupied) {
+      cam12HasPlayedRef.current = false;
+      cam12HasStartedRef.current = false;
+    }
+  }, [hallwayOneOccupied]);
+
   useEffect(() => {
     if (!isHallwayCam12) {
       setCam12NativeLoaded(false);
@@ -72,24 +115,12 @@ function FeaturedCameraView({ width }: { width: number }) {
       const el = cam12WebRef.current;
       if (!el) return;
 
-      const prep = () => {
-        try {
+      try {
+        if (!hallwayOneOccupied) {
           el.pause();
-          if (!cam12HasPlayedRef.current) {
-            el.currentTime = 0;
-          }
-        } catch {}
-      };
-
-      if (el.readyState >= 1) {
-        prep();
-      } else {
-        const onLoadedMetadata = () => prep();
-        el.addEventListener("loadedmetadata", onLoadedMetadata);
-        return () => {
-          el.removeEventListener("loadedmetadata", onLoadedMetadata);
-        };
-      }
+          el.currentTime = 0;
+        }
+      } catch {}
 
       return;
     }
@@ -107,56 +138,14 @@ function FeaturedCameraView({ width }: { width: number }) {
     };
 
     void prepNative();
-  }, [isHallwayCam12]);
+  }, [isHallwayCam12, hallwayOneOccupied]);
 
   useEffect(() => {
     if (!isHallwayCam12) return;
+    if (Platform.OS === "web") return;
     if (!hallwayOneOccupied) return;
-    if (cam12HasPlayedRef.current) return;
-    if (cam12HasStartedRef.current) return;
 
-    if (Platform.OS === "web") {
-      cam12HasStartedRef.current = true;
-
-      const el = cam12WebRef.current;
-      if (!el) {
-        cam12HasStartedRef.current = false;
-        return;
-      }
-
-      el.playbackRate = 0.65;
-
-      const playPromise = el.play();
-      if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch(() => {
-          cam12HasStartedRef.current = false;
-        });
-      }
-
-      return;
-    }
-
-    if (!cam12NativeLoaded) return;
-
-    cam12HasStartedRef.current = true;
-
-    const runNative = async () => {
-      const player = cam12NativeRef.current;
-      if (!player) {
-        cam12HasStartedRef.current = false;
-        return;
-      }
-
-      try {
-        await player.setPositionAsync(0);
-        await player.playAsync();
-        await player.setRateAsync(0.65, true);
-      } catch {
-        cam12HasStartedRef.current = false;
-      }
-    };
-
-    void runNative();
+    void tryStartCam12Playback();
   }, [hallwayOneOccupied, isHallwayCam12, cam12NativeLoaded]);
 
   useEffect(() => {
@@ -322,6 +311,7 @@ function FeaturedCameraView({ width }: { width: number }) {
             <View style={styles.featuredWebWrap}>
               {/* @ts-ignore */}
               <video
+                key={hallwayOneOccupied ? "cam12-active" : "cam12-idle"}
                 ref={(node) => {
                   cam12WebRef.current = node;
                 }}
@@ -329,6 +319,27 @@ function FeaturedCameraView({ width }: { width: number }) {
                 muted
                 playsInline
                 preload="auto"
+                autoPlay={hallwayOneOccupied}
+                onLoadedData={() => {
+                  const el = cam12WebRef.current;
+                  if (!el) return;
+
+                  try {
+                    if (hallwayOneOccupied && !cam12HasPlayedRef.current) {
+                      cam12HasStartedRef.current = true;
+                      el.currentTime = 0;
+                      el.playbackRate = 0.65;
+                      void el.play().catch(() => {
+                        cam12HasStartedRef.current = false;
+                      });
+                    } else {
+                      el.pause();
+                      el.currentTime = 0;
+                    }
+                  } catch {
+                    cam12HasStartedRef.current = false;
+                  }
+                }}
                 onEnded={endCam12Playback}
                 style={{
                   width: "100%",
@@ -350,34 +361,7 @@ function FeaturedCameraView({ width }: { width: number }) {
               isMuted
               onLoad={() => {
                 setCam12NativeLoaded(true);
-
-                const prepNative = async () => {
-                  const player = cam12NativeRef.current;
-                  if (!player) return;
-
-                  try {
-                    await player.pauseAsync();
-
-                    if (!cam12HasPlayedRef.current) {
-                      await player.setPositionAsync(0);
-                    }
-
-                    if (
-                      hallwayOneOccupied &&
-                      !cam12HasPlayedRef.current &&
-                      !cam12HasStartedRef.current
-                    ) {
-                      cam12HasStartedRef.current = true;
-                      await player.setPositionAsync(0);
-                      await player.playAsync();
-                      await player.setRateAsync(0.65, true);
-                    }
-                  } catch {
-                    cam12HasStartedRef.current = false;
-                  }
-                };
-
-                void prepNative();
+                void tryStartCam12Playback();
               }}
               onPlaybackStatusUpdate={(status) => {
                 if (!status.isLoaded) return;
@@ -400,6 +384,7 @@ function FeaturedCameraView({ width }: { width: number }) {
                 playsInline
                 preload="auto"
                 loop
+                autoPlay
                 style={{
                   width: "100%",
                   height: "100%",
@@ -435,6 +420,8 @@ function FeaturedCameraView({ width }: { width: number }) {
 }
 
 export default function CamerasScreen() {
+  const isFocused = useIsFocused();
+
   const cameraNetworkOnline = useGameStore((s) => s.cameraNetworkOnline);
   const cameras = useGameStore((s) => s.cameras);
   const selectedCamId = useGameStore((s) => s.selectedCamId);
@@ -445,24 +432,44 @@ export default function CamerasScreen() {
   const stopCameraSim = useGameStore((s) => s.stopCameraSim);
   const hallwayOneOccupied = useGameStore((s) => s.hallwayOneOccupied);
   const setCameraState = useGameStore((s) => s.setCameraState);
+  const missionPhase = useGameStore((s) => s.mission.phase);
+  const dispatchMissionEvent = useGameStore((s) => s.dispatchMissionEvent);
 
   const tiles = useMemo(() => GRID_IDS, []);
   const [innerWidth, setInnerWidth] = useState(0);
 
   useEffect(() => {
-    if (!cameraNetworkOnline) {
+    if (!cameraNetworkOnline || !isFocused) {
       stopCameraSim();
       return;
     }
 
     startCameraSim();
     return () => stopCameraSim();
-  }, [cameraNetworkOnline, startCameraSim, stopCameraSim]);
+  }, [cameraNetworkOnline, isFocused, startCameraSim, stopCameraSim]);
 
   useEffect(() => {
     if (!cameraNetworkOnline) return;
     setCameraState(12, hallwayOneOccupied ? "occupied" : "empty");
   }, [cameraNetworkOnline, hallwayOneOccupied, setCameraState]);
+
+  useEffect(() => {
+    if (!isFocused) return;
+    if (!cameraNetworkOnline) return;
+    if (missionPhase !== "camera_watch") return;
+    if (selectedCamId !== 12) return;
+
+    void dispatchMissionEvent({
+      type: "CAMERA_VIEWED",
+      cameraId: 12,
+    });
+  }, [
+    isFocused,
+    cameraNetworkOnline,
+    missionPhase,
+    selectedCamId,
+    dispatchMissionEvent,
+  ]);
 
   const handleWrapLayout = (event: LayoutChangeEvent) => {
     const measured = event.nativeEvent.layout.width;

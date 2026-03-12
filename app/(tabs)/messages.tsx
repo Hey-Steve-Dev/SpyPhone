@@ -376,6 +376,7 @@ const styles = StyleSheet.create({
   quickBar: {
     paddingTop: 6,
     paddingBottom: 8,
+    backgroundColor: "#000",
   },
 
   quickBarContent: {
@@ -408,6 +409,8 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 12,
     paddingTop: 8,
+    backgroundColor: "#000",
+    paddingBottom: 8,
   },
 
   input: {

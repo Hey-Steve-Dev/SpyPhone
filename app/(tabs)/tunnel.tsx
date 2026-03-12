@@ -36,7 +36,11 @@ export default function TunnelScreen() {
 
   return (
     <PhoneFrame>
-      <View style={styles.screen}>
+      <ScrollView
+        style={styles.screen}
+        contentContainerStyle={styles.screenContent}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <Text style={styles.eyebrow}>FIELD ACCESS</Text>
           <Text style={styles.title}>Tunnel</Text>
@@ -101,135 +105,129 @@ export default function TunnelScreen() {
           </View>
         </View>
 
-        <View style={styles.mainGrid}>
-          <View style={styles.listPanel}>
-            <Text style={styles.panelTitle}>Detected Devices</Text>
+        <View style={styles.listPanel}>
+          <Text style={styles.panelTitle}>Detected Devices</Text>
 
-            <ScrollView
-              style={styles.deviceList}
-              contentContainerStyle={styles.deviceListContent}
-              showsVerticalScrollIndicator={false}
-            >
-              {!tunnelScanComplete && !isTunnelScanning ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateText}>
-                    No scan has been run yet.
-                  </Text>
-                </View>
-              ) : null}
+          {!tunnelScanComplete && !isTunnelScanning ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                No scan has been run yet.
+              </Text>
+            </View>
+          ) : null}
 
-              {tunnelScanComplete && nearbyDevices.length === 0 ? (
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateText}>
-                    No powered devices detected.
-                  </Text>
-                </View>
-              ) : null}
+          {tunnelScanComplete && nearbyDevices.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyStateText}>
+                No powered devices detected.
+              </Text>
+            </View>
+          ) : null}
 
-              {nearbyDevices.map((device) => {
-                const selected = device.id === selectedTunnelDeviceId;
+          <View style={styles.deviceListContent}>
+            {nearbyDevices.map((device) => {
+              const selected = device.id === selectedTunnelDeviceId;
 
-                return (
-                  <Pressable
-                    key={device.id}
-                    onPress={() => selectTunnelDevice(device.id)}
-                    disabled={isTunnelScanning || isTunnelAttempting}
-                    style={[
-                      styles.deviceCard,
-                      selected && styles.deviceCardSelected,
-                    ]}
-                  >
-                    <View style={styles.deviceTopRow}>
-                      <Text style={styles.deviceName}>{device.name}</Text>
-                      <Text
-                        style={[
-                          styles.devicePower,
-                          device.poweredOn
-                            ? styles.devicePowerOn
-                            : styles.devicePowerOff,
-                        ]}
-                      >
-                        {device.poweredOn ? "ONLINE" : "OFFLINE"}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.deviceMeta}>
-                      Signal: {device.signalStrength}
-                    </Text>
-                    <Text style={styles.deviceMeta}>Type: {device.kind}</Text>
-                  </Pressable>
-                );
-              })}
-            </ScrollView>
-          </View>
-
-          <View style={styles.detailPanel}>
-            <Text style={styles.panelTitle}>Tunnel Control</Text>
-
-            {!selectedDevice ? (
-              <View style={styles.emptyDetail}>
-                <Text style={styles.emptyStateText}>
-                  Select a device to inspect tunnel options.
-                </Text>
-              </View>
-            ) : (
-              <>
-                <View style={styles.detailCard}>
-                  <Text style={styles.detailName}>{selectedDevice.name}</Text>
-                  <Text style={styles.detailLine}>
-                    Power: {selectedDevice.poweredOn ? "ONLINE" : "OFFLINE"}
-                  </Text>
-                  <Text style={styles.detailLine}>
-                    Signal: {selectedDevice.signalStrength}
-                  </Text>
-                  <Text style={styles.detailLine}>
-                    Shell Support: {selectedDevice.supportsShell ? "YES" : "NO"}
-                  </Text>
-                  <Text style={styles.detailLine}>
-                    Aux Access: {selectedDevice.supportsAuxOps ? "YES" : "NO"}
-                  </Text>
-                </View>
-
+              return (
                 <Pressable
-                  onPress={() => void attemptTunnelConnection()}
-                  disabled={
-                    isTunnelScanning ||
-                    isTunnelAttempting ||
-                    !selectedDevice.poweredOn
-                  }
+                  key={device.id}
+                  onPress={() => selectTunnelDevice(device.id)}
+                  disabled={isTunnelScanning || isTunnelAttempting}
                   style={[
-                    styles.primaryButton,
-                    (isTunnelScanning ||
-                      isTunnelAttempting ||
-                      !selectedDevice.poweredOn) &&
-                      styles.buttonDisabled,
+                    styles.deviceCard,
+                    selected && styles.deviceCardSelected,
                   ]}
                 >
-                  <Text style={styles.primaryButtonText}>
-                    {isTunnelAttempting ? "TUNNELING..." : "ATTEMPT TUNNEL"}
-                  </Text>
-                </Pressable>
+                  <View style={styles.deviceTopRow}>
+                    <Text style={styles.deviceName}>{device.name}</Text>
+                    <Text
+                      style={[
+                        styles.devicePower,
+                        device.poweredOn
+                          ? styles.devicePowerOn
+                          : styles.devicePowerOff,
+                      ]}
+                    >
+                      {device.poweredOn ? "ONLINE" : "OFFLINE"}
+                    </Text>
+                  </View>
 
-                <View style={styles.resultCard}>
-                  <Text style={styles.cardLabel}>RESULT</Text>
-                  <Text style={styles.resultText}>
-                    {tunnelConnectionState === "success" &&
-                    activeRemoteHostId === selectedDevice.id
-                      ? "Tunnel established. Secure shell is available."
-                      : tunnelConnectionState === "limited"
-                        ? "Tunnel active. Auxiliary operations only. No shell available."
-                        : tunnelConnectionState === "failure"
-                          ? "Tunnel failed. Target did not expose a usable route."
-                          : tunnelConnectionState === "attempting"
-                            ? "Negotiating remote path..."
-                            : "No connection attempt made yet."}
+                  <Text style={styles.deviceMeta}>
+                    Signal: {device.signalStrength}
                   </Text>
-                </View>
-              </>
-            )}
+                  <Text style={styles.deviceMeta}>Type: {device.kind}</Text>
+                </Pressable>
+              );
+            })}
           </View>
         </View>
-      </View>
+
+        <View style={styles.detailPanel}>
+          <Text style={styles.panelTitle}>Tunnel Control</Text>
+
+          {!selectedDevice ? (
+            <View style={styles.emptyDetail}>
+              <Text style={styles.emptyStateText}>
+                Select a device to inspect tunnel options.
+              </Text>
+            </View>
+          ) : (
+            <>
+              <View style={styles.detailCard}>
+                <Text style={styles.detailName}>{selectedDevice.name}</Text>
+                <Text style={styles.detailLine}>
+                  Power: {selectedDevice.poweredOn ? "ONLINE" : "OFFLINE"}
+                </Text>
+                <Text style={styles.detailLine}>
+                  Signal: {selectedDevice.signalStrength}
+                </Text>
+                <Text style={styles.detailLine}>
+                  Shell Support: {selectedDevice.supportsShell ? "YES" : "NO"}
+                </Text>
+                <Text style={styles.detailLine}>
+                  Aux Access: {selectedDevice.supportsAuxOps ? "YES" : "NO"}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => void attemptTunnelConnection()}
+                disabled={
+                  isTunnelScanning ||
+                  isTunnelAttempting ||
+                  !selectedDevice.poweredOn
+                }
+                style={[
+                  styles.primaryButton,
+                  (isTunnelScanning ||
+                    isTunnelAttempting ||
+                    !selectedDevice.poweredOn) &&
+                    styles.buttonDisabled,
+                ]}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {isTunnelAttempting ? "TUNNELING..." : "ATTEMPT TUNNEL"}
+                </Text>
+              </Pressable>
+
+              <View style={styles.resultCard}>
+                <Text style={styles.cardLabel}>RESULT</Text>
+                <Text style={styles.resultText}>
+                  {tunnelConnectionState === "success" &&
+                  activeRemoteHostId === selectedDevice.id
+                    ? "Tunnel established. Secure shell is available."
+                    : tunnelConnectionState === "limited"
+                      ? "Tunnel active. Auxiliary operations only. No shell available."
+                      : tunnelConnectionState === "failure"
+                        ? "Tunnel failed. Target did not expose a usable route."
+                        : tunnelConnectionState === "attempting"
+                          ? "Negotiating remote path..."
+                          : "No connection attempt made yet."}
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+      </ScrollView>
     </PhoneFrame>
   );
 }
@@ -237,13 +235,16 @@ export default function TunnelScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    backgroundColor: "#071018",
+  },
+  screenContent: {
     paddingHorizontal: 16,
     paddingTop: 18,
     paddingBottom: HOME_BAR_SPACE + 22,
-    backgroundColor: "#071018",
+    gap: 14,
   },
   header: {
-    marginBottom: 16,
+    marginBottom: 2,
   },
   eyebrow: {
     color: "#6ea8c7",
@@ -267,7 +268,6 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: "row",
     gap: 10,
-    marginBottom: 14,
   },
   primaryButton: {
     flex: 1,
@@ -309,7 +309,6 @@ const styles = StyleSheet.create({
     borderColor: "#183041",
     backgroundColor: "#0b1620",
     padding: 14,
-    marginBottom: 14,
   },
   cardLabel: {
     color: "#6ea8c7",
@@ -352,12 +351,7 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#6d8cff",
   },
-  mainGrid: {
-    flex: 1,
-    gap: 14,
-  },
   listPanel: {
-    flex: 1,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#183041",
@@ -365,7 +359,6 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   detailPanel: {
-    flex: 1,
     borderRadius: 14,
     borderWidth: 1,
     borderColor: "#183041",
@@ -378,12 +371,8 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     marginBottom: 12,
   },
-  deviceList: {
-    flex: 1,
-  },
   deviceListContent: {
     gap: 10,
-    paddingBottom: 8,
   },
   deviceCard: {
     borderRadius: 12,
@@ -440,7 +429,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   emptyDetail: {
-    flex: 1,
+    minHeight: 120,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,

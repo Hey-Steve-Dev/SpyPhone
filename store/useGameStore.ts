@@ -368,6 +368,16 @@ function makeInitialNearbyDevices(): NearbyDevice[] {
       tunnelOutcome: "success",
     },
     {
+      id: "office-laptop-01",
+      name: "OFFICE-LAPTOP",
+      kind: "workstation",
+      poweredOn: true,
+      signalStrength: "STRONG",
+      supportsShell: true,
+      supportsAuxOps: true,
+      tunnelOutcome: "success",
+    },
+    {
       id: "printer-01",
       name: "PRN-OFFICE-03",
       kind: "network printer",
@@ -548,6 +558,10 @@ type GameState = {
   startCameraSim: () => void;
   stopCameraSim: () => void;
 
+  guardWaitTimer: ReturnType<typeof setTimeout> | null;
+  startGuardWaitTimer: (ms?: number) => void;
+  clearGuardWaitTimer: () => void;
+
   goDark: GoDarkState;
   goDarkTimer: ReturnType<typeof setTimeout> | null;
   triggerGoDark: (durationMs?: number, message?: string) => void;
@@ -615,6 +629,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           : makeInitialNearbyDevices(),
     });
 
+    get().clearGuardWaitTimer();
     get().pushLog("system", "Boot sequence started.");
     get().pushLog("camera", "Camera network is offline.");
     get().pushLog("tunnel", "Local tunnel targets seeded.");
@@ -963,22 +978,22 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const latest = get();
     if (!latest.scanner.poweredOn) return;
-    if (latest.scanner.scriptedChatterPlayed) return;
+    if (!latest.scanner.scriptedChatterPlayed) {
+      const hit: ScannerLogItem = {
+        id: makeId(),
+        at: Date.now(),
+        freq: "460.225",
+        label: "Metro Patrol",
+        text: "Unit 4, possible movement near the lower service corridor. Check the east entrance.",
+      };
 
-    const hit: ScannerLogItem = {
-      id: makeId(),
-      at: Date.now(),
-      freq: "460.225",
-      label: "Metro Patrol",
-      text: "Unit 4, possible movement near the lower service corridor. Check the east entrance.",
-    };
+      get().appendScannerLog(hit);
+      get().setScannerActiveFreq(hit.freq);
+      get().setScannerHold(true);
+      get().setScannerScriptedChatterPlayed(true);
 
-    get().appendScannerLog(hit);
-    get().setScannerActiveFreq(hit.freq);
-    get().setScannerHold(true);
-    get().setScannerScriptedChatterPlayed(true);
-
-    await get().dispatchMissionEvent({ type: "SCANNER_CHATTER_HEARD" });
+      await get().dispatchMissionEvent({ type: "SCANNER_CHATTER_HEARD" });
+    }
   },
 
   terminalLocked: false,
@@ -1223,6 +1238,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         case "resolve_camera_objective": {
           get().resolveCameraObjective();
+          get().clearGuardWaitTimer();
           break;
         }
 
@@ -1233,6 +1249,12 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         case "stop_camera_sim": {
           get().stopCameraSim();
+          get().clearGuardWaitTimer();
+          break;
+        }
+
+        case "set_hallway_occupied": {
+          get().setHallwayOneOccupied(effect.on);
           break;
         }
 
@@ -1240,6 +1262,11 @@ export const useGameStore = create<GameState>((set, get) => ({
           const durationMs = effect.durationMs ?? 3200;
           get().triggerGoDark(durationMs, effect.message);
           await wait(Math.max(0, durationMs - 150));
+          break;
+        }
+
+        case "start_guard_wait_window": {
+          get().startGuardWaitTimer(effect.timeoutMs ?? 25000);
           break;
         }
 
@@ -1271,6 +1298,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 
         case "mission_failed": {
+          get().clearGuardWaitTimer();
           get().pushLog("mission", `Mission failed: ${effect.reason}.`);
 
           if (effect.bannerTitle && effect.bannerMessage) {
@@ -1357,6 +1385,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       };
     }),
   resetMission: () => {
+    get().clearGuardWaitTimer();
     set({ mission: makeInitialMissionState() });
     get().pushLog("mission", "Mission reset to initial state.");
   },
@@ -1731,10 +1760,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       cameraObjectiveActive: true,
       cameraObjectiveResolved: false,
       targetCameraId: targetId,
+      hallwayOneOccupied: false,
     });
 
     get().pushLog("mission", `Camera objective started on CAM ${targetId}.`);
-    get().setCameraState(12, "occupied");
   },
 
   resolveCameraObjective: () => {
@@ -1844,6 +1873,30 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (s.cameraSimTimer) clearInterval(s.cameraSimTimer);
     set({ cameraSimTimer: null });
     get().pushLog("camera", "Camera simulation stopped.");
+  },
+
+  guardWaitTimer: null,
+
+  startGuardWaitTimer: (ms = 25000) => {
+    get().clearGuardWaitTimer();
+    get().pushLog("mission", `Guard wait timer started for ${ms}ms.`);
+
+    const timer = setTimeout(() => {
+      set({ guardWaitTimer: null });
+      get().pushLog("mission", "Guard wait timer expired.");
+      void get().dispatchMissionEvent({ type: "GUARD_WAIT_EXPIRED" });
+    }, ms);
+
+    set({ guardWaitTimer: timer });
+  },
+
+  clearGuardWaitTimer: () => {
+    const timer = get().guardWaitTimer;
+    if (timer) {
+      clearTimeout(timer);
+      get().pushLog("mission", "Guard wait timer cleared.");
+    }
+    set({ guardWaitTimer: null });
   },
 
   goDark: {
@@ -2169,6 +2222,17 @@ export const useGameStore = create<GameState>((set, get) => ({
             ssid: device.name,
           });
         }
+      }
+
+      const isLaptopTarget =
+        device.id === "office-laptop-01" || device.kind === "workstation";
+
+      if (isLaptopTarget && mission.phase === "laptop_objective") {
+        await get().dispatchMissionEvent({
+          type: "TUNNEL_LINKED",
+          deviceId: device.id,
+          deviceName: device.name,
+        });
       }
 
       return;
