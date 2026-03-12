@@ -1149,7 +1149,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         case "trigger_go_dark": {
           const durationMs = effect.durationMs ?? 3200;
           get().triggerGoDark(durationMs, effect.message);
-          await wait(durationMs);
+
+          // wait until just before the go-dark clears
+          await wait(Math.max(0, durationMs - 150));
           break;
         }
 

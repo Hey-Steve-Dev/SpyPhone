@@ -813,7 +813,7 @@ export function handleMissionEvent(
         },
         {
           type: "trigger_biometric_scan",
-          durationMs: 600,
+          durationMs: 900,
         },
         {
           type: "handler_sequence",
