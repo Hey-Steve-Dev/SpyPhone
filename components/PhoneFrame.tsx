@@ -64,7 +64,10 @@ export default function PhoneFrame({
   if (!isWeb) {
     return (
       <SafeAreaView style={styles.nativeScreen} edges={["bottom"]}>
-        {Inner}
+        <View style={styles.nativeFrame}>
+          {Inner}
+          <GoDarkOverlay />
+        </View>
       </SafeAreaView>
     );
   }
@@ -76,8 +79,10 @@ export default function PhoneFrame({
           <View style={styles.frameMetal}>
             <View style={styles.screenHousing}>
               <View style={styles.topBezel} />
-              <View style={styles.screenWeb}>{Inner}</View>
-              <GoDarkOverlay />
+              <View style={styles.screenWeb}>
+                {Inner}
+                <GoDarkOverlay />
+              </View>
             </View>
           </View>
         </View>
@@ -94,6 +99,11 @@ const styles = StyleSheet.create({
   nativeScreen: {
     flex: 1,
     backgroundColor: "#070b18",
+  },
+
+  nativeFrame: {
+    flex: 1,
+    position: "relative",
   },
 
   content: {
