@@ -43,12 +43,16 @@ function FeaturedCameraView({ width }: { width: number }) {
 
   const cam12HasPlayedRef = useRef(false);
   const cam12HasStartedRef = useRef(false);
+  const [cam12NativeLoaded, setCam12NativeLoaded] = useState(false);
 
   const isHallwayCam12 = activeCamId === 12;
   const isStandingLoopCam13 = activeCamId === 13;
 
   useEffect(() => {
-    if (!isHallwayCam12) return;
+    if (!isHallwayCam12) {
+      setCam12NativeLoaded(false);
+      return;
+    }
 
     if (Platform.OS === "web") {
       const el = cam12WebRef.current;
@@ -97,9 +101,9 @@ function FeaturedCameraView({ width }: { width: number }) {
     if (cam12HasPlayedRef.current) return;
     if (cam12HasStartedRef.current) return;
 
-    cam12HasStartedRef.current = true;
-
     if (Platform.OS === "web") {
+      cam12HasStartedRef.current = true;
+
       const el = cam12WebRef.current;
       if (!el) {
         cam12HasStartedRef.current = false;
@@ -118,6 +122,10 @@ function FeaturedCameraView({ width }: { width: number }) {
       return;
     }
 
+    if (!cam12NativeLoaded) return;
+
+    cam12HasStartedRef.current = true;
+
     const runNative = async () => {
       const player = cam12NativeRef.current;
       if (!player) {
@@ -126,15 +134,16 @@ function FeaturedCameraView({ width }: { width: number }) {
       }
 
       try {
-        await player.setRateAsync(0.65, true);
+        await player.setPositionAsync(0);
         await player.playAsync();
+        await player.setRateAsync(0.65, true);
       } catch {
         cam12HasStartedRef.current = false;
       }
     };
 
     void runNative();
-  }, [hallwayOneOccupied, isHallwayCam12]);
+  }, [hallwayOneOccupied, isHallwayCam12, cam12NativeLoaded]);
 
   useEffect(() => {
     if (!isStandingLoopCam13) return;
@@ -306,16 +315,32 @@ function FeaturedCameraView({ width }: { width: number }) {
               isLooping={false}
               isMuted
               onLoad={() => {
+                setCam12NativeLoaded(true);
+
                 const prepNative = async () => {
                   const player = cam12NativeRef.current;
                   if (!player) return;
 
                   try {
                     await player.pauseAsync();
+
                     if (!cam12HasPlayedRef.current) {
                       await player.setPositionAsync(0);
                     }
-                  } catch {}
+
+                    if (
+                      hallwayOneOccupied &&
+                      !cam12HasPlayedRef.current &&
+                      !cam12HasStartedRef.current
+                    ) {
+                      cam12HasStartedRef.current = true;
+                      await player.setPositionAsync(0);
+                      await player.playAsync();
+                      await player.setRateAsync(0.65, true);
+                    }
+                  } catch {
+                    cam12HasStartedRef.current = false;
+                  }
                 };
 
                 void prepNative();

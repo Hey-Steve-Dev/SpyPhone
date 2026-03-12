@@ -101,6 +101,10 @@ export type MissionEffect =
       type: "stop_camera_sim";
     }
   | {
+      type: "set_hallway_occupied";
+      on: boolean;
+    }
+  | {
       type: "trigger_go_dark";
       durationMs?: number;
       message?: string;
@@ -142,6 +146,7 @@ export type MissionEvent =
   | { type: "BOOT" }
   | { type: "REPLY_SELECTED"; action: string; label?: string }
   | { type: "NETWORK_LINKED"; ssid?: string }
+  | { type: "CAMERA_VIEWED"; cameraId: number }
   | { type: "MOVE_ATTEMPT" }
   | { type: "SCANNER_CHATTER_HEARD" }
   | { type: "TERMINAL_READY" }
@@ -712,7 +717,36 @@ export function handleMissionEvent(
         { type: "set_terminal_locked", on: true },
         { type: "start_camera_objective", targetId: 12 },
         { type: "start_camera_sim" },
+        { type: "set_hallway_occupied", on: false },
       ],
+    };
+  }
+
+  if (event.type === "CAMERA_VIEWED") {
+    if (state.phase !== "camera_watch") {
+      return {
+        nextState: state,
+        effects: [],
+      };
+    }
+
+    if (event.cameraId !== 12) {
+      return {
+        nextState: state,
+        effects: [],
+      };
+    }
+
+    if (ctx.hallwayOccupied) {
+      return {
+        nextState: state,
+        effects: [],
+      };
+    }
+
+    return {
+      nextState: state,
+      effects: [{ type: "set_hallway_occupied", on: true }],
     };
   }
 
@@ -766,6 +800,7 @@ export function handleMissionEvent(
         },
         { type: "stop_camera_sim" },
         { type: "resolve_camera_objective" },
+        { type: "set_hallway_occupied", on: false },
         {
           type: "trigger_go_dark",
           durationMs: 3200,
