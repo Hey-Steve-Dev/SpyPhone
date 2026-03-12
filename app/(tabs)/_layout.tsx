@@ -4,10 +4,30 @@ import React, { useEffect } from "react";
 
 export default function PhoneLayout() {
   const bootGame = useGameStore((s) => s.bootGame);
+  const booted = useGameStore((s) => s.booted);
+
+  const triggerBiometricOverlay = useGameStore(
+    (s) => s.triggerBiometricOverlay,
+  );
 
   useEffect(() => {
-    void bootGame();
-  }, [bootGame]);
+    if (booted) return;
+
+    let mounted = true;
+
+    const runBoot = async () => {
+      await triggerBiometricOverlay();
+      if (!mounted) return;
+
+      bootGame();
+    };
+
+    void runBoot();
+
+    return () => {
+      mounted = false;
+    };
+  }, [bootGame, booted, triggerBiometricOverlay]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>

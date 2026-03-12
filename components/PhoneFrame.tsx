@@ -1,6 +1,7 @@
 import BannerComms from "@/components/BannerComms";
 import HomeGestureBar from "@/components/HomeGestureBar";
 import StatusBarFake from "@/components/StatusBarFake";
+import BiometricOverlay from "@/constants/BiometricOverlay";
 import GoDarkOverlay from "@/constants/goDarkOverlay";
 import { useGameStore } from "@/store/useGameStore";
 import { usePathname, useRouter } from "expo-router";
@@ -66,6 +67,7 @@ export default function PhoneFrame({
       <SafeAreaView style={styles.nativeScreen} edges={["bottom"]}>
         <View style={styles.nativeFrame}>
           {Inner}
+          <BiometricOverlay />
           <GoDarkOverlay />
         </View>
       </SafeAreaView>
@@ -81,6 +83,7 @@ export default function PhoneFrame({
               <View style={styles.topBezel} />
               <View style={styles.screenWeb}>
                 {Inner}
+                <BiometricOverlay />
                 <GoDarkOverlay />
               </View>
             </View>

@@ -110,6 +110,10 @@ export type MissionEffect =
       message?: string;
     }
   | {
+      type: "trigger_biometric_scan";
+      durationMs?: number;
+    }
+  | {
       type: "set_mission_state";
       state: MissionState;
     }
@@ -528,6 +532,7 @@ export function handleMissionEvent(
     return {
       nextState,
       effects: [
+        { type: "trigger_biometric_scan", durationMs: 600 },
         { type: "set_terminal_locked", on: true },
         { type: "clear_thread" },
         { type: "reset_terminal" },
@@ -805,6 +810,10 @@ export function handleMissionEvent(
           type: "trigger_go_dark",
           durationMs: 3200,
           message: "STANDBY",
+        },
+        {
+          type: "trigger_biometric_scan",
+          durationMs: 600,
         },
         {
           type: "handler_sequence",

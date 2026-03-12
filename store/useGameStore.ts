@@ -122,6 +122,10 @@ type GoDarkState = {
   message: string;
 };
 
+type BiometricOverlayState = {
+  active: boolean;
+};
+
 type TerminalLine = {
   id: string;
   kind: "out" | "cmd";
@@ -148,7 +152,8 @@ export type GlobalLogKind =
   | "trace"
   | "timer"
   | "terminal"
-  | "godark";
+  | "godark"
+  | "biometric";
 
 export type GlobalLogItem = {
   id: string;
@@ -486,6 +491,11 @@ type GameState = {
   goDarkTimer: ReturnType<typeof setTimeout> | null;
   triggerGoDark: (durationMs?: number, message?: string) => void;
   clearGoDark: () => void;
+
+  biometricOverlay: BiometricOverlayState;
+  showBiometricOverlay: () => void;
+  hideBiometricOverlay: () => void;
+  triggerBiometricOverlay: (durationMs?: number) => Promise<void>;
 
   notes: NoteItem[];
   addNote: (note: NoteItem) => void;
@@ -1076,6 +1086,10 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
           break;
         }
+        case "trigger_biometric_scan": {
+          await get().triggerBiometricOverlay(effect.durationMs ?? 500);
+          break;
+        }
 
         case "player_message": {
           get().pushThread("player", effect.text);
@@ -1133,8 +1147,9 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 
         case "trigger_go_dark": {
-          get().triggerGoDark(effect.durationMs, effect.message);
-          await wait(900);
+          const durationMs = effect.durationMs ?? 3200;
+          get().triggerGoDark(durationMs, effect.message);
+          await wait(durationMs);
           break;
         }
 
@@ -1731,6 +1746,49 @@ export const useGameStore = create<GameState>((set, get) => ({
     });
 
     get().pushLog("godark", "Go dark manually cleared.");
+  },
+
+  biometricOverlay: {
+    active: true,
+  },
+
+  showBiometricOverlay: () => {
+    set({
+      biometricOverlay: {
+        active: true,
+      },
+    });
+    get().pushLog("biometric", "Biometric overlay shown.");
+  },
+
+  hideBiometricOverlay: () => {
+    set({
+      biometricOverlay: {
+        active: false,
+      },
+    });
+    get().pushLog("biometric", "Biometric overlay hidden.");
+  },
+
+  triggerBiometricOverlay: async (durationMs = 500) => {
+    set({
+      biometricOverlay: {
+        active: true,
+      },
+    });
+    get().pushLog(
+      "biometric",
+      `Biometric overlay triggered for ${durationMs}ms.`,
+    );
+
+    await wait(durationMs);
+
+    set({
+      biometricOverlay: {
+        active: false,
+      },
+    });
+    get().pushLog("biometric", "Biometric overlay cleared.");
   },
 
   notes: [],
