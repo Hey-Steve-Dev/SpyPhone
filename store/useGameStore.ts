@@ -240,13 +240,15 @@ function makeInitialTerminal(): TerminalState {
   };
 }
 
-function makeInitialCameras(): Record<number, CameraFeed> {
+function makeInitialCameras(online = false): Record<number, CameraFeed> {
+  const defaultState: CameraState = online ? "empty" : "offline";
+
   return {
     12: {
       id: 12,
       label: "CAM 12",
       zone: "Lobby North",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -255,7 +257,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 13,
       label: "CAM 13",
       zone: "Hall A",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -264,7 +266,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 14,
       label: "CAM 14",
       zone: "Hall B",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -273,7 +275,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 15,
       label: "CAM 15",
       zone: "Service Door",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -282,7 +284,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 16,
       label: "CAM 16",
       zone: "Freight Hall",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -291,7 +293,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 17,
       label: "CAM 17",
       zone: "Stairwell",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -300,7 +302,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 18,
       label: "CAM 18",
       zone: "Loading Bay",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -309,7 +311,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 19,
       label: "CAM 19",
       zone: "Records Hall",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -318,7 +320,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 20,
       label: "CAM 20",
       zone: "East Corridor",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -327,7 +329,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 21,
       label: "CAM 21",
       zone: "Boiler Access",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -336,7 +338,7 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 22,
       label: "CAM 22",
       zone: "Archive Entry",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
@@ -345,12 +347,47 @@ function makeInitialCameras(): Record<number, CameraFeed> {
       id: 23,
       label: "CAM 23",
       zone: "West Hall",
-      state: "empty",
+      state: defaultState,
       alert: false,
       hasTarget: false,
       lastSeenAt: null,
     },
   };
+}
+
+function makeInitialNearbyDevices(): NearbyDevice[] {
+  return [
+    {
+      id: "sec-cam-bridge-01",
+      name: "SEC-CAM-BRIDGE",
+      kind: "camera relay",
+      poweredOn: true,
+      signalStrength: "STRONG",
+      supportsShell: true,
+      supportsAuxOps: false,
+      tunnelOutcome: "success",
+    },
+    {
+      id: "printer-01",
+      name: "PRN-OFFICE-03",
+      kind: "network printer",
+      poweredOn: true,
+      signalStrength: "MED",
+      supportsShell: false,
+      supportsAuxOps: true,
+      tunnelOutcome: "limited",
+    },
+    {
+      id: "desk-phone-02",
+      name: "VOIP-DESK-02",
+      kind: "desk phone",
+      poweredOn: true,
+      signalStrength: "WEAK",
+      supportsShell: false,
+      supportsAuxOps: false,
+      tunnelOutcome: "failure",
+    },
+  ];
 }
 
 type GameState = {
@@ -488,6 +525,9 @@ type GameState = {
   connectComms: () => void;
   setCommsJammed: (on: boolean) => void;
 
+  cameraNetworkOnline: boolean;
+  setCameraNetworkOnline: (on: boolean) => void;
+
   cameras: Record<number, CameraFeed>;
   selectedCamId: number | null;
   cameraSimTimer: ReturnType<typeof setInterval> | null;
@@ -565,8 +605,19 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     void initGameAudio();
 
-    set({ booted: true });
+    set({
+      booted: true,
+      cameraNetworkOnline: false,
+      cameras: makeInitialCameras(false),
+      nearbyDevices:
+        s.nearbyDevices.length > 0
+          ? s.nearbyDevices
+          : makeInitialNearbyDevices(),
+    });
+
     get().pushLog("system", "Boot sequence started.");
+    get().pushLog("camera", "Camera network is offline.");
+    get().pushLog("tunnel", "Local tunnel targets seeded.");
 
     void get().dispatchMissionEvent({ type: "BOOT" });
   },
@@ -1483,12 +1534,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         set({ commsConnecting: false, commsConnected: true });
         get().pushLog("network", "Secure link established.");
         get().bannerPush("COMMS", "Secure link established.", 1800);
-
-        const ssid = get().network.connectedMeta?.ssid;
-        void get().dispatchMissionEvent({
-          type: "NETWORK_LINKED",
-          ssid,
-        });
       }
     }, delay);
   },
@@ -1506,7 +1551,43 @@ export const useGameStore = create<GameState>((set, get) => ({
     }
   },
 
-  cameras: makeInitialCameras(),
+  cameraNetworkOnline: false,
+
+  setCameraNetworkOnline: (on) =>
+    set((s) => {
+      const nextCameras: Record<number, CameraFeed> = Object.fromEntries(
+        Object.entries(s.cameras).map(([key, cam]) => {
+          const id = Number(key);
+          return [
+            id,
+            {
+              ...cam,
+              state: on
+                ? cam.state === "offline"
+                  ? "empty"
+                  : cam.state
+                : "offline",
+              alert: on ? cam.alert : false,
+              hasTarget: on ? cam.hasTarget : false,
+              lastSeenAt: on ? cam.lastSeenAt : null,
+            },
+          ];
+        }),
+      ) as Record<number, CameraFeed>;
+
+      get().pushLog("camera", `Camera network ${on ? "online" : "offline"}.`);
+
+      return {
+        cameraNetworkOnline: on,
+        cameras: nextCameras,
+        hallwayOneOccupied: on ? s.hallwayOneOccupied : false,
+        targetCameraId: on ? s.targetCameraId : null,
+        cameraObjectiveActive: on ? s.cameraObjectiveActive : false,
+        cameraObjectiveResolved: on ? s.cameraObjectiveResolved : false,
+      };
+    }),
+
+  cameras: makeInitialCameras(false),
   selectedCamId: 12,
   cameraSimTimer: null,
   standbyMode: false,
@@ -1545,6 +1626,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setCameraState: (id, state) =>
     set((s) => {
+      if (!s.cameraNetworkOnline) {
+        get().pushLog(
+          "camera",
+          `Ignored camera state change for CAM ${id}. Network is offline.`,
+        );
+        return s;
+      }
+
       const prev = s.cameras[id];
       if (prev && prev.state !== state) {
         get().pushLog(
@@ -1576,6 +1665,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   triggerCameraTarget: (id) =>
     set((s) => {
+      if (!s.cameraNetworkOnline) {
+        get().pushLog(
+          "camera",
+          `Ignored camera target trigger for CAM ${id}. Network is offline.`,
+        );
+        return s;
+      }
+
       get().pushLog(
         "camera",
         `${s.cameras[id]?.label ?? `CAM ${id}`} target detected.`,
@@ -1598,6 +1695,8 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   clearCameraTarget: (id) =>
     set((s) => {
+      if (!s.cameraNetworkOnline) return s;
+
       get().pushLog(
         "camera",
         `${s.cameras[id]?.label ?? `CAM ${id}`} target cleared.`,
@@ -1618,6 +1717,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   startCameraObjective: (targetId = 12) => {
+    if (!get().cameraNetworkOnline) {
+      get().pushLog(
+        "mission",
+        "Camera objective requested while camera network is offline.",
+      );
+      return;
+    }
+
     get().resetCameras();
 
     set({
@@ -1643,23 +1750,28 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   resetCameras: () =>
-    set({
-      cameras: makeInitialCameras(),
+    set((s) => ({
+      cameras: makeInitialCameras(s.cameraNetworkOnline),
       selectedCamId: 12,
       targetCameraId: null,
       cameraObjectiveActive: false,
       cameraObjectiveResolved: false,
       hallwayOneOccupied: false,
-    }),
+    })),
 
   startCameraSim: () => {
     const s = get();
     if (s.cameraSimTimer) return;
+    if (!s.cameraNetworkOnline) {
+      get().pushLog("camera", "Camera simulation blocked. Network is offline.");
+      return;
+    }
 
     get().pushLog("camera", "Camera simulation started.");
 
     const timer = setInterval(() => {
       const st = get();
+      if (!st.cameraNetworkOnline) return;
       if (st.standbyMode || st.goDark.active) return;
 
       if (st.cameraObjectiveActive && st.targetCameraId === 12) {
@@ -1869,7 +1981,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       };
     }),
 
-  nearbyDevices: [],
+  nearbyDevices: makeInitialNearbyDevices(),
   isTunnelScanning: false,
   tunnelScanComplete: false,
   selectedTunnelDeviceId: null,
@@ -1898,7 +2010,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   runTunnelScan: async () => {
-    const devices = get().nearbyDevices;
+    const devices = get().nearbyDevices.filter((device) => device.poweredOn);
 
     set({
       isTunnelScanning: true,
@@ -1974,7 +2086,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   attemptTunnelConnection: async () => {
-    const { selectedTunnelDeviceId, nearbyDevices } = get();
+    const { selectedTunnelDeviceId, nearbyDevices, mission } = get();
 
     if (!selectedTunnelDeviceId) {
       set({
@@ -2043,6 +2155,22 @@ export const useGameStore = create<GameState>((set, get) => ({
         "tunnel",
         `Tunnel established to ${device.name}. Secure shell enabled.`,
       );
+
+      const isCameraBridge =
+        device.id === "sec-cam-bridge-01" || device.kind === "camera relay";
+
+      if (isCameraBridge) {
+        get().setCameraNetworkOnline(true);
+        get().bannerPush("CAMERAS", "Camera feeds online.", 1800);
+
+        if (mission.phase === "network_objective") {
+          await get().dispatchMissionEvent({
+            type: "NETWORK_LINKED",
+            ssid: device.name,
+          });
+        }
+      }
+
       return;
     }
 
@@ -2075,7 +2203,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set(() => {
       get().pushLog("tunnel", "Tunnel state reset.");
       return {
-        nearbyDevices: [],
+        nearbyDevices: makeInitialNearbyDevices(),
         isTunnelScanning: false,
         tunnelScanComplete: false,
         selectedTunnelDeviceId: null,

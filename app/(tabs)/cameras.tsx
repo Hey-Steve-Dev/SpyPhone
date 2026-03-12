@@ -14,15 +14,28 @@ import {
 const HOME_BAR_SPACE = 44;
 const GRID_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
-function SmallCameraFeed() {
+function SmallCameraFeed({
+  offline = false,
+  label = "OFFLINE",
+}: {
+  offline?: boolean;
+  label?: string;
+}) {
   return (
     <View style={styles.feed}>
-      <View style={styles.feedBase} />
+      {offline ? (
+        <View style={styles.feedOfflineMini}>
+          <Text style={styles.feedOfflineMiniText}>{label}</Text>
+        </View>
+      ) : (
+        <View style={styles.feedBase} />
+      )}
     </View>
   );
 }
 
 function FeaturedCameraView({ width }: { width: number }) {
+  const cameraNetworkOnline = useGameStore((s) => s.cameraNetworkOnline);
   const cameras = useGameStore((s) => s.cameras);
   const selectedCamId = useGameStore((s) => s.selectedCamId);
   const hallwayOneOccupied = useGameStore((s) => s.hallwayOneOccupied);
@@ -31,6 +44,7 @@ function FeaturedCameraView({ width }: { width: number }) {
   const activeCamId = selectedCamId ?? 12;
   const cam = cameras[activeCamId];
   const camLabel = cam?.label ?? `CAM ${activeCamId}`;
+  const isCamOffline = !cameraNetworkOnline || !cam || cam.state === "offline";
 
   const cam12NativeRef = useRef<Video>(null);
   const cam12WebRef = useRef<HTMLVideoElement | null>(null);
@@ -45,8 +59,8 @@ function FeaturedCameraView({ width }: { width: number }) {
   const cam12HasStartedRef = useRef(false);
   const [cam12NativeLoaded, setCam12NativeLoaded] = useState(false);
 
-  const isHallwayCam12 = activeCamId === 12;
-  const isStandingLoopCam13 = activeCamId === 13;
+  const isHallwayCam12 = activeCamId === 12 && !isCamOffline;
+  const isStandingLoopCam13 = activeCamId === 13 && !isCamOffline;
 
   useEffect(() => {
     if (!isHallwayCam12) {
@@ -275,6 +289,26 @@ function FeaturedCameraView({ width }: { width: number }) {
     }
   };
 
+  if (isCamOffline) {
+    return (
+      <View style={[styles.featuredCard, { width }]}>
+        <View style={styles.featuredHeader}>
+          <Text style={styles.featuredTitle}>{camLabel}</Text>
+          <Text style={styles.featuredMeta}>NO FEED</Text>
+        </View>
+
+        <View style={styles.featuredFrame}>
+          <View style={styles.feedOffline}>
+            <Text style={styles.feedOfflineTitle}>NO FEED</Text>
+            <Text style={styles.feedOfflineText}>
+              Camera network unavailable
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.featuredCard, { width }]}>
       <View style={styles.featuredHeader}>
@@ -401,6 +435,7 @@ function FeaturedCameraView({ width }: { width: number }) {
 }
 
 export default function CamerasScreen() {
+  const cameraNetworkOnline = useGameStore((s) => s.cameraNetworkOnline);
   const cameras = useGameStore((s) => s.cameras);
   const selectedCamId = useGameStore((s) => s.selectedCamId);
   const setSelectedCam = useGameStore((s) => s.setSelectedCam);
@@ -415,13 +450,19 @@ export default function CamerasScreen() {
   const [innerWidth, setInnerWidth] = useState(0);
 
   useEffect(() => {
+    if (!cameraNetworkOnline) {
+      stopCameraSim();
+      return;
+    }
+
     startCameraSim();
     return () => stopCameraSim();
-  }, [startCameraSim, stopCameraSim]);
+  }, [cameraNetworkOnline, startCameraSim, stopCameraSim]);
 
   useEffect(() => {
+    if (!cameraNetworkOnline) return;
     setCameraState(12, hallwayOneOccupied ? "occupied" : "empty");
-  }, [hallwayOneOccupied, setCameraState]);
+  }, [cameraNetworkOnline, hallwayOneOccupied, setCameraState]);
 
   const handleWrapLayout = (event: LayoutChangeEvent) => {
     const measured = event.nativeEvent.layout.width;
@@ -450,6 +491,8 @@ export default function CamerasScreen() {
                 const cam = cameras[id];
                 const isSelected = selectedCamId === id;
                 const isEndOfRow = (index + 1) % columns === 0;
+                const isOffline =
+                  !cameraNetworkOnline || !cam || cam.state === "offline";
 
                 return (
                   <Pressable
@@ -465,7 +508,7 @@ export default function CamerasScreen() {
                       isSelected && styles.tileSelected,
                     ]}
                   >
-                    <SmallCameraFeed />
+                    <SmallCameraFeed offline={isOffline} />
 
                     <View pointerEvents="none" style={styles.overlay}>
                       <Text style={styles.overlayText}>
@@ -609,6 +652,46 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: "rgba(0,0,0,0.55)",
+  },
+
+  feedOffline: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#000",
+  },
+
+  feedOfflineTitle: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 1.4,
+    marginBottom: 6,
+  },
+
+  feedOfflineText: {
+    color: "rgba(255,255,255,0.55)",
+    fontSize: 12,
+    letterSpacing: 0.5,
+  },
+
+  feedOfflineMini: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0,0,0,0.85)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  feedOfflineMiniText: {
+    color: "rgba(255,255,255,0.58)",
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 1,
   },
 
   overlay: {

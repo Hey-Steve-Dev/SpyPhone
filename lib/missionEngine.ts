@@ -5,20 +5,14 @@ export type MissionPhase =
   | "boot_confirm_online"
   | "phone_review_offer"
   | "review_messages"
-  | "review_terminal"
   | "review_network"
-  | "review_cameras"
-  | "review_scanner"
-  | "review_audio_scanner"
-  | "review_jammer"
-  | "review_mask"
-  | "review_notes"
-  | "review_vault"
+  | "review_terminal"
   | "review_ops"
-  | "review_log"
   | "network_objective"
+  | "camera_access_confirm"
   | "camera_watch"
   | "move_prompt"
+  | "post_move_confirm"
   | "terminal_intro"
   | "terminal_pwd"
   | "terminal_ls_root"
@@ -209,28 +203,12 @@ function reviewSetIndexForPhase(phase: MissionPhase): number {
   switch (phase) {
     case "review_messages":
       return 0;
-    case "review_terminal":
-      return 1;
     case "review_network":
+      return 1;
+    case "review_terminal":
       return 2;
-    case "review_cameras":
-      return 3;
-    case "review_scanner":
-      return 4;
-    case "review_audio_scanner":
-      return 5;
-    case "review_jammer":
-      return 6;
-    case "review_mask":
-      return 7;
-    case "review_notes":
-      return 8;
-    case "review_vault":
-      return 9;
     case "review_ops":
-      return 10;
-    case "review_log":
-      return 11;
+      return 3;
     default:
       return 0;
   }
@@ -238,12 +216,10 @@ function reviewSetIndexForPhase(phase: MissionPhase): number {
 
 function reviewAckChips(phase: MissionPhase): ReplyChip[] {
   const chipSets: Array<[ack1: string, ack2: string, skip: string]> = [
-    ["OK", "Got it", "Let's get to the mission"],
-    ["OK", "Copy", "I am ready to roll"],
-    ["Understood", "Roger", "Skip this, I get it"],
-    ["Copy that", "Got it", "Let's move"],
-    ["OK", "Understood", "I am good, move on"],
-    ["Roger", "Copy", "Skip the tutorial"],
+    ["OK", "Got it", "Pass"],
+    ["Copy", "Understood", "Pass"],
+    ["Roger", "I got it", "Pass"],
+    ["OK", "Move on", "Pass"],
   ];
 
   const [ack1, ack2, skip] =
@@ -259,45 +235,21 @@ function reviewAckChips(phase: MissionPhase): ReplyChip[] {
 function isReviewPhase(phase: MissionPhase) {
   return (
     phase === "review_messages" ||
-    phase === "review_terminal" ||
     phase === "review_network" ||
-    phase === "review_cameras" ||
-    phase === "review_scanner" ||
-    phase === "review_audio_scanner" ||
-    phase === "review_jammer" ||
-    phase === "review_mask" ||
-    phase === "review_notes" ||
-    phase === "review_vault" ||
-    phase === "review_ops" ||
-    phase === "review_log"
+    phase === "review_terminal" ||
+    phase === "review_ops"
   );
 }
 
 function nextReviewPhase(phase: MissionPhase): MissionPhase {
   switch (phase) {
     case "review_messages":
-      return "review_terminal";
-    case "review_terminal":
       return "review_network";
     case "review_network":
-      return "review_cameras";
-    case "review_cameras":
-      return "review_scanner";
-    case "review_scanner":
-      return "review_audio_scanner";
-    case "review_audio_scanner":
-      return "review_jammer";
-    case "review_jammer":
-      return "review_mask";
-    case "review_mask":
-      return "review_notes";
-    case "review_notes":
-      return "review_vault";
-    case "review_vault":
+      return "review_terminal";
+    case "review_terminal":
       return "review_ops";
     case "review_ops":
-      return "review_log";
-    case "review_log":
       return "network_objective";
     default:
       return "network_objective";
@@ -308,40 +260,34 @@ function reviewLinesForPhase(phase: MissionPhase): string[] {
   switch (phase) {
     case "review_messages":
       return [
-        "Messages is your comms line.",
-        "Ops speaks here. Read fast and answer clean.",
+        "Comms is burst traffic only. Short, fast, and not always reliable.",
+        "Use the response chips when you can.",
+        "If you start typing chatter into comms, your trace goes up.",
+        "If trace gets too high, we're blown.",
       ];
+
+    case "review_network":
+      return [
+        "Tunnel gets you into devices when you're close enough.",
+        "You will use Tunnel a lot.",
+        "Once you're in, Terminal is where you do the real work inside the device.",
+      ];
+
     case "review_terminal":
       return [
-        "Terminal is where you'll do most of your work.",
-        "You'll use it to inspect systems, move through directories, and run actions on target.",
-        "When in doubt, slow down and type clean. This app matters.",
+        "Terminal is where you'll spend most of this run.",
+        "You'll inspect systems, move through files, and act on what you find.",
+        "Type clean. Slow is better than wrong.",
       ];
-    case "review_network":
-      return ["Network gets you linked.", "No link, no remote access."];
-    case "review_cameras":
-      return ["Cameras shows live sightlines. Use it before you move."];
-    case "review_scanner":
-      return [
-        "Scanner sweeps the air.",
-        "Use it to catch nearby signal activity.",
-      ];
-    case "review_audio_scanner":
-      return ["Audio Scanner pulls chatter and ambient noise."];
-    case "review_jammer":
-      return ["Jammer buys you time.", "Mask up before noisy actions."];
-    case "review_mask":
-      return ["Mask shifts your profile. Wrong face, wrong trail."];
-    case "review_notes":
-      return ["Notes holds field reference when memory gets expensive."];
-    case "review_vault":
-      return [
-        "Vault stores protected material. Codes, fragments, sensitive pulls.",
-      ];
+
     case "review_ops":
-      return ["Ops is mission control. Objectives, pressure, status."];
-    case "review_log":
-      return ["Log tracks what already happened so you can rebuild the run."];
+      return [
+        "Listen carefully and follow directions in order.",
+        "Timing matters on this mission. Move too early or too late and it can break the window.",
+        "I am not inside with you.",
+        "You are the sole eyes and ears in that building.",
+      ];
+
     default:
       return ["Stand by."];
   }
@@ -365,12 +311,23 @@ function reviewAdvanceEffects(
         {
           type: "handler_sequence",
           items: [
-            opsLine("Good. That's enough to move.", 1450, 1100),
             opsLine(
-              "First action: get us on a network. Open Network and link up.",
-              1450,
-              1300,
+              "OK, we need to get you behind the firewall on the 3rd floor quietly.",
+              1550,
+              1000,
             ),
+            opsLine(
+              "We need to find an elevator passcode down here before we can move.",
+              1500,
+              1000,
+            ),
+            opsLine(
+              "There should be an access point for the cameras in the room next to you.",
+              1500,
+              1000,
+            ),
+            opsLine("Open Tunnel and access it.", 1400, 900),
+            opsLine("We need eyes inside the building.", 1450, 1200),
           ],
         },
       ],
@@ -458,24 +415,24 @@ function handlerForTerminalPhase(phase: MissionPhase): string[] {
   switch (phase) {
     case "terminal_pwd":
       return [
-        "Booting you into a hostile shell.",
-        "Confirm where you are. Type: `pwd`.",
+        "You're in the shell now.",
+        "Confirm where you landed. Type: `pwd`.",
       ];
     case "terminal_ls_root":
-      return ["List what's here. Type: `ls`."];
+      return ["Good. Now list what you've got. Type: `ls`."];
     case "terminal_cd_payload":
-      return ["Go into the payload directory. Type: `cd payload`."];
+      return ["Move into the payload directory. Type: `cd payload`."];
     case "terminal_ls_payload":
-      return ["Confirm what's inside. Type: `ls`."];
+      return ["Check the contents. Type: `ls`."];
     case "terminal_cat_intel":
       return ["Read the intel file. Type: `cat intel.txt`."];
     case "terminal_drop":
       return [
-        "Exfil window is open. You have seconds.",
-        "Start the transfer. Type: `./drop.sh`.",
+        "Exfil window is open.",
+        "Run the transfer now. Type: `./drop.sh`.",
       ];
     case "complete":
-      return ["Transfer initiated. Stay sharp. Stand by."];
+      return ["Transfer is running. Stay sharp."];
     default:
       return ["Stand by."];
   }
@@ -489,33 +446,45 @@ export function missionIntro(state: MissionState): string[] {
   switch (state.phase) {
     case "boot_intro":
     case "boot_confirm_online":
-      return ["Are you online?"];
+      return ["Comms check. You online?"];
+
     case "phone_review_offer":
-      return ["Want a quick ghost phone review?"];
+      return ["Your device has been updated. Do you need a rundown?"];
+
     case "review_messages":
-    case "review_terminal":
     case "review_network":
-    case "review_cameras":
-    case "review_scanner":
-    case "review_audio_scanner":
-    case "review_jammer":
-    case "review_mask":
-    case "review_notes":
-    case "review_vault":
+    case "review_terminal":
     case "review_ops":
-    case "review_log":
       return reviewLinesForPhase(state.phase);
+
     case "network_objective":
-      return ["First action: get us on a network. Open Network and link up."];
+      return [
+        "OK, we need to get you behind the firewall on the 3rd floor quietly.",
+        "We need to find an elevator passcode down here before we can move.",
+        "There should be an access point for the cameras in the room next to you.",
+        "Open Tunnel and access it.",
+        "We need eyes inside the building.",
+      ];
+
+    case "camera_access_confirm":
+      return ["Signal when you have camera access."];
+
     case "camera_watch":
       return [
-        "Secure shell is live. Check camera 12 and wait for the guard to pass.",
-        "Text when you're moving.",
+        "OK. Good.",
+        "Check camera 12 and wait for the guard to pass.",
+        "Signal when you're moving.",
       ];
+
     case "move_prompt":
-      return ["Text when you're moving."];
+      return ["Signal when you're moving."];
+
+    case "post_move_confirm":
+      return ["Signal when you're in."];
+
     case "terminal_intro":
-      return ["Secure shell is live. Open Terminal."];
+      return ["Good. Stay quiet. Open Terminal."];
+
     default:
       return ["Stand by."];
   }
@@ -538,7 +507,7 @@ export function handleMissionEvent(
         { type: "reset_terminal" },
         {
           type: "handler_sequence",
-          items: [opsLine("Are you online?", 1500, 1100)],
+          items: [opsLine("Comms check. You online?", 1500, 1100)],
         },
         {
           type: "set_reply_chips",
@@ -569,7 +538,16 @@ export function handleMissionEvent(
             {
               type: "handler_sequence",
               items: [
-                opsLine("Good. Want a quick ghost phone review?", 1450, 1200),
+                opsLine(
+                  "OK, we need to get you behind the firewall on the 3rd floor quietly.",
+                  1550,
+                  1100,
+                ),
+                opsLine(
+                  "Your device has been updated. Do you need a rundown?",
+                  1500,
+                  1200,
+                ),
               ],
             },
             {
@@ -577,12 +555,12 @@ export function handleMissionEvent(
               chips: [
                 {
                   id: "boot_review_yes",
-                  label: "Sure",
+                  label: "Yes",
                   action: "review_phone",
                 },
                 {
                   id: "boot_review_no",
-                  label: "Let's get to the mission",
+                  label: "Pass",
                   action: "skip_review",
                 },
               ],
@@ -605,7 +583,14 @@ export function handleMissionEvent(
               : []),
             {
               type: "handler_sequence",
-              items: opsSequence(reviewLinesForPhase(nextState.phase)),
+              items: [
+                opsLine(
+                  "OK. I will give you the important updates now.",
+                  1450,
+                  1100,
+                ),
+                ...opsSequence(reviewLinesForPhase(nextState.phase)),
+              ],
             },
             {
               type: "set_reply_chips",
@@ -629,15 +614,22 @@ export function handleMissionEvent(
               type: "handler_sequence",
               items: [
                 opsLine(
-                  "Good. Stay dark and follow instructions exactly.",
-                  1500,
-                  1100,
+                  "OK, we need to get you behind the firewall on the 3rd floor quietly.",
+                  1550,
+                  1000,
                 ),
                 opsLine(
-                  "First action: get us on a network. Open Network and link up.",
-                  1450,
-                  1300,
+                  "We need to find an elevator passcode down here before we can move.",
+                  1500,
+                  1000,
                 ),
+                opsLine(
+                  "There should be an access point for the cameras in the room next to you.",
+                  1500,
+                  1000,
+                ),
+                opsLine("Open Tunnel and access it.", 1400, 900),
+                opsLine("We need eyes inside the building.", 1450, 1200),
               ],
             },
           ],
@@ -663,17 +655,64 @@ export function handleMissionEvent(
             {
               type: "handler_sequence",
               items: [
-                opsLine("Good. That's enough. Move.", 1400, 1100),
                 opsLine(
-                  "First action: get us on a network. Open Network and link up.",
-                  1450,
-                  1300,
+                  "OK, we need to get you behind the firewall on the 3rd floor quietly.",
+                  1550,
+                  1000,
                 ),
+                opsLine(
+                  "We need to find an elevator passcode down here before we can move.",
+                  1500,
+                  1000,
+                ),
+                opsLine(
+                  "There should be an access point for the cameras in the room next to you.",
+                  1500,
+                  1000,
+                ),
+                opsLine("Open Tunnel and access it.", 1400, 900),
+                opsLine("We need eyes inside the building.", 1450, 1200),
               ],
             },
           ],
         };
       }
+    }
+
+    if (
+      state.phase === "camera_access_confirm" &&
+      event.action === "camera_access_confirm"
+    ) {
+      const nextState = withPhase(state, "camera_watch");
+
+      return {
+        nextState,
+        effects: [
+          { type: "clear_reply_chips" },
+          ...(event.label
+            ? [{ type: "player_message", text: event.label } as MissionEffect]
+            : []),
+          {
+            type: "handler_sequence",
+            items: [
+              opsLine("OK. Good.", 1350, 900),
+              opsLine(
+                "Check camera 12 and wait for the guard to pass.",
+                1500,
+                1100,
+              ),
+              opsLine("Signal when you're moving.", 1300, 1200),
+            ],
+          },
+          {
+            type: "set_reply_chips",
+            chips: [{ id: "move_now", label: "Moving", action: "moving_now" }],
+          },
+          { type: "start_camera_objective", targetId: 12 },
+          { type: "start_camera_sim" },
+          { type: "set_hallway_occupied", on: false },
+        ],
+      };
     }
 
     if (state.phase === "camera_watch" && event.action === "moving_now") {
@@ -694,35 +733,54 @@ export function handleMissionEvent(
         ],
       };
     }
+
+    if (
+      state.phase === "post_move_confirm" &&
+      event.action === "post_move_in"
+    ) {
+      const nextState = withPhase(state, "terminal_intro");
+
+      return {
+        nextState,
+        effects: [
+          { type: "clear_reply_chips" },
+          ...(event.label
+            ? [{ type: "player_message", text: event.label } as MissionEffect]
+            : []),
+          {
+            type: "handler_sequence",
+            items: [
+              opsLine("Good. Stay quiet.", 1350, 900),
+              opsLine("Open Terminal.", 1350, 1100),
+            ],
+          },
+          { type: "set_terminal_locked", on: false },
+        ],
+      };
+    }
   }
 
   if (event.type === "NETWORK_LINKED") {
-    const nextState = withPhase(state, "camera_watch");
+    const nextState = withPhase(state, "camera_access_confirm");
 
     return {
       nextState,
       effects: [
         {
           type: "handler_sequence",
-          items: [
-            opsLine(
-              "Secure shell is live. Check camera 12 and wait for the guard to pass.",
-              1500,
-              1200,
-            ),
-            opsLine("Text when you're moving.", 1300, 1300),
-          ],
+          items: [opsLine("Signal when you have camera access.", 1450, 1100)],
         },
         {
           type: "set_reply_chips",
           chips: [
-            { id: "move_now", label: "moving now", action: "moving_now" },
+            {
+              id: "camera_access_confirm",
+              label: "I have camera access",
+              action: "camera_access_confirm",
+            },
           ],
         },
         { type: "set_terminal_locked", on: true },
-        { type: "start_camera_objective", targetId: 12 },
-        { type: "start_camera_sim" },
-        { type: "set_hallway_occupied", on: false },
       ],
     };
   }
@@ -764,11 +822,7 @@ export function handleMissionEvent(
         {
           type: "handler_sequence",
           items: [
-            opsLine(
-              "There. You heard that too. East entrance. Move.",
-              1550,
-              1300,
-            ),
+            opsLine("There it is. East entrance traffic. Move.", 1550, 1300),
           ],
         },
       ],
@@ -782,7 +836,9 @@ export function handleMissionEvent(
         effects: [
           {
             type: "handler_sequence",
-            items: [opsLine("Negative. Guard still in the hall.", 1450, 1200)],
+            items: [
+              opsLine("Negative. Guard is still in the hall.", 1450, 1200),
+            ],
           },
           {
             type: "mission_failed",
@@ -794,14 +850,14 @@ export function handleMissionEvent(
       };
     }
 
-    const nextState = withPhase(state, "terminal_intro");
+    const nextState = withPhase(state, "post_move_confirm");
 
     return {
       nextState,
       effects: [
         {
           type: "handler_sequence",
-          items: [opsLine("Good. Window is clear. Move.", 1400, 1400)],
+          items: [opsLine("Go. Go. Go.", 1200, 800)],
         },
         { type: "stop_camera_sim" },
         { type: "resolve_camera_objective" },
@@ -816,10 +872,11 @@ export function handleMissionEvent(
           durationMs: 900,
         },
         {
-          type: "handler_sequence",
-          items: [opsLine("Secure shell is live. Open Terminal.", 1450, 1200)],
+          type: "set_reply_chips",
+          chips: [
+            { id: "post_move_in", label: "I'm in", action: "post_move_in" },
+          ],
         },
-        { type: "set_terminal_locked", on: false },
       ],
     };
   }
@@ -1024,9 +1081,9 @@ export function runMissionCommand(
           gated: true,
           terminalOut: intelLines,
           handlerOut: [
-            "Mask comms before you exfil.",
+            "Mask comms before exfil.",
             "Open Jammer. Set MASK ON.",
-            "Then re-run: `cat intel.txt`.",
+            "Then run: `cat intel.txt` again.",
           ],
           nextState: holdState,
         };
