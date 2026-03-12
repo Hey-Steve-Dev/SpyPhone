@@ -44,6 +44,7 @@ export default function PhoneLayout() {
       <Stack.Screen name="vault" />
       <Stack.Screen name="ops" />
       <Stack.Screen name="log" />
+      <Stack.Screen name="tunnel" />
     </Stack>
   );
 }

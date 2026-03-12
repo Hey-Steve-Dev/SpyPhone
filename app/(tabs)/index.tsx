@@ -97,6 +97,13 @@ const APPS: AppTile[] = [
     route: "/log",
     color: "#8fa3ff",
   },
+  {
+    key: "tunnel",
+    label: "Tunnel",
+    icon: "⌬",
+    route: "/tunnel",
+    color: "#63a4ff",
+  },
 ];
 
 const DOCK_KEYS = ["messages", "terminal"];

@@ -18,6 +18,26 @@ type Banner = {
   message: string;
 };
 
+type TunnelSignalStrength = "WEAK" | "MED" | "STRONG";
+type TunnelConnectionState =
+  | "idle"
+  | "scanning"
+  | "attempting"
+  | "success"
+  | "limited"
+  | "failure";
+
+export type NearbyDevice = {
+  id: string;
+  name: string;
+  kind: string;
+  poweredOn: boolean;
+  signalStrength: TunnelSignalStrength;
+  supportsShell: boolean;
+  supportsAuxOps: boolean;
+  tunnelOutcome: "success" | "limited" | "failure";
+};
+
 type ThreadItem = {
   id: string;
   at: number;
@@ -153,7 +173,8 @@ export type GlobalLogKind =
   | "timer"
   | "terminal"
   | "godark"
-  | "biometric";
+  | "biometric"
+  | "tunnel";
 
 export type GlobalLogItem = {
   id: string;
@@ -504,6 +525,23 @@ type GameState = {
     patch: Partial<Pick<NoteItem, "title" | "body">>,
   ) => void;
   deleteNote: (id: string) => void;
+
+  nearbyDevices: NearbyDevice[];
+  isTunnelScanning: boolean;
+  tunnelScanComplete: boolean;
+  selectedTunnelDeviceId: string | null;
+  isTunnelAttempting: boolean;
+  tunnelConnectionState: TunnelConnectionState;
+  tunnelStatusMessage: string;
+  activeRemoteHostId: string | null;
+  shellReadyFromTunnel: boolean;
+
+  setNearbyDevices: (devices: NearbyDevice[]) => void;
+  runTunnelScan: () => Promise<void>;
+  selectTunnelDevice: (deviceId: string) => void;
+  clearTunnelSelection: () => void;
+  attemptTunnelConnection: () => Promise<void>;
+  resetTunnelState: () => void;
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -1086,6 +1124,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
           break;
         }
+
         case "trigger_biometric_scan": {
           await get().triggerBiometricOverlay(effect.durationMs ?? 500);
           break;
@@ -1149,8 +1188,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         case "trigger_go_dark": {
           const durationMs = effect.durationMs ?? 3200;
           get().triggerGoDark(durationMs, effect.message);
-
-          // wait until just before the go-dark clears
           await wait(Math.max(0, durationMs - 150));
           break;
         }
@@ -1829,6 +1866,224 @@ export const useGameStore = create<GameState>((set, get) => ({
       get().pushLog("notes", `Note deleted: ${target?.title ?? id}.`);
       return {
         notes: s.notes.filter((note) => note.id !== id),
+      };
+    }),
+
+  nearbyDevices: [],
+  isTunnelScanning: false,
+  tunnelScanComplete: false,
+  selectedTunnelDeviceId: null,
+  isTunnelAttempting: false,
+  tunnelConnectionState: "idle",
+  tunnelStatusMessage: "Scanner idle.",
+  activeRemoteHostId: null,
+  shellReadyFromTunnel: false,
+
+  setNearbyDevices: (devices) =>
+    set(() => {
+      get().pushLog(
+        "tunnel",
+        `Device table loaded with ${devices.length} target(s).`,
+      );
+      return {
+        nearbyDevices: devices,
+        tunnelScanComplete: false,
+        selectedTunnelDeviceId: null,
+        isTunnelAttempting: false,
+        tunnelConnectionState: "idle",
+        tunnelStatusMessage: "Device table updated.",
+        activeRemoteHostId: null,
+        shellReadyFromTunnel: false,
+      };
+    }),
+
+  runTunnelScan: async () => {
+    const devices = get().nearbyDevices;
+
+    set({
+      isTunnelScanning: true,
+      tunnelScanComplete: false,
+      selectedTunnelDeviceId: null,
+      tunnelConnectionState: "scanning",
+      tunnelStatusMessage: "Reading powered systems in local range...",
+      activeRemoteHostId: null,
+      shellReadyFromTunnel: false,
+    });
+
+    get().pushLog("tunnel", "Tunnel scan started.");
+
+    await wait(2200);
+
+    set({
+      isTunnelScanning: false,
+      tunnelScanComplete: true,
+      tunnelConnectionState: "idle",
+      tunnelStatusMessage:
+        devices.length > 0
+          ? `${devices.length} device${devices.length === 1 ? "" : "s"} detected.`
+          : "No powered devices detected.",
+    });
+
+    get().pushLog(
+      "tunnel",
+      devices.length > 0
+        ? `Tunnel scan complete. ${devices.length} device(s) detected.`
+        : "Tunnel scan complete. No powered devices detected.",
+    );
+  },
+
+  selectTunnelDevice: (deviceId) =>
+    set((s) => {
+      const device =
+        s.nearbyDevices.find((entry) => entry.id === deviceId) ?? null;
+
+      if (device) {
+        get().pushLog("tunnel", `Selected tunnel target ${device.name}.`);
+      }
+
+      return {
+        selectedTunnelDeviceId: deviceId,
+        tunnelConnectionState: "idle",
+        tunnelStatusMessage: "Target selected. Ready to attempt tunnel.",
+        activeRemoteHostId: null,
+        shellReadyFromTunnel: false,
+      };
+    }),
+
+  clearTunnelSelection: () =>
+    set((s) => {
+      if (s.selectedTunnelDeviceId) {
+        const device =
+          s.nearbyDevices.find(
+            (entry) => entry.id === s.selectedTunnelDeviceId,
+          ) ?? null;
+        get().pushLog(
+          "tunnel",
+          `Tunnel selection cleared${device ? ` for ${device.name}` : ""}.`,
+        );
+      }
+
+      return {
+        selectedTunnelDeviceId: null,
+        isTunnelAttempting: false,
+        tunnelConnectionState: "idle",
+        tunnelStatusMessage: "Selection cleared.",
+        activeRemoteHostId: null,
+        shellReadyFromTunnel: false,
+      };
+    }),
+
+  attemptTunnelConnection: async () => {
+    const { selectedTunnelDeviceId, nearbyDevices } = get();
+
+    if (!selectedTunnelDeviceId) {
+      set({
+        tunnelConnectionState: "failure",
+        tunnelStatusMessage: "No target selected.",
+        activeRemoteHostId: null,
+        shellReadyFromTunnel: false,
+      });
+      get().pushLog("tunnel", "Tunnel attempt failed. No target selected.");
+      return;
+    }
+
+    const device =
+      nearbyDevices.find((entry) => entry.id === selectedTunnelDeviceId) ??
+      null;
+
+    if (!device) {
+      set({
+        tunnelConnectionState: "failure",
+        tunnelStatusMessage: "Selected device not found.",
+        activeRemoteHostId: null,
+        shellReadyFromTunnel: false,
+      });
+      get().pushLog(
+        "tunnel",
+        "Tunnel attempt failed. Selected device not found.",
+      );
+      return;
+    }
+
+    if (!device.poweredOn) {
+      set({
+        tunnelConnectionState: "failure",
+        tunnelStatusMessage: "Target is offline.",
+        activeRemoteHostId: null,
+        shellReadyFromTunnel: false,
+      });
+      get().pushLog(
+        "tunnel",
+        `Tunnel attempt failed. ${device.name} is offline.`,
+      );
+      return;
+    }
+
+    set({
+      isTunnelAttempting: true,
+      tunnelConnectionState: "attempting",
+      tunnelStatusMessage: `Negotiating route to ${device.name}...`,
+      activeRemoteHostId: null,
+      shellReadyFromTunnel: false,
+    });
+
+    get().pushLog("tunnel", `Tunnel attempt started for ${device.name}.`);
+
+    await wait(2400);
+
+    if (device.tunnelOutcome === "success") {
+      set({
+        isTunnelAttempting: false,
+        tunnelConnectionState: "success",
+        tunnelStatusMessage: `Tunnel established to ${device.name}. Secure shell available.`,
+        activeRemoteHostId: device.id,
+        shellReadyFromTunnel: true,
+      });
+      get().pushLog(
+        "tunnel",
+        `Tunnel established to ${device.name}. Secure shell enabled.`,
+      );
+      return;
+    }
+
+    if (device.tunnelOutcome === "limited") {
+      set({
+        isTunnelAttempting: false,
+        tunnelConnectionState: "limited",
+        tunnelStatusMessage: `Connected to ${device.name}, but no shell is exposed.`,
+        activeRemoteHostId: device.id,
+        shellReadyFromTunnel: false,
+      });
+      get().pushLog(
+        "tunnel",
+        `Tunnel established to ${device.name} with limited access only.`,
+      );
+      return;
+    }
+
+    set({
+      isTunnelAttempting: false,
+      tunnelConnectionState: "failure",
+      tunnelStatusMessage: `Connection failed. ${device.name} did not expose a usable route.`,
+      activeRemoteHostId: null,
+      shellReadyFromTunnel: false,
+    });
+    get().pushLog("tunnel", `Tunnel attempt failed for ${device.name}.`);
+  },
+
+  resetTunnelState: () =>
+    set(() => {
+      get().pushLog("tunnel", "Tunnel state reset.");
+      return {
+        nearbyDevices: [],
+        isTunnelScanning: false,
+        tunnelScanComplete: false,
+        selectedTunnelDeviceId: null,
+        isTunnelAttempting: false,
+        tunnelConnectionState: "idle",
+        tunnelStatusMessage: "Scanner idle.",
+        activeRemoteHostId: null,
+        shellReadyFromTunnel: false,
       };
     }),
 }));
