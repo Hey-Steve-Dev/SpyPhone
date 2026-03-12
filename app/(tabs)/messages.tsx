@@ -1,7 +1,13 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   Pressable,
   ScrollView,
@@ -12,6 +18,7 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
+const TYPING_HANDOFF_MS = 500;
 
 export default function MessagesScreen() {
   const thread = useGameStore((s) => s.thread);
@@ -27,7 +34,19 @@ export default function MessagesScreen() {
 
   const [input, setInput] = useState("");
   const [dots, setDots] = useState("…");
+  const [showTypingBubble, setShowTypingBubble] = useState(false);
+
   const scrollRef = useRef<ScrollView>(null);
+  const typingHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastInboundIdRef = useRef<string | null>(null);
+
+  const lastInboundMessage = useMemo(() => {
+    for (let i = thread.length - 1; i >= 0; i -= 1) {
+      const item = thread[i];
+      if (item.from !== "player") return item;
+    }
+    return null;
+  }, [thread]);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,7 +55,46 @@ export default function MessagesScreen() {
   );
 
   useEffect(() => {
-    if (!messagesTyping) {
+    return () => {
+      if (typingHideTimer.current) clearTimeout(typingHideTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (messagesTyping) {
+      if (typingHideTimer.current) {
+        clearTimeout(typingHideTimer.current);
+        typingHideTimer.current = null;
+      }
+      setShowTypingBubble(true);
+      return;
+    }
+
+    if (!showTypingBubble) return;
+
+    typingHideTimer.current = setTimeout(() => {
+      setShowTypingBubble(false);
+      typingHideTimer.current = null;
+    }, TYPING_HANDOFF_MS);
+  }, [messagesTyping, showTypingBubble]);
+
+  useEffect(() => {
+    const currentInboundId = lastInboundMessage?.id ?? null;
+
+    if (currentInboundId && currentInboundId !== lastInboundIdRef.current) {
+      lastInboundIdRef.current = currentInboundId;
+
+      if (typingHideTimer.current) {
+        clearTimeout(typingHideTimer.current);
+        typingHideTimer.current = null;
+      }
+
+      setShowTypingBubble(false);
+    }
+  }, [lastInboundMessage]);
+
+  useEffect(() => {
+    if (!showTypingBubble) {
       setDots("…");
       return;
     }
@@ -49,7 +107,7 @@ export default function MessagesScreen() {
     }, 260);
 
     return () => clearInterval(id);
-  }, [messagesTyping]);
+  }, [showTypingBubble]);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -57,7 +115,7 @@ export default function MessagesScreen() {
     }, 40);
 
     return () => clearTimeout(id);
-  }, [thread.length, replyChips.length, messagesTyping]);
+  }, [thread.length, replyChips.length, showTypingBubble]);
 
   function handleSend(raw?: string) {
     if (!inputEnabled || !sendEnabled || messagesTyping) return;
@@ -83,7 +141,7 @@ export default function MessagesScreen() {
           <Text style={styles.kicker}>SECURE COMMS</Text>
           <Text style={styles.title}>Messages</Text>
           <Text style={styles.subtle}>
-            {messagesTyping ? "ops typing" : "channel active"}
+            {showTypingBubble ? "ops typing" : "channel active"}
           </Text>
         </View>
 
@@ -124,7 +182,7 @@ export default function MessagesScreen() {
               );
             })}
 
-            {messagesTyping && (
+            {showTypingBubble && (
               <View style={[styles.row, styles.rowLeft]}>
                 <View style={[styles.bubble, styles.handlerBubble]}>
                   <Text style={[styles.meta, styles.handlerMeta]}>OPS</Text>

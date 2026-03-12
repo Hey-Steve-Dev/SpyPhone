@@ -5,6 +5,13 @@ import { Animated, StyleSheet, Text, View } from "react-native";
 
 const STATUS_BAR_HEIGHT = 34;
 const STATUS_BAR_GAP = 40;
+const HANDOFF_GRACE_MS = 500;
+
+type BannerState = {
+  on: boolean;
+  title: string;
+  message: string;
+};
 
 export default function BannerComms() {
   const banner = useGameStore((s) => s.banner);
@@ -12,8 +19,15 @@ export default function BannerComms() {
 
   const y = useRef(new Animated.Value(-80)).current;
   const a = useRef(new Animated.Value(0)).current;
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasAnimatedIn = useRef(false);
 
-  const isTyping = banner.on && (banner.message || "").trim() === "…";
+  const [renderBanner, setRenderBanner] = useState<BannerState>({
+    on: false,
+    title: "",
+    message: "",
+  });
+  const [isVisible, setIsVisible] = useState(false);
   const [dots, setDots] = useState("…");
 
   const isMessagesRoute =
@@ -21,8 +35,67 @@ export default function BannerComms() {
     pathname.endsWith("/messages") ||
     pathname.includes("(tabs)/messages");
 
+  const isTyping = isVisible && (renderBanner.message || "").trim() === "…";
+
   useEffect(() => {
-    if (isMessagesRoute || !banner.on) {
+    return () => {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isMessagesRoute) {
+      if (hideTimer.current) clearTimeout(hideTimer.current);
+      setIsVisible(false);
+      setRenderBanner({
+        on: false,
+        title: "",
+        message: "",
+      });
+      hasAnimatedIn.current = false;
+
+      Animated.parallel([
+        Animated.timing(a, {
+          toValue: 0,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+        Animated.timing(y, {
+          toValue: -80,
+          duration: 120,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      return;
+    }
+
+    if (banner.on) {
+      if (hideTimer.current) {
+        clearTimeout(hideTimer.current);
+        hideTimer.current = null;
+      }
+
+      setRenderBanner({
+        on: true,
+        title: banner.title || "",
+        message: banner.message || "",
+      });
+      setIsVisible(true);
+      return;
+    }
+
+    if (!banner.on && isVisible) {
+      hideTimer.current = setTimeout(() => {
+        setIsVisible(false);
+        setRenderBanner((prev) => ({ ...prev, on: false }));
+      }, HANDOFF_GRACE_MS);
+    }
+  }, [banner, isMessagesRoute, isVisible, a, y]);
+
+  useEffect(() => {
+    if (!isVisible) {
+      hasAnimatedIn.current = false;
       Animated.parallel([
         Animated.timing(a, {
           toValue: 0,
@@ -38,20 +111,29 @@ export default function BannerComms() {
       return;
     }
 
-    Animated.parallel([
-      Animated.spring(y, {
-        toValue: 0,
-        damping: 18,
-        stiffness: 240,
-        useNativeDriver: true,
-      }),
+    if (!hasAnimatedIn.current) {
+      hasAnimatedIn.current = true;
+      Animated.parallel([
+        Animated.spring(y, {
+          toValue: 0,
+          damping: 18,
+          stiffness: 240,
+          useNativeDriver: true,
+        }),
+        Animated.timing(a, {
+          toValue: 1,
+          duration: 160,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
       Animated.timing(a, {
         toValue: 1,
-        duration: 160,
+        duration: 100,
         useNativeDriver: true,
-      }),
-    ]).start();
-  }, [banner.on, isMessagesRoute, a, y]);
+      }).start();
+    }
+  }, [isVisible, a, y]);
 
   useEffect(() => {
     if (!isTyping) {
@@ -69,10 +151,10 @@ export default function BannerComms() {
     return () => clearInterval(id);
   }, [isTyping]);
 
-  if (!banner.on || isMessagesRoute) return null;
+  if (!isVisible || isMessagesRoute) return null;
 
-  const title = (banner.title || "").trim();
-  const msg = (banner.message || "").trim();
+  const title = (renderBanner.title || "").trim();
+  const msg = (renderBanner.message || "").trim();
 
   const header =
     title.length > 0 && title.toLowerCase() !== "secure comms"

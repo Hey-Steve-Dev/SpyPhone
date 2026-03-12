@@ -2,46 +2,27 @@ import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import { AVPlaybackStatus, ResizeMode, Video } from "expo-av";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  LayoutChangeEvent,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 const HOME_BAR_SPACE = 44;
 const GRID_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
-type CamState = "occupied" | "empty" | "jammed" | "offline" | string;
-type HallwayState = "empty" | "occupied";
-
-function randomDelayMs() {
-  return 7000 + Math.floor(Math.random() * 9000);
-}
-
-function SmallCameraFeed({ state }: { state: CamState }) {
-  const isNoSignal = state === "offline";
-  const isJammed = state === "jammed";
-  const isOccupied = state === "occupied";
-
+function SmallCameraFeed() {
   return (
     <View style={styles.feed}>
       <View style={styles.feedBase} />
-
-      {isOccupied && (
-        <View pointerEvents="none" style={styles.figureWrap}>
-          <View style={styles.figureHead} />
-          <View style={styles.figureBody} />
-        </View>
-      )}
-
-      {(isNoSignal || isJammed) && (
-        <View pointerEvents="none" style={styles.noSignal}>
-          <Text style={styles.noSignalText}>
-            {isJammed ? "JAMMED" : "NO SIGNAL"}
-          </Text>
-        </View>
-      )}
     </View>
   );
 }
 
-function FeaturedCameraView() {
+function FeaturedCameraView({ width }: { width: number }) {
   const cameras = useGameStore((s) => s.cameras);
   const selectedCamId = useGameStore((s) => s.selectedCamId);
   const hallwayOneOccupied = useGameStore((s) => s.hallwayOneOccupied);
@@ -50,13 +31,6 @@ function FeaturedCameraView() {
   const activeCamId = selectedCamId ?? 12;
   const cam = cameras[activeCamId];
   const camLabel = cam?.label ?? `CAM ${activeCamId}`;
-  const camState = (cam?.state ?? "offline") as CamState;
-
-  const hallwayState: HallwayState = hallwayOneOccupied ? "occupied" : "empty";
-
-  const [playKey, setPlayKey] = useState(0);
-
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const cam12NativeRef = useRef<Video>(null);
   const cam12WebRef = useRef<HTMLVideoElement | null>(null);
@@ -67,28 +41,11 @@ function FeaturedCameraView() {
   const cam13DurationRef = useRef(0);
   const cam13SwitchingRef = useRef(false);
 
+  const cam12HasPlayedRef = useRef(false);
+  const cam12HasStartedRef = useRef(false);
+
   const isHallwayCam12 = activeCamId === 12;
   const isStandingLoopCam13 = activeCamId === 13;
-
-  useEffect(() => {
-    if (!isHallwayCam12) return;
-    if (hallwayState !== "empty") return;
-
-    timeoutRef.current = setTimeout(() => {
-      setPlayKey((n) => n + 1);
-      setHallwayOneOccupied(true);
-    }, randomDelayMs());
-
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, [hallwayState, isHallwayCam12, setHallwayOneOccupied]);
-
-  useEffect(() => {
-    return () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isHallwayCam12) return;
@@ -97,18 +54,65 @@ function FeaturedCameraView() {
       const el = cam12WebRef.current;
       if (!el) return;
 
+      const prep = () => {
+        try {
+          el.pause();
+          if (!cam12HasPlayedRef.current) {
+            el.currentTime = 0;
+          }
+        } catch {}
+      };
+
+      if (el.readyState >= 1) {
+        prep();
+      } else {
+        const onLoadedMetadata = () => prep();
+        el.addEventListener("loadedmetadata", onLoadedMetadata);
+        return () => {
+          el.removeEventListener("loadedmetadata", onLoadedMetadata);
+        };
+      }
+
+      return;
+    }
+
+    const prepNative = async () => {
+      const player = cam12NativeRef.current;
+      if (!player) return;
+
+      try {
+        await player.pauseAsync();
+        if (!cam12HasPlayedRef.current) {
+          await player.setPositionAsync(0);
+        }
+      } catch {}
+    };
+
+    void prepNative();
+  }, [isHallwayCam12]);
+
+  useEffect(() => {
+    if (!isHallwayCam12) return;
+    if (!hallwayOneOccupied) return;
+    if (cam12HasPlayedRef.current) return;
+    if (cam12HasStartedRef.current) return;
+
+    cam12HasStartedRef.current = true;
+
+    if (Platform.OS === "web") {
+      const el = cam12WebRef.current;
+      if (!el) {
+        cam12HasStartedRef.current = false;
+        return;
+      }
+
       el.playbackRate = 0.65;
 
-      if (hallwayState === "occupied") {
-        const playPromise = el.play();
-        if (playPromise && typeof playPromise.catch === "function") {
-          playPromise.catch(() => {});
-        }
-      } else {
-        el.pause();
-        try {
-          el.currentTime = 0;
-        } catch {}
+      const playPromise = el.play();
+      if (playPromise && typeof playPromise.catch === "function") {
+        playPromise.catch(() => {
+          cam12HasStartedRef.current = false;
+        });
       }
 
       return;
@@ -116,22 +120,21 @@ function FeaturedCameraView() {
 
     const runNative = async () => {
       const player = cam12NativeRef.current;
-      if (!player) return;
+      if (!player) {
+        cam12HasStartedRef.current = false;
+        return;
+      }
 
       try {
         await player.setRateAsync(0.65, true);
-
-        if (hallwayState === "occupied") {
-          await player.playAsync();
-        } else {
-          await player.pauseAsync();
-          await player.setPositionAsync(0);
-        }
-      } catch {}
+        await player.playAsync();
+      } catch {
+        cam12HasStartedRef.current = false;
+      }
     };
 
     void runNative();
-  }, [hallwayState, isHallwayCam12, playKey]);
+  }, [hallwayOneOccupied, isHallwayCam12]);
 
   useEffect(() => {
     if (!isStandingLoopCam13) return;
@@ -185,10 +188,32 @@ function FeaturedCameraView() {
         } catch {}
       })();
     };
-  }, [isStandingLoopCam13, playKey]);
+  }, [isStandingLoopCam13]);
 
-  const endOccupiedCycle = () => {
+  const endCam12Playback = () => {
+    cam12HasPlayedRef.current = true;
+    cam12HasStartedRef.current = false;
     setHallwayOneOccupied(false);
+
+    if (Platform.OS === "web") {
+      const el = cam12WebRef.current;
+      if (!el) return;
+      try {
+        el.pause();
+      } catch {}
+      return;
+    }
+
+    const stopNative = async () => {
+      const player = cam12NativeRef.current;
+      if (!player) return;
+
+      try {
+        await player.pauseAsync();
+      } catch {}
+    };
+
+    void stopNative();
   };
 
   const handleCam13StatusUpdate = async (status: AVPlaybackStatus) => {
@@ -242,14 +267,10 @@ function FeaturedCameraView() {
   };
 
   return (
-    <View style={styles.featuredCard}>
+    <View style={[styles.featuredCard, { width }]}>
       <View style={styles.featuredHeader}>
         <Text style={styles.featuredTitle}>{camLabel}</Text>
-        <Text style={styles.featuredMeta}>
-          {isHallwayCam12
-            ? `HALLWAY 1 • ${hallwayState.toUpperCase()}`
-            : camState.toUpperCase()}
-        </Text>
+        <Text style={styles.featuredMeta}>LIVE FEED</Text>
       </View>
 
       <View style={styles.featuredFrame}>
@@ -258,7 +279,6 @@ function FeaturedCameraView() {
             <View style={styles.featuredWebWrap}>
               {/* @ts-ignore */}
               <video
-                key={`hallway1-web-${playKey}`}
                 ref={(node) => {
                   cam12WebRef.current = node;
                 }}
@@ -266,7 +286,7 @@ function FeaturedCameraView() {
                 muted
                 playsInline
                 preload="auto"
-                onEnded={endOccupiedCycle}
+                onEnded={endCam12Playback}
                 style={{
                   width: "100%",
                   height: "100%",
@@ -278,7 +298,6 @@ function FeaturedCameraView() {
             </View>
           ) : (
             <Video
-              key={`hallway1-native-${playKey}`}
               ref={cam12NativeRef}
               source={require("../../assets/cams/hallway1/guard-left-to-right.mp4")}
               style={styles.featuredMedia}
@@ -286,10 +305,25 @@ function FeaturedCameraView() {
               shouldPlay={false}
               isLooping={false}
               isMuted
+              onLoad={() => {
+                const prepNative = async () => {
+                  const player = cam12NativeRef.current;
+                  if (!player) return;
+
+                  try {
+                    await player.pauseAsync();
+                    if (!cam12HasPlayedRef.current) {
+                      await player.setPositionAsync(0);
+                    }
+                  } catch {}
+                };
+
+                void prepNative();
+              }}
               onPlaybackStatusUpdate={(status) => {
                 if (!status.isLoaded) return;
                 if (status.didJustFinish) {
-                  endOccupiedCycle();
+                  endCam12Playback();
                 }
               }}
             />
@@ -299,7 +333,6 @@ function FeaturedCameraView() {
             <View style={styles.featuredWebWrap}>
               {/* @ts-ignore */}
               <video
-                key={`hallway-standing-web-${playKey}`}
                 ref={(node) => {
                   cam13WebRef.current = node;
                 }}
@@ -319,7 +352,6 @@ function FeaturedCameraView() {
             </View>
           ) : (
             <Video
-              key={`hallway-standing-native-${playKey}`}
               ref={cam13NativeRef}
               source={require("../../assets/cams/hallway1/guard-standing.mp4")}
               style={styles.featuredMedia}
@@ -332,12 +364,9 @@ function FeaturedCameraView() {
           )
         ) : (
           <View style={styles.featuredStaticFeed}>
-            <SmallCameraFeed state={camState} />
+            <SmallCameraFeed />
             <View pointerEvents="none" style={styles.featuredOverlay}>
               <Text style={styles.featuredOverlayText}>{camLabel}</Text>
-              <Text style={styles.featuredOverlayTextSmall}>
-                {camState.toUpperCase()}
-              </Text>
             </View>
           </View>
         )}
@@ -358,6 +387,7 @@ export default function CamerasScreen() {
   const setCameraState = useGameStore((s) => s.setCameraState);
 
   const tiles = useMemo(() => GRID_IDS, []);
+  const [innerWidth, setInnerWidth] = useState(0);
 
   useEffect(() => {
     startCameraSim();
@@ -368,37 +398,61 @@ export default function CamerasScreen() {
     setCameraState(12, hallwayOneOccupied ? "occupied" : "empty");
   }, [hallwayOneOccupied, setCameraState]);
 
+  const handleWrapLayout = (event: LayoutChangeEvent) => {
+    const measured = event.nativeEvent.layout.width;
+    if (measured > 0 && Math.abs(measured - innerWidth) > 1) {
+      setInnerWidth(measured);
+    }
+  };
+
+  const usableWidth = Math.max(innerWidth, 1);
+  const tileGap = 8;
+  const columns = usableWidth >= 560 ? 6 : 4;
+  const contentWidth = usableWidth;
+  const tileSize = Math.floor(
+    (contentWidth - tileGap * (columns - 1)) / columns,
+  );
+
   return (
     <PhoneFrame>
-      <View style={styles.wrap}>
-        <FeaturedCameraView />
+      <View style={styles.wrap} onLayout={handleWrapLayout}>
+        {innerWidth > 0 && (
+          <>
+            <FeaturedCameraView width={contentWidth} />
 
-        <View style={styles.grid}>
-          {tiles.map((id) => {
-            const cam = cameras[id];
-            const isSelected = selectedCamId === id;
-            const state = (cam?.state ?? "offline") as CamState;
+            <View style={[styles.grid, { width: contentWidth }]}>
+              {tiles.map((id, index) => {
+                const cam = cameras[id];
+                const isSelected = selectedCamId === id;
+                const isEndOfRow = (index + 1) % columns === 0;
 
-            return (
-              <Pressable
-                key={id}
-                onPress={() => setSelectedCam(id)}
-                style={[styles.tile, isSelected && styles.tileSelected]}
-              >
-                <SmallCameraFeed state={state} />
+                return (
+                  <Pressable
+                    key={id}
+                    onPress={() => setSelectedCam(id)}
+                    style={[
+                      styles.tile,
+                      {
+                        width: tileSize,
+                        height: tileSize,
+                        marginRight: isEndOfRow ? 0 : tileGap,
+                      },
+                      isSelected && styles.tileSelected,
+                    ]}
+                  >
+                    <SmallCameraFeed />
 
-                <View pointerEvents="none" style={styles.overlay}>
-                  <Text style={styles.overlayText}>
-                    {cam?.label ?? `CAM ${id}`}
-                  </Text>
-                  <Text style={styles.overlayTextSmall}>
-                    {(cam?.state ?? "—").toUpperCase()}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          })}
-        </View>
+                    <View pointerEvents="none" style={styles.overlay}>
+                      <Text style={styles.overlayText}>
+                        {cam?.label ?? `CAM ${id}`}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </>
+        )}
 
         {standbyMode && (
           <View style={styles.standby}>
@@ -416,7 +470,7 @@ const styles = StyleSheet.create({
   wrap: {
     flex: 1,
     padding: 10,
-    gap: 10,
+    alignItems: "stretch",
   },
 
   featuredCard: {
@@ -425,6 +479,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.16)",
     backgroundColor: "rgba(0,0,0,0.4)",
+    marginBottom: 10,
+    alignSelf: "center",
   },
 
   featuredHeader: {
@@ -493,26 +549,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.7,
   },
 
-  featuredOverlayTextSmall: {
-    color: "rgba(255,255,255,0.72)",
-    fontSize: 10,
-    letterSpacing: 0.7,
-  },
-
   grid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    alignSelf: "center",
   },
 
   tile: {
-    width: "23.2%",
-    aspectRatio: 1,
     borderRadius: 10,
     overflow: "hidden",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.15)",
     backgroundColor: "rgba(0,0,0,0.35)",
+    position: "relative",
+    marginBottom: 8,
   },
 
   tileSelected: {
@@ -520,11 +570,19 @@ const styles = StyleSheet.create({
   },
 
   feed: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
   },
 
   feedBase: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "rgba(0,0,0,0.55)",
   },
 
@@ -544,27 +602,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
   },
 
-  overlayTextSmall: {
-    color: "rgba(255,255,255,0.65)",
-    fontSize: 9,
-    letterSpacing: 0.6,
-  },
-
-  noSignal: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.28)",
-  },
-
-  noSignalText: {
-    color: "rgba(255,255,255,0.8)",
-    fontSize: 12,
-    letterSpacing: 1,
-  },
-
   standby: {
-    ...StyleSheet.absoluteFillObject,
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: "rgba(0,0,0,0.92)",
     paddingTop: 18,
     paddingHorizontal: 12,
@@ -575,31 +618,5 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.7)",
     fontSize: 13,
     letterSpacing: 1.2,
-  },
-
-  figureWrap: {
-    position: "absolute",
-    left: "62%",
-    top: "48%",
-    width: "18%",
-    height: "32%",
-    opacity: 0.28,
-  },
-
-  figureHead: {
-    width: "45%",
-    height: "22%",
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.65)",
-    alignSelf: "center",
-    marginBottom: "10%",
-  },
-
-  figureBody: {
-    width: "70%",
-    height: "68%",
-    borderRadius: 6,
-    backgroundColor: "rgba(255,255,255,0.55)",
-    alignSelf: "center",
   },
 });
