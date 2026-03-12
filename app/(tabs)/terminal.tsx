@@ -360,7 +360,9 @@ export default function TerminalScreen() {
                 returnKeyType="go"
                 editable
                 showSoftInputOnFocus={!IS_NATIVE_DEVICE}
-                caretHidden
+                caretHidden={false}
+                selectionColor="#00e0ff"
+                cursorColor="#00e0ff"
               />
 
               <Pressable

@@ -29,8 +29,8 @@ const APPS: AppTile[] = [
   },
   {
     key: "messages",
-    label: "Messages",
-    icon: "✉",
+    label: "Coms",
+    icon: "≋",
     route: "/messages",
     color: "#ff9a7a",
   },
@@ -58,14 +58,14 @@ const APPS: AppTile[] = [
   {
     key: "jammer",
     label: "Jammer",
-    icon: "〰",
+    icon: "≈",
     route: "/jammer",
     color: "#ff5a83",
   },
   {
     key: "notes",
     label: "Notes",
-    icon: "🗒",
+    icon: "✎",
     route: "/notes",
     color: "#cfd8dc",
   },
@@ -223,6 +223,8 @@ const styles = StyleSheet.create({
   iconText: {
     fontSize: 22,
     fontWeight: "800",
+    includeFontPadding: false,
+    textAlign: "center",
   },
 
   label: {
