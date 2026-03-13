@@ -625,20 +625,6 @@ export function handleMissionEvent(
   }
 
   if (event.type === "REPLY_SELECTED") {
-    if (
-      state.phase === "terminal_intro" &&
-      event.action === "terminal_ready_confirm"
-    ) {
-      return {
-        nextState: state,
-        effects: [
-          { type: "clear_reply_chips" },
-          ...(event.label
-            ? [{ type: "player_message", text: event.label } as MissionEffect]
-            : []),
-        ],
-      };
-    }
     if (state.phase === "boot_intro" || state.phase === "boot_confirm_online") {
       if (event.action === "confirm_online") {
         const nextState = withPhase(state, "phone_review_offer");
@@ -886,16 +872,6 @@ export function handleMissionEvent(
             ],
           },
           { type: "set_terminal_locked", on: false },
-          {
-            type: "set_reply_chips",
-            chips: [
-              {
-                id: "terminal_ready_confirm",
-                label: "I'm in",
-                action: "terminal_ready_confirm",
-              },
-            ],
-          },
         ],
       };
     }

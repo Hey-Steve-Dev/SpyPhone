@@ -150,15 +150,22 @@ export default function TerminalScreen() {
 
   useEffect(() => {
     if (introFired) return;
-
-    const unlocked = terminalLocked === false;
-
-    if (!unlocked) return;
+    if (mission.phase !== "terminal_intro") return;
+    if (terminalLocked) return;
 
     setIntroFired(true);
     void dispatchMissionEvent({ type: "TERMINAL_READY" });
-  }, [terminalLocked, introFired, dispatchMissionEvent]);
+  }, [mission.phase, terminalLocked, introFired, dispatchMissionEvent]);
+  useEffect(() => {
+    const inTerminalMission =
+      mission.phase === "terminal_intro" ||
+      mission.phase.startsWith("terminal_") ||
+      mission.phase === "complete";
 
+    if (!inTerminalMission) {
+      setIntroFired(false);
+    }
+  }, [mission.phase]);
   async function runCommand(raw: string) {
     const cmd = raw.trim();
     if (!cmd) return;
