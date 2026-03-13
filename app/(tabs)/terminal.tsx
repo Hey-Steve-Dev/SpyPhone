@@ -152,13 +152,12 @@ export default function TerminalScreen() {
     if (introFired) return;
 
     const unlocked = terminalLocked === false;
-    const ready = unlocked && commsConnected;
 
-    if (!ready) return;
+    if (!unlocked) return;
 
     setIntroFired(true);
     void dispatchMissionEvent({ type: "TERMINAL_READY" });
-  }, [terminalLocked, commsConnected, introFired, dispatchMissionEvent]);
+  }, [terminalLocked, introFired, dispatchMissionEvent]);
 
   async function runCommand(raw: string) {
     const cmd = raw.trim();
