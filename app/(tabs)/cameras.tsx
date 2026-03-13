@@ -438,6 +438,7 @@ export default function CamerasScreen() {
 
   const tiles = useMemo(() => GRID_IDS, []);
   const [innerWidth, setInnerWidth] = useState(0);
+  const hasDispatchedViewRef = useRef(false);
 
   useEffect(() => {
     if (!cameraNetworkOnline || !isFocused) {
@@ -455,10 +456,20 @@ export default function CamerasScreen() {
   }, [cameraNetworkOnline, hallwayOneOccupied, setCameraState]);
 
   useEffect(() => {
-    if (!isFocused) return;
-    if (!cameraNetworkOnline) return;
-    if (missionPhase !== "camera_watch") return;
-    if (selectedCamId !== 12) return;
+    const shouldDispatch =
+      isFocused &&
+      cameraNetworkOnline &&
+      missionPhase === "camera_watch" &&
+      selectedCamId === 12;
+
+    if (!shouldDispatch) {
+      hasDispatchedViewRef.current = false;
+      return;
+    }
+
+    if (hasDispatchedViewRef.current) return;
+
+    hasDispatchedViewRef.current = true;
 
     void dispatchMissionEvent({
       type: "CAMERA_VIEWED",

@@ -1,5 +1,5 @@
 import PhoneFrame from "@/components/PhoneFrame";
-import { runCommandEngine, setMode } from "@/lib/commandEngine";
+import { runCommandEngine } from "@/lib/commandEngine";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -46,19 +46,10 @@ const DEFAULT_MISSION_RESULT: MissionDispatchResult = {
 
 export default function TerminalScreen() {
   const bumpTrace = useGameStore((s) => s.bumpTrace);
-
   const mission = useGameStore((s) => s.mission);
-
-  const missionDeadlineAt = useGameStore((s) => s.missionDeadlineAt);
-  const setMissionDeadlineMsFromNow = useGameStore(
-    (s) => s.setMissionDeadlineMsFromNow,
-  );
-  const clearMissionDeadline = useGameStore((s) => s.clearMissionDeadline);
 
   const bannerPush = useGameStore((s) => s.bannerPush);
   const bannerOn = useGameStore((s) => s.banner.on);
-
-  const pushThread = useGameStore((s) => s.pushThread);
 
   const bootGame = useGameStore((s) => s.bootGame);
   const booted = useGameStore((s) => s.booted);
@@ -66,11 +57,9 @@ export default function TerminalScreen() {
   const commsConnected = useGameStore((s) => s.commsConnected);
 
   const cwd = useGameStore((s) => s.terminal.cwd);
-  const mode = useGameStore((s) => s.terminal.mode);
   const lines = useGameStore((s) => s.terminal.lines);
   const appendTerminalLine = useGameStore((s) => s.appendTerminalLine);
   const clearTerminalLines = useGameStore((s) => s.clearTerminalLines);
-  const setTerminalMode = useGameStore((s) => s.setTerminalMode);
 
   const dispatchMissionEvent = useGameStore((s) => s.dispatchMissionEvent);
 
@@ -185,17 +174,6 @@ export default function TerminalScreen() {
       return;
     }
 
-    if (missionDeadlineAt && Date.now() > missionDeadlineAt) {
-      append("out", "WINDOW MISSED: link dropped.");
-      append("out", "Trace spike.");
-
-      bannerPush("ALERT", "Exfil window missed.", 2200);
-      pushThread("handler", "We missed the exfil window. Keep moving.");
-
-      bumpTrace(12, "missed window");
-      clearMissionDeadline();
-    }
-
     append("cmd", `${prompt}${cmd}`);
     setInput("");
     setSelection({ start: 0, end: 0 });
@@ -213,7 +191,6 @@ export default function TerminalScreen() {
       (await dispatchMissionEvent({
         type: "TERMINAL_COMMAND",
         input: cmd,
-        mode,
       })) ?? DEFAULT_MISSION_RESULT;
 
     const nextMission = useGameStore.getState().mission;
@@ -228,12 +205,8 @@ export default function TerminalScreen() {
         bumpTrace(4, "wrong command");
       }
 
-      if (nextPhase === "terminal_drop" && prevPhase !== "terminal_drop") {
-        setMissionDeadlineMsFromNow(12_000);
-        bannerPush("WINDOW", "Exfil window: 12s.", 1400);
-        pushThread("handler", "Exfil window is open. You have ~12 seconds.");
-      } else if (nextPhase !== "terminal_drop") {
-        clearMissionDeadline();
+      if (nextPhase === "complete" && prevPhase !== "complete") {
+        bannerPush("OBJECTIVE", "Elevator code acquired.", 1800);
       }
 
       setTimeout(() => inputRef.current?.focus(), 50);
@@ -283,20 +256,6 @@ export default function TerminalScreen() {
               {terminalLocked ? "No link" : "Git Bash"}
             </Text>
           </View>
-
-          <Pressable
-            onPress={() => {
-              const next = mode === "easy" ? "strict" : "easy";
-              setMode(next);
-              setTerminalMode(next);
-              setTimeout(() => inputRef.current?.focus(), 50);
-            }}
-            style={styles.modeBtn}
-          >
-            <Text style={styles.modeTxt}>
-              {mode === "easy" ? "Easy" : "Hard"}
-            </Text>
-          </Pressable>
         </View>
 
         <View style={styles.screen}>
@@ -507,21 +466,6 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.60)",
   },
 
-  modeBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.06)",
-  },
-
-  modeTxt: {
-    color: "rgba(255,255,255,0.88)",
-    fontWeight: "800",
-    fontSize: 12,
-  },
-
   screen: {
     flex: 1,
     borderRadius: 0,
@@ -584,7 +528,7 @@ const styles = StyleSheet.create({
     color: "#7CFF9E",
     fontFamily: "monospace" as any,
     marginRight: 8,
-    maxWidth: 90,
+    maxWidth: 120,
   },
 
   inputCmd: {

@@ -17,11 +17,17 @@ export type MissionPhase =
   | "laptop_access_confirm"
   | "terminal_intro"
   | "terminal_pwd"
-  | "terminal_ls_root"
-  | "terminal_cd_payload"
-  | "terminal_ls_payload"
-  | "terminal_cat_intel"
-  | "terminal_drop"
+  | "terminal_ls_home"
+  | "terminal_cd_saved_notes"
+  | "terminal_ls_saved_notes"
+  | "terminal_cat_useful"
+  | "terminal_cd_network"
+  | "terminal_cd_maintenance"
+  | "terminal_cd_info"
+  | "terminal_cd_elevators"
+  | "terminal_cd_weekly"
+  | "terminal_cd_current_week"
+  | "terminal_cat_code"
   | "complete";
 
 export type MissionState = {
@@ -47,6 +53,14 @@ export type MissionEffect =
       text: string;
       typingMs?: number;
       afterMs?: number;
+    }
+  | {
+      type: "trigger_camera_target";
+      cameraId: number;
+    }
+  | {
+      type: "clear_camera_target";
+      cameraId: number;
     }
   | {
       type: "handler_sequence";
@@ -156,7 +170,7 @@ export type MissionEvent =
   | { type: "SCANNER_CHATTER_HEARD" }
   | { type: "GUARD_WAIT_EXPIRED" }
   | { type: "TERMINAL_READY" }
-  | { type: "TERMINAL_COMMAND"; input: string; mode: Mode };
+  | { type: "TERMINAL_COMMAND"; input: string; mode?: Mode };
 
 export type MissionEventResult = {
   nextState: MissionState;
@@ -368,18 +382,30 @@ function phaseToStep(phase: MissionPhase): number {
   switch (phase) {
     case "terminal_pwd":
       return 0;
-    case "terminal_ls_root":
+    case "terminal_ls_home":
       return 1;
-    case "terminal_cd_payload":
+    case "terminal_cd_saved_notes":
       return 2;
-    case "terminal_ls_payload":
+    case "terminal_ls_saved_notes":
       return 3;
-    case "terminal_cat_intel":
+    case "terminal_cat_useful":
       return 4;
-    case "terminal_drop":
+    case "terminal_cd_network":
       return 5;
-    case "complete":
+    case "terminal_cd_maintenance":
       return 6;
+    case "terminal_cd_info":
+      return 7;
+    case "terminal_cd_elevators":
+      return 8;
+    case "terminal_cd_weekly":
+      return 9;
+    case "terminal_cd_current_week":
+      return 10;
+    case "terminal_cat_code":
+      return 11;
+    case "complete":
+      return 12;
     default:
       return 0;
   }
@@ -398,16 +424,28 @@ function terminalPhaseFromStep(step: number): MissionPhase {
     case 0:
       return "terminal_pwd";
     case 1:
-      return "terminal_ls_root";
+      return "terminal_ls_home";
     case 2:
-      return "terminal_cd_payload";
+      return "terminal_cd_saved_notes";
     case 3:
-      return "terminal_ls_payload";
+      return "terminal_ls_saved_notes";
     case 4:
-      return "terminal_cat_intel";
+      return "terminal_cat_useful";
     case 5:
-      return "terminal_drop";
+      return "terminal_cd_network";
     case 6:
+      return "terminal_cd_maintenance";
+    case 7:
+      return "terminal_cd_info";
+    case 8:
+      return "terminal_cd_elevators";
+    case 9:
+      return "terminal_cd_weekly";
+    case 10:
+      return "terminal_cd_current_week";
+    case 11:
+      return "terminal_cat_code";
+    case 12:
       return "complete";
     default:
       return "terminal_pwd";
@@ -418,24 +456,43 @@ function handlerForTerminalPhase(phase: MissionPhase): string[] {
   switch (phase) {
     case "terminal_pwd":
       return [
-        "You're in the shell now.",
-        "Confirm where you landed. Type: `pwd`.",
+        "We know this should be a new person and the laptop should be pretty clean.",
+        "Hopefully they saved the elevator code somewhere on there or we are going to have to get creative.",
+        "First type `pwd`. It should show you where you're at.",
       ];
-    case "terminal_ls_root":
-      return ["Good. Now list what you've got. Type: `ls`."];
-    case "terminal_cd_payload":
-      return ["Move into the payload directory. Type: `cd payload`."];
-    case "terminal_ls_payload":
-      return ["Check the contents. Type: `ls`."];
-    case "terminal_cat_intel":
-      return ["Read the intel file. Type: `cat intel.txt`."];
-    case "terminal_drop":
+    case "terminal_ls_home":
       return [
-        "Exfil window is open.",
-        "Run the transfer now. Type: `./drop.sh`.",
+        "Good. If it ends in `/home/...` you're in the user space.",
+        "Now type `ls`. This shows you what's inside where you're at.",
+      ];
+    case "terminal_cd_saved_notes":
+      return [
+        "Saved notes looks promising.",
+        "Go into it with `cd saved_notes`.",
+      ];
+    case "terminal_ls_saved_notes":
+      return ["Now list that folder. Type `ls`."];
+    case "terminal_cat_useful":
+      return ["Open the useful info file.", "Type `cat useful_info.txt`."];
+    case "terminal_cd_network":
+      return ["There it is. Follow that path.", "Start with `cd network`."];
+    case "terminal_cd_maintenance":
+      return ["Keep moving. Type `cd maintenance`."];
+    case "terminal_cd_info":
+      return ["Next folder. Type `cd info`."];
+    case "terminal_cd_elevators":
+      return ["Good. Now `cd elevators`."];
+    case "terminal_cd_weekly":
+      return ["Open the weekly code folder with `cd weekly_passcodes`."];
+    case "terminal_cd_current_week":
+      return ["Use the active folder. Type `cd current_week`."];
+    case "terminal_cat_code":
+      return [
+        "Now read the override file.",
+        "Type `cat elevator_override.txt`.",
       ];
     case "complete":
-      return ["Transfer is running. Stay sharp."];
+      return ["That's the code. Good work."];
     default:
       return ["Stand by."];
   }
@@ -450,6 +507,7 @@ function makeSuccessfulMoveEffects(): MissionEffect[] {
     { type: "stop_camera_sim" },
     { type: "resolve_camera_objective" },
     { type: "set_hallway_occupied", on: false },
+    { type: "clear_camera_target", cameraId: 12 },
     {
       type: "trigger_go_dark",
       durationMs: 3200,
@@ -522,7 +580,7 @@ export function missionIntro(state: MissionState): string[] {
       return ["Signal when you're connected."];
 
     case "terminal_intro":
-      return ["Good.", "Let's see what they left open.", "Open Terminal."];
+      return ["Good.", "Open Terminal."];
 
     default:
       return ["Stand by."];
@@ -532,8 +590,12 @@ export function missionIntro(state: MissionState): string[] {
 export function handleMissionEvent(
   state: MissionState,
   event: MissionEvent,
-  ctx: MissionContext,
+  ctx?: MissionContext,
 ): MissionEventResult {
+  const safeCtx: MissionContext = {
+    jammerEnabled: ctx?.jammerEnabled ?? false,
+    hallwayOccupied: ctx?.hallwayOccupied ?? false,
+  };
   if (event.type === "BOOT") {
     const nextState = withPhase(state, "boot_confirm_online");
 
@@ -748,7 +810,7 @@ export function handleMissionEvent(
       const result = handleMissionEvent(
         withPhase(state, "move_prompt"),
         { type: "MOVE_ATTEMPT" },
-        ctx,
+        safeCtx,
       );
 
       return {
@@ -806,7 +868,6 @@ export function handleMissionEvent(
             type: "handler_sequence",
             items: [
               opsLine("Good.", 1200, 800),
-              opsLine("Let's see what they left open.", 1450, 900),
               opsLine("Open Terminal.", 1300, 1100),
             ],
           },
@@ -887,7 +948,7 @@ export function handleMissionEvent(
       };
     }
 
-    if (ctx.hallwayOccupied) {
+    if (safeCtx.hallwayOccupied) {
       return {
         nextState: state,
         effects: [],
@@ -898,6 +959,7 @@ export function handleMissionEvent(
       nextState: state,
       effects: [
         { type: "set_hallway_occupied", on: true },
+        { type: "trigger_camera_target", cameraId: 12 },
         { type: "start_camera_sim" },
         { type: "start_guard_wait_window", timeoutMs: 25000 },
       ],
@@ -945,6 +1007,7 @@ export function handleMissionEvent(
           ],
         },
         { type: "set_hallway_occupied", on: false },
+        { type: "clear_camera_target", cameraId: 12 },
         { type: "player_message", text: "Moving" },
         ...makeSuccessfulMoveEffects(),
       ],
@@ -952,7 +1015,7 @@ export function handleMissionEvent(
   }
 
   if (event.type === "MOVE_ATTEMPT") {
-    if (ctx.hallwayOccupied) {
+    if (safeCtx.hallwayOccupied) {
       return {
         nextState: withPhase(state, "camera_watch"),
         effects: [
@@ -997,9 +1060,9 @@ export function handleMissionEvent(
   if (event.type === "TERMINAL_COMMAND") {
     const result = runMissionCommand(
       event.input,
-      event.mode,
+      event.mode ?? "easy",
       state,
-      ctx.jammerEnabled,
+      safeCtx.jammerEnabled,
     );
 
     if (!result.handled) {
@@ -1038,8 +1101,8 @@ export function handleMissionEvent(
           ? [
               {
                 type: "banner",
-                title: "COMPLETE",
-                message: "Transfer complete.",
+                title: "OBJECTIVE COMPLETE",
+                message: "Elevator code acquired.",
                 ms: 2200,
               } as MissionEffect,
             ]
@@ -1064,7 +1127,7 @@ export function runMissionCommand(
   input: string,
   mode: Mode,
   state: MissionState,
-  jammerEnabled: boolean,
+  _jammerEnabled: boolean,
 ): TerminalCommandResult {
   const raw = norm(input);
 
@@ -1075,12 +1138,12 @@ export function runMissionCommand(
 
   if (phase === "terminal_pwd") {
     if (matches(raw, "pwd", mode)) {
-      const nextState = withPhase(state, "terminal_ls_root");
+      const nextState = withPhase(state, "terminal_ls_home");
       return {
         handled: true,
         ok: true,
         advanced: true,
-        terminalOut: ["/home/agent/ops"],
+        terminalOut: ["/home/jcarter"],
         handlerOut: handlerForTerminalPhase(nextState.phase),
         nextState,
       };
@@ -1090,19 +1153,25 @@ export function runMissionCommand(
       ok: false,
       advanced: false,
       terminalOut: enemyUnknown(raw),
-      handlerOut: ["Negative. Confirm position with: `pwd`."],
+      handlerOut: ["First confirm where you are. Type: `pwd`."],
       nextState: state,
     };
   }
 
-  if (phase === "terminal_ls_root") {
+  if (phase === "terminal_ls_home") {
     if (matches(raw, "ls", mode, ["ls -la", "ls -l", "ls -a"])) {
-      const nextState = withPhase(state, "terminal_cd_payload");
+      const nextState = withPhase(state, "terminal_cd_saved_notes");
       return {
         handled: true,
         ok: true,
         advanced: true,
-        terminalOut: ["intel.txt", "access.log", "payload/"],
+        terminalOut: [
+          "Desktop",
+          "Documents",
+          "Downloads",
+          "Pictures",
+          "saved_notes",
+        ],
         handlerOut: handlerForTerminalPhase(nextState.phase),
         nextState,
       };
@@ -1112,19 +1181,19 @@ export function runMissionCommand(
       ok: false,
       advanced: false,
       terminalOut: enemyUnknown(raw),
-      handlerOut: ["Don't improvise. Type: `ls`."],
+      handlerOut: ["Now list the folder. Type: `ls`."],
       nextState: state,
     };
   }
 
-  if (phase === "terminal_cd_payload") {
-    if (matches(raw, "cd payload", mode, ["cd    payload", "CD payload"])) {
-      const nextState = withPhase(state, "terminal_ls_payload");
+  if (phase === "terminal_cd_saved_notes") {
+    if (matches(raw, "cd saved_notes", mode, ["CD saved_notes"])) {
+      const nextState = withPhase(state, "terminal_ls_saved_notes");
       return {
         handled: true,
         ok: true,
         advanced: true,
-        terminalOut: ["~/ops/payload"],
+        terminalOut: ["/home/jcarter/saved_notes"],
         handlerOut: handlerForTerminalPhase(nextState.phase),
         nextState,
       };
@@ -1134,19 +1203,24 @@ export function runMissionCommand(
       ok: false,
       advanced: false,
       terminalOut: enemyUnknown(raw),
-      handlerOut: ["We need the payload directory. Type: `cd payload`."],
+      handlerOut: ["Go into the notes folder. Type: `cd saved_notes`."],
       nextState: state,
     };
   }
 
-  if (phase === "terminal_ls_payload") {
+  if (phase === "terminal_ls_saved_notes") {
     if (matches(raw, "ls", mode, ["ls -la", "ls -l", "ls -a"])) {
-      const nextState = withPhase(state, "terminal_cat_intel");
+      const nextState = withPhase(state, "terminal_cat_useful");
       return {
         handled: true,
         ok: true,
         advanced: true,
-        terminalOut: ["intel.txt", "drop.sh", "README.md"],
+        terminalOut: [
+          "onboarding.txt",
+          "meeting_notes.txt",
+          "network_reminders.txt",
+          "useful_info.txt",
+        ],
         handlerOut: handlerForTerminalPhase(nextState.phase),
         nextState,
       };
@@ -1156,44 +1230,30 @@ export function runMissionCommand(
       ok: false,
       advanced: false,
       terminalOut: enemyUnknown(raw),
-      handlerOut: ["Confirm contents. Type: `ls`."],
+      handlerOut: ["List the files in there. Type: `ls`."],
       nextState: state,
     };
   }
 
-  if (phase === "terminal_cat_intel") {
-    if (matches(raw, "cat intel.txt", mode, ["cat ./intel.txt"])) {
-      const intelLines = [
-        "INTEL: server=staging-7",
-        "port=443",
-        "user=agent",
-        "NOTE: exfil window is short.",
-      ];
-
-      if (!jammerEnabled) {
-        const holdState = withPhase(state, "terminal_cat_intel");
-
-        return {
-          handled: true,
-          ok: true,
-          advanced: false,
-          gated: true,
-          terminalOut: intelLines,
-          handlerOut: [
-            "Mask comms before exfil.",
-            "Open Jammer. Set MASK ON.",
-            "Then run: `cat intel.txt` again.",
-          ],
-          nextState: holdState,
-        };
-      }
-
-      const nextState = withPhase(state, "terminal_drop");
+  if (phase === "terminal_cat_useful") {
+    if (matches(raw, "cat useful_info.txt", mode, ["cat ./useful_info.txt"])) {
+      const nextState = withPhase(state, "terminal_cd_network");
       return {
         handled: true,
         ok: true,
         advanced: true,
-        terminalOut: intelLines,
+        terminalOut: [
+          "Personal Quick Notes",
+          "",
+          "Printer PIN: 7712",
+          "Locker combo: 2041",
+          "",
+          "Elevator maintenance override codes are rotated weekly.",
+          "Maintenance portal path:",
+          "network/maintenance/info/elevators/weekly_passcodes",
+          "",
+          "Use the current week folder to get the active code.",
+        ],
         handlerOut: handlerForTerminalPhase(nextState.phase),
         nextState,
       };
@@ -1203,19 +1263,174 @@ export function runMissionCommand(
       ok: false,
       advanced: false,
       terminalOut: enemyUnknown(raw),
-      handlerOut: ["Read the intel. Type: `cat intel.txt`."],
+      handlerOut: ["Open the note. Type: `cat useful_info.txt`."],
       nextState: state,
     };
   }
 
-  if (phase === "terminal_drop") {
-    if (matches(raw, "./drop.sh", mode, ["bash drop.sh", "sh drop.sh"])) {
+  if (phase === "terminal_cd_network") {
+    if (matches(raw, "cd network", mode)) {
+      const nextState = withPhase(state, "terminal_cd_maintenance");
+      return {
+        handled: true,
+        ok: true,
+        advanced: true,
+        terminalOut: ["/home/jcarter/saved_notes/network"],
+        handlerOut: handlerForTerminalPhase(nextState.phase),
+        nextState,
+      };
+    }
+    return {
+      handled: true,
+      ok: false,
+      advanced: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Follow the path. Start with: `cd network`."],
+      nextState: state,
+    };
+  }
+
+  if (phase === "terminal_cd_maintenance") {
+    if (matches(raw, "cd maintenance", mode)) {
+      const nextState = withPhase(state, "terminal_cd_info");
+      return {
+        handled: true,
+        ok: true,
+        advanced: true,
+        terminalOut: ["/home/jcarter/saved_notes/network/maintenance"],
+        handlerOut: handlerForTerminalPhase(nextState.phase),
+        nextState,
+      };
+    }
+    return {
+      handled: true,
+      ok: false,
+      advanced: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Next folder is `maintenance`."],
+      nextState: state,
+    };
+  }
+
+  if (phase === "terminal_cd_info") {
+    if (matches(raw, "cd info", mode)) {
+      const nextState = withPhase(state, "terminal_cd_elevators");
+      return {
+        handled: true,
+        ok: true,
+        advanced: true,
+        terminalOut: ["/home/jcarter/saved_notes/network/maintenance/info"],
+        handlerOut: handlerForTerminalPhase(nextState.phase),
+        nextState,
+      };
+    }
+    return {
+      handled: true,
+      ok: false,
+      advanced: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Go into `info`."],
+      nextState: state,
+    };
+  }
+
+  if (phase === "terminal_cd_elevators") {
+    if (matches(raw, "cd elevators", mode)) {
+      const nextState = withPhase(state, "terminal_cd_weekly");
+      return {
+        handled: true,
+        ok: true,
+        advanced: true,
+        terminalOut: [
+          "/home/jcarter/saved_notes/network/maintenance/info/elevators",
+        ],
+        handlerOut: handlerForTerminalPhase(nextState.phase),
+        nextState,
+      };
+    }
+    return {
+      handled: true,
+      ok: false,
+      advanced: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Now go into `elevators`."],
+      nextState: state,
+    };
+  }
+
+  if (phase === "terminal_cd_weekly") {
+    if (matches(raw, "cd weekly_passcodes", mode)) {
+      const nextState = withPhase(state, "terminal_cd_current_week");
+      return {
+        handled: true,
+        ok: true,
+        advanced: true,
+        terminalOut: [
+          "2026_week_09",
+          "2026_week_10",
+          "current_week",
+          "archive",
+        ],
+        handlerOut: handlerForTerminalPhase(nextState.phase),
+        nextState,
+      };
+    }
+    return {
+      handled: true,
+      ok: false,
+      advanced: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Open `weekly_passcodes`."],
+      nextState: state,
+    };
+  }
+
+  if (phase === "terminal_cd_current_week") {
+    if (matches(raw, "cd current_week", mode)) {
+      const nextState = withPhase(state, "terminal_cat_code");
+      return {
+        handled: true,
+        ok: true,
+        advanced: true,
+        terminalOut: [
+          "elevator_override.txt",
+          "service_notes.txt",
+          "rotation_schedule.txt",
+        ],
+        handlerOut: handlerForTerminalPhase(nextState.phase),
+        nextState,
+      };
+    }
+    return {
+      handled: true,
+      ok: false,
+      advanced: false,
+      terminalOut: enemyUnknown(raw),
+      handlerOut: ["Use the active folder: `cd current_week`."],
+      nextState: state,
+    };
+  }
+
+  if (phase === "terminal_cat_code") {
+    if (
+      matches(raw, "cat elevator_override.txt", mode, [
+        "cat ./elevator_override.txt",
+      ])
+    ) {
       const nextState = withPhase(state, "complete");
       return {
         handled: true,
         ok: true,
         advanced: true,
-        terminalOut: ["Running drop.sh...", "Transfer started."],
+        terminalOut: [
+          "Elevator Maintenance Override",
+          "Week 11",
+          "",
+          "Override Code: 4839",
+          "",
+          "Note:",
+          "Code resets automatically every Monday at 04:00.",
+        ],
         handlerOut: handlerForTerminalPhase(nextState.phase),
         nextState,
       };
@@ -1225,7 +1440,7 @@ export function runMissionCommand(
       ok: false,
       advanced: false,
       terminalOut: enemyUnknown(raw),
-      handlerOut: ["No. Run the drop script: `./drop.sh`."],
+      handlerOut: ["Read the file. Type: `cat elevator_override.txt`."],
       nextState: state,
     };
   }

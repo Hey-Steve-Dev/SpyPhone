@@ -202,32 +202,11 @@ function rand(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function phaseForLegacyStep(step: number): MissionState["phase"] {
-  switch (step) {
-    case 0:
-      return "terminal_pwd";
-    case 1:
-      return "terminal_ls_root";
-    case 2:
-      return "terminal_cd_payload";
-    case 3:
-      return "terminal_ls_payload";
-    case 4:
-      return "terminal_cat_intel";
-    case 5:
-      return "terminal_drop";
-    case 6:
-      return "complete";
-    default:
-      return "boot_intro";
-  }
-}
-
 const CAMERA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 function makeInitialTerminal(): TerminalState {
   return {
-    cwd: "~/ops",
+    cwd: "/home/jcarter",
     mode: "easy",
     lines: [
       { id: "l1", kind: "out", text: "Secure shell — Git Bash (simulated)" },
@@ -514,7 +493,7 @@ type GameState = {
   submitMessageText: (text: string) => void;
 
   mission: MissionState;
-  setMissionStep: (step: number) => void;
+  setMissionStep: (phase: MissionState["phase"]) => void;
   resetMission: () => void;
 
   missionDeadlineAt: number | null;
@@ -1168,34 +1147,28 @@ export const useGameStore = create<GameState>((set, get) => ({
     for (const effect of effects) {
       switch (effect.type) {
         case "handler_message": {
-          const typingMs = effect.typingMs ?? typingMsFor(effect.text);
+          const typingMs = typingMsFor(effect.text);
 
-          await get().pushHandlerMessageDelayed(
-            effect.text,
-            typingMs,
-            effect.afterMs ?? 250,
-          );
+          await get().pushHandlerMessageDelayed(effect.text, typingMs, 250);
           break;
         }
 
         case "handler_sequence": {
           for (const item of effect.items) {
-            const typingMs = item.typingMs ?? typingMsFor(item.text);
-
-            await get().pushHandlerMessageDelayed(
-              item.text,
-              typingMs,
-              item.afterMs ?? 250,
-            );
+            const typingMs = typingMsFor(item.text);
+            await get().pushHandlerMessageDelayed(item.text, typingMs, 250);
           }
           break;
         }
-
-        case "trigger_biometric_scan": {
-          await get().triggerBiometricOverlay(effect.durationMs ?? 500);
+        case "trigger_camera_target": {
+          get().triggerCameraTarget(effect.cameraId);
           break;
         }
 
+        case "clear_camera_target": {
+          get().clearCameraTarget(effect.cameraId);
+          break;
+        }
         case "player_message": {
           get().pushThread("player", effect.text);
           break;
@@ -1211,85 +1184,6 @@ export const useGameStore = create<GameState>((set, get) => ({
           break;
         }
 
-        case "set_terminal_locked": {
-          get().setTerminalLocked(effect.on);
-          break;
-        }
-
-        case "reset_terminal": {
-          get().resetTerminalSession();
-          break;
-        }
-
-        case "clear_thread": {
-          get().clearThread();
-          break;
-        }
-
-        case "banner": {
-          get().bannerPush(effect.title, effect.message, effect.ms);
-          break;
-        }
-
-        case "start_camera_objective": {
-          get().startCameraObjective(effect.targetId);
-          break;
-        }
-
-        case "resolve_camera_objective": {
-          get().resolveCameraObjective();
-          get().clearGuardWaitTimer();
-          break;
-        }
-
-        case "start_camera_sim": {
-          get().startCameraSim();
-          break;
-        }
-
-        case "stop_camera_sim": {
-          get().stopCameraSim();
-          get().clearGuardWaitTimer();
-          break;
-        }
-
-        case "set_hallway_occupied": {
-          get().setHallwayOneOccupied(effect.on);
-          break;
-        }
-
-        case "trigger_go_dark": {
-          const durationMs = effect.durationMs ?? 3200;
-          get().triggerGoDark(durationMs, effect.message);
-          await wait(Math.max(0, durationMs - 150));
-          break;
-        }
-
-        case "start_guard_wait_window": {
-          get().startGuardWaitTimer(effect.timeoutMs ?? 25000);
-          break;
-        }
-
-        case "set_mission_state": {
-          set({ mission: effect.state });
-          get().pushLog(
-            "mission",
-            `Mission state updated to ${effect.state.missionId}:${effect.state.phase}.`,
-          );
-          break;
-        }
-
-        case "set_mission_phase": {
-          set((s) => ({
-            mission: {
-              ...s.mission,
-              phase: effect.phase,
-            },
-          }));
-          get().pushLog("mission", `Mission phase set to ${effect.phase}.`);
-          break;
-        }
-
         case "append_terminal_output": {
           for (const line of effect.lines) {
             get().appendTerminalLine("out", line);
@@ -1297,22 +1191,8 @@ export const useGameStore = create<GameState>((set, get) => ({
           break;
         }
 
-        case "mission_failed": {
-          get().clearGuardWaitTimer();
-          get().pushLog("mission", `Mission failed: ${effect.reason}.`);
-
-          if (effect.bannerTitle && effect.bannerMessage) {
-            get().bannerPush(effect.bannerTitle, effect.bannerMessage, 1800);
-          }
-
-          setTimeout(() => {
-            if (
-              typeof location !== "undefined" &&
-              typeof location.reload === "function"
-            ) {
-              location.reload();
-            }
-          }, 900);
+        case "banner": {
+          get().bannerPush(effect.title, effect.message, 2200);
           break;
         }
 
@@ -1325,10 +1205,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   dispatchMissionEvent: async (event) => {
     const state = get();
 
-    const result = handleMissionEvent(state.mission, event, {
-      jammerEnabled: state.jammer.enabled,
-      hallwayOccupied: state.hallwayOneOccupied,
-    });
+    const prevPhase = state.mission.phase;
+    const result = handleMissionEvent(state.mission, event);
 
     set({ mission: result.nextState });
     get().pushLog(
@@ -1338,14 +1216,12 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     await get().applyMissionEffects(result.effects);
 
-    return (
-      result.commandResult ?? {
-        handled: false,
-        ok: false,
-        advanced: false,
-        gated: false,
-      }
-    );
+    return {
+      handled: true,
+      ok: true,
+      advanced: result.nextState.phase !== prevPhase,
+      gated: false,
+    };
   },
 
   handleMessageReplyAction: async (action, label) => {
@@ -1372,15 +1248,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   mission: makeInitialMissionState(),
-  setMissionStep: (step) =>
+  setMissionStep: (phase) =>
     set((s) => {
-      const nextPhase = phaseForLegacyStep(step);
-      get().pushLog("mission", `Mission step set to ${step}.`);
+      get().pushLog("mission", `Mission phase set to ${phase}.`);
       return {
         mission: {
           ...s.mission,
-          step,
-          phase: nextPhase,
+          phase,
         },
       };
     }),
