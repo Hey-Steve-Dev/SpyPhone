@@ -739,9 +739,7 @@ export function handleMissionEvent(
             chips: [{ id: "move_now", label: "Moving", action: "moving_now" }],
           },
           { type: "start_camera_objective", targetId: 12 },
-          { type: "start_camera_sim" },
           { type: "set_hallway_occupied", on: false },
-          { type: "start_guard_wait_window", timeoutMs: 25000 },
         ],
       };
     }
@@ -898,7 +896,11 @@ export function handleMissionEvent(
 
     return {
       nextState: state,
-      effects: [{ type: "set_hallway_occupied", on: true }],
+      effects: [
+        { type: "set_hallway_occupied", on: true },
+        { type: "start_camera_sim" },
+        { type: "start_guard_wait_window", timeoutMs: 25000 },
+      ],
     };
   }
 

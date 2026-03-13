@@ -59,13 +59,14 @@ function FeaturedCameraView({ width }: { width: number }) {
   const cam12HasPlayedRef = useRef(false);
   const cam12HasStartedRef = useRef(false);
   const [cam12NativeLoaded, setCam12NativeLoaded] = useState(false);
+  const [cam12Playing, setCam12Playing] = useState(false);
 
   const isHallwayCam12 = activeCamId === 12 && !isCamOffline;
   const isStandingLoopCam13 = activeCamId === 13 && !isCamOffline;
 
   const tryStartCam12Playback = async () => {
     if (!isHallwayCam12) return;
-    if (!hallwayOneOccupied) return;
+    if (!cam12Playing) return;
     if (cam12HasPlayedRef.current) return;
     if (cam12HasStartedRef.current) return;
 
@@ -102,12 +103,14 @@ function FeaturedCameraView({ width }: { width: number }) {
     if (hallwayOneOccupied) {
       cam12HasPlayedRef.current = false;
       cam12HasStartedRef.current = false;
+      setCam12Playing(true);
     }
   }, [hallwayOneOccupied]);
 
   useEffect(() => {
     if (!isHallwayCam12) {
       setCam12NativeLoaded(false);
+      setCam12Playing(false);
       return;
     }
 
@@ -116,7 +119,7 @@ function FeaturedCameraView({ width }: { width: number }) {
       if (!el) return;
 
       try {
-        if (!hallwayOneOccupied) {
+        if (!cam12Playing) {
           el.pause();
           el.currentTime = 0;
         }
@@ -130,23 +133,23 @@ function FeaturedCameraView({ width }: { width: number }) {
       if (!player) return;
 
       try {
-        await player.pauseAsync();
-        if (!cam12HasPlayedRef.current) {
+        if (!cam12Playing) {
+          await player.pauseAsync();
           await player.setPositionAsync(0);
         }
       } catch {}
     };
 
     void prepNative();
-  }, [isHallwayCam12, hallwayOneOccupied]);
+  }, [isHallwayCam12, cam12Playing]);
 
   useEffect(() => {
     if (!isHallwayCam12) return;
     if (Platform.OS === "web") return;
-    if (!hallwayOneOccupied) return;
+    if (!cam12Playing) return;
 
     void tryStartCam12Playback();
-  }, [hallwayOneOccupied, isHallwayCam12, cam12NativeLoaded]);
+  }, [cam12Playing, isHallwayCam12, cam12NativeLoaded]);
 
   useEffect(() => {
     if (!isStandingLoopCam13) return;
@@ -205,6 +208,7 @@ function FeaturedCameraView({ width }: { width: number }) {
   const endCam12Playback = () => {
     cam12HasPlayedRef.current = true;
     cam12HasStartedRef.current = false;
+    setCam12Playing(false);
     setHallwayOneOccupied(false);
 
     if (Platform.OS === "web") {
@@ -311,7 +315,7 @@ function FeaturedCameraView({ width }: { width: number }) {
             <View style={styles.featuredWebWrap}>
               {/* @ts-ignore */}
               <video
-                key={hallwayOneOccupied ? "cam12-active" : "cam12-idle"}
+                key={cam12Playing ? "cam12-active" : "cam12-idle"}
                 ref={(node) => {
                   cam12WebRef.current = node;
                 }}
@@ -319,22 +323,19 @@ function FeaturedCameraView({ width }: { width: number }) {
                 muted
                 playsInline
                 preload="auto"
-                autoPlay={hallwayOneOccupied}
+                autoPlay={cam12Playing}
                 onLoadedData={() => {
                   const el = cam12WebRef.current;
                   if (!el) return;
 
                   try {
-                    if (hallwayOneOccupied && !cam12HasPlayedRef.current) {
+                    if (cam12Playing && !cam12HasPlayedRef.current) {
                       cam12HasStartedRef.current = true;
                       el.currentTime = 0;
                       el.playbackRate = 0.65;
                       void el.play().catch(() => {
                         cam12HasStartedRef.current = false;
                       });
-                    } else {
-                      el.pause();
-                      el.currentTime = 0;
                     }
                   } catch {
                     cam12HasStartedRef.current = false;

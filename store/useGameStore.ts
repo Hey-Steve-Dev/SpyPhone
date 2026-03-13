@@ -1803,28 +1803,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (!st.cameraNetworkOnline) return;
       if (st.standbyMode || st.goDark.active) return;
 
-      if (st.cameraObjectiveActive && st.targetCameraId === 12) {
-        const cam12 = st.cameras[12];
-        const age = cam12?.lastSeenAt ? Date.now() - cam12.lastSeenAt : 0;
-
-        if (cam12?.state === "occupied" && age > 4500) {
-          get().pushLog("camera", "CAM 12 auto-cleared after inactivity.");
-          set((prev) => ({
-            hallwayOneOccupied: false,
-            cameras: {
-              ...prev.cameras,
-              12: {
-                ...prev.cameras[12],
-                state: "empty",
-                alert: false,
-                hasTarget: false,
-                lastSeenAt: prev.cameras[12].lastSeenAt,
-              },
-            },
-          }));
-        }
-      }
-
       const simIds = CAMERA_IDS.filter((id) => id !== 12);
       const pickedId = simIds[Math.floor(Math.random() * simIds.length)];
 
