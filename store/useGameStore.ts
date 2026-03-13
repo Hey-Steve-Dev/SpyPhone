@@ -1104,7 +1104,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   messagesTyping: false,
   setMessagesTyping: (on) => set({ messagesTyping: on }),
 
-  pushHandlerMessageDelayed: async (text, typingMs, afterMs = 650) => {
+  pushHandlerMessageDelayed: async (text, typingMs, afterMs = 1200) => {
     const reactionDelay = 1000 + rand(0, 1000);
     const autoTypingDelay =
       900 + Math.min(text.length * 18, 1100) + rand(120, 320);
