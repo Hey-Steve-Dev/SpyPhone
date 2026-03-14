@@ -744,10 +744,7 @@ export function handleMissionEvent(
               opsLine("Go to Camera 12 and wait for him to pass.", 1500, 1000),
             ],
           },
-          {
-            type: "set_reply_chips",
-            chips: [{ id: "move_now", label: "Moving", action: "moving_now" }],
-          },
+
           { type: "start_camera_objective", targetId: 12 },
           { type: "set_hallway_occupied", on: false },
         ],
@@ -1041,6 +1038,10 @@ export function handleMissionEvent(
         { type: "trigger_camera_target", cameraId: 12 },
         { type: "start_camera_sim" },
         { type: "start_guard_wait_window", timeoutMs: 25000 },
+        {
+          type: "set_reply_chips",
+          chips: [{ id: "move_now", label: "Moving", action: "moving_now" }],
+        },
       ],
     };
   }
@@ -1186,16 +1187,6 @@ export function handleMissionEvent(
               {
                 type: "handler_sequence",
                 items: opsSequence(result.handlerOut),
-              } as MissionEffect,
-            ]
-          : []),
-        ...(result.nextState.phase === "complete"
-          ? [
-              {
-                type: "banner",
-                title: "OBJECTIVE COMPLETE",
-                message: "Elevator code acquired.",
-                ms: 2200,
               } as MissionEffect,
             ]
           : []),
