@@ -1,7 +1,7 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { runCommandEngine } from "@/lib/commandEngine";
 import { useGameStore } from "@/store/useGameStore";
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -12,6 +12,7 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
+const PROMPT = "$";
 
 export default function TerminalScreen() {
   const appendTerminalLine = useGameStore((s) => s.appendTerminalLine);
@@ -24,8 +25,6 @@ export default function TerminalScreen() {
 
   const dispatchMissionEvent = useGameStore((s) => s.dispatchMissionEvent);
 
-  const mission = useGameStore((s) => s.mission);
-
   const terminalLocked = useGameStore((s) => s.terminalLocked);
 
   const cwd = session.cwd;
@@ -34,8 +33,6 @@ export default function TerminalScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
-
-  const prompt = useMemo(() => `${cwd} $`, [cwd]);
 
   function append(kind: "out" | "cmd", text: string) {
     appendTerminalLine(kind, text);
@@ -56,7 +53,7 @@ export default function TerminalScreen() {
     const cmd = raw.trim();
     if (!cmd) return;
 
-    append("cmd", `${prompt}${cmd}`);
+    append("cmd", `${PROMPT}${cmd}`);
 
     setInput("");
     focusInput();
@@ -113,7 +110,7 @@ export default function TerminalScreen() {
 
           <View style={styles.inputDock}>
             <View style={styles.termInput}>
-              <Text style={styles.prompt}>{prompt}</Text>
+              <Text style={styles.prompt}>{PROMPT}</Text>
 
               <TextInput
                 ref={inputRef}
@@ -124,12 +121,12 @@ export default function TerminalScreen() {
                 style={styles.inputCmd}
                 placeholder="type command…"
                 placeholderTextColor="rgba(255,255,255,0.35)"
-                onSubmitEditing={() => runCommand(input)}
+                onSubmitEditing={() => void runCommand(input)}
                 returnKeyType="go"
               />
 
               <Pressable
-                onPress={() => runCommand(input)}
+                onPress={() => void runCommand(input)}
                 style={styles.runBtn}
               >
                 <Text style={styles.runTxt}>↻</Text>
@@ -212,7 +209,9 @@ const styles = StyleSheet.create({
   prompt: {
     color: "#7CFF9E",
     fontFamily: "monospace",
-    marginRight: 6,
+    marginRight: 8,
+    fontSize: 16,
+    fontWeight: "700",
   },
 
   inputCmd: {

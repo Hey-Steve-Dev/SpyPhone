@@ -412,16 +412,20 @@ function handlerForTerminalPhase(phase: MissionPhase): string[] {
   switch (phase) {
     case "terminal_brief_pwd":
       return [
-        "OK, here's the quick rundown. Find out where you are. Type `pwd`. It should say `/home` with a username at the end. Let me know if you're seeing that.",
+        "You should see something like `/home` with a username at the end. Let me know if you see it.",
       ];
 
     case "terminal_brief_search":
       return [
-        "OK, next to find out what's inside, type `ls`. You're going to have to look through the files and folders to find the elevator code. Use `cd` to move into a folder and `cat` to read a file.",
+        "Good. You're going to need to look around in there for an elevator passcode.",
+        "Type `ls` to list files and folders.",
+        "Type `cat` to read a file.",
+        "Type `cd` to move into a folder.",
+        "Search through the system and find the code.",
       ];
 
     case "complete":
-      return ["That's the code. Good work."];
+      return ["Good work."];
 
     default:
       return ["Stand by."];
@@ -782,7 +786,7 @@ export function handleMissionEvent(
       state.phase === "laptop_access_confirm" &&
       event.action === "laptop_access_confirm"
     ) {
-      const nextState = withPhase(state, "terminal_intro");
+      const nextState = withPhase(state, "terminal_brief_pwd");
 
       return {
         nextState,
@@ -796,6 +800,22 @@ export function handleMissionEvent(
             items: [
               opsLine("Good.", 1200, 800),
               opsLine("Open Terminal.", 1300, 1100),
+              opsLine("Type `pwd` to see where you are.", 1350, 900),
+              opsLine(
+                "You should see something like `/home` with a username at the end. Let me know if you see it.",
+                1450,
+                1000,
+              ),
+            ],
+          },
+          {
+            type: "set_reply_chips",
+            chips: [
+              {
+                id: "terminal_pwd_seen",
+                label: "I see it",
+                action: "terminal_pwd_seen",
+              },
             ],
           },
           { type: "set_terminal_locked", on: false },
@@ -917,10 +937,6 @@ export function handleMissionEvent(
     return {
       nextState,
       effects: [
-        {
-          type: "handler_sequence",
-          items: [opsLine("Signal when you're connected.", 1400, 1000)],
-        },
         {
           type: "set_reply_chips",
           chips: [
@@ -1046,26 +1062,9 @@ export function handleMissionEvent(
   }
 
   if (event.type === "TERMINAL_READY") {
-    const nextState = withPhase(state, "terminal_brief_pwd");
-
     return {
-      nextState,
-      effects: [
-        {
-          type: "handler_sequence",
-          items: opsSequence(missionIntro(nextState)),
-        },
-        {
-          type: "set_reply_chips",
-          chips: [
-            {
-              id: "terminal_pwd_seen",
-              label: "I see it",
-              action: "terminal_pwd_seen",
-            },
-          ],
-        },
-      ],
+      nextState: state,
+      effects: [],
     };
   }
 
