@@ -439,12 +439,13 @@ function handlerForTerminalPhase(phase: MissionPhase): string[] {
       ];
 
     case "complete":
-      return [""];
+      return [];
 
     default:
       return ["Stand by."];
   }
 }
+
 function makeSuccessfulMoveEffects(): MissionEffect[] {
   return [
     {
@@ -747,7 +748,6 @@ export function handleMissionEvent(
               opsLine("Go to Camera 12 and wait for him to pass.", 1500, 1000),
             ],
           },
-
           { type: "start_camera_objective", targetId: 12 },
           { type: "set_hallway_occupied", on: false },
         ],
@@ -880,20 +880,23 @@ export function handleMissionEvent(
 
     if (
       state.phase === "terminal_brief_search" &&
-      event.action === "terminal_found_code"
+      event.action === "terminal_need_help"
     ) {
-      const nextState = withPhase(state, "complete");
-
       return {
-        nextState,
+        nextState: state,
         effects: [
-          { type: "clear_reply_chips" },
           ...(event.label
             ? [{ type: "player_message", text: event.label } as MissionEffect]
             : []),
           {
-            type: "trigger_end_game_wipe",
-            durationMs: 3000,
+            type: "handler_sequence",
+            items: [
+              opsLine(
+                "Look for anything that sounds personal, saved, or useful. Use `cd` for folders and `cat` for text files.",
+                1450,
+                1000,
+              ),
+            ],
           },
         ],
       };
@@ -903,8 +906,10 @@ export function handleMissionEvent(
       state.phase === "terminal_brief_search" &&
       event.action === "terminal_found_code"
     ) {
+      const nextState = withPhase(state, "complete");
+
       return {
-        nextState: state,
+        nextState,
         effects: [
           { type: "clear_reply_chips" },
           ...(event.label
@@ -1093,6 +1098,7 @@ export function handleMissionEvent(
       ],
     };
   }
+
   if (event.type === "MOVE_ATTEMPT") {
     if (safeCtx.hallwayOccupied) {
       return {
@@ -1394,14 +1400,13 @@ export function runMissionCommand(
       }
 
       if (fileName === "elevator_override.txt") {
-        const nextState = withPhase(state, "complete");
         return {
           handled: true,
           ok: true,
-          advanced: true,
+          advanced: false,
           terminalOut: fileOut,
-          handlerOut: handlerForTerminalPhase(nextState.phase),
-          nextState,
+          handlerOut: [],
+          nextState: state,
         };
       }
 
