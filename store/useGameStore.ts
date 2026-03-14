@@ -1,4 +1,9 @@
 import {
+  createTerminalSession,
+  setMode as setCommandEngineMode,
+  type TerminalSession,
+} from "@/lib/commandEngine";
+import {
   initGameAudio,
   playIncomingMessageFx,
   setGameSoundEnabled,
@@ -153,7 +158,7 @@ type TerminalLine = {
 };
 
 type TerminalState = {
-  cwd: string;
+  session: TerminalSession;
   mode: "easy" | "strict";
   lines: TerminalLine[];
 };
@@ -206,7 +211,7 @@ const CAMERA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 function makeInitialTerminal(): TerminalState {
   return {
-    cwd: "/home/jcarter",
+    session: createTerminalSession("phone_shell"),
     mode: "easy",
     lines: [
       { id: "l1", kind: "out", text: "Secure shell — Git Bash (simulated)" },
@@ -441,7 +446,9 @@ type GameState = {
   clearTerminalLines: () => void;
   resetTerminalSession: () => void;
   setTerminalMode: (mode: "easy" | "strict") => void;
+  setTerminalSession: (session: TerminalSession) => void;
   setTerminalCwd: (cwd: string) => void;
+  setTerminalHost: (hostId: string) => void;
 
   banner: Banner;
   setBanner: (banner: Banner) => void;
@@ -1006,19 +1013,36 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   resetTerminalSession: () => {
+    const next = makeInitialTerminal();
     set({
-      terminal: makeInitialTerminal(),
+      terminal: next,
     });
+    setCommandEngineMode(next.mode);
     get().pushLog("terminal", "Terminal session reset.");
   },
 
   setTerminalMode: (mode) =>
     set((s) => {
+      setCommandEngineMode(mode);
       get().pushLog("terminal", `Terminal mode set to ${mode}.`);
       return {
         terminal: {
           ...s.terminal,
           mode,
+        },
+      };
+    }),
+
+  setTerminalSession: (session) =>
+    set((s) => {
+      get().pushLog(
+        "terminal",
+        `Terminal session updated: ${session.hostId} @ ${session.cwd}.`,
+      );
+      return {
+        terminal: {
+          ...s.terminal,
+          session,
         },
       };
     }),
@@ -1029,7 +1053,22 @@ export const useGameStore = create<GameState>((set, get) => ({
       return {
         terminal: {
           ...s.terminal,
-          cwd,
+          session: {
+            ...s.terminal.session,
+            cwd,
+          },
+        },
+      };
+    }),
+
+  setTerminalHost: (hostId) =>
+    set((s) => {
+      const nextSession = createTerminalSession(hostId);
+      get().pushLog("terminal", `Terminal host set to ${hostId}.`);
+      return {
+        terminal: {
+          ...s.terminal,
+          session: nextSession,
         },
       };
     }),
@@ -1148,7 +1187,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       switch (effect.type) {
         case "handler_message": {
           const typingMs = typingMsFor(effect.text);
-
           await get().pushHandlerMessageDelayed(effect.text, typingMs, 250);
           break;
         }
@@ -1160,6 +1198,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           }
           break;
         }
+
         case "trigger_camera_target": {
           get().triggerCameraTarget(effect.cameraId);
           break;
@@ -1169,6 +1208,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           get().clearCameraTarget(effect.cameraId);
           break;
         }
+
         case "player_message": {
           get().pushThread("player", effect.text);
           break;
@@ -1184,6 +1224,26 @@ export const useGameStore = create<GameState>((set, get) => ({
           break;
         }
 
+        case "set_terminal_locked": {
+          get().setTerminalLocked(effect.on);
+          break;
+        }
+
+        case "set_terminal_cwd": {
+          get().setTerminalCwd(effect.cwd);
+          break;
+        }
+
+        case "reset_terminal": {
+          get().resetTerminalSession();
+          break;
+        }
+
+        case "clear_thread": {
+          get().clearThread();
+          break;
+        }
+
         case "append_terminal_output": {
           for (const line of effect.lines) {
             get().appendTerminalLine("out", line);
@@ -1192,7 +1252,32 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 
         case "banner": {
-          get().bannerPush(effect.title, effect.message, 2200);
+          get().bannerPush(effect.title, effect.message, effect.ms ?? 2200);
+          break;
+        }
+
+        case "start_camera_objective": {
+          get().startCameraObjective(effect.targetId);
+          break;
+        }
+
+        case "resolve_camera_objective": {
+          get().resolveCameraObjective();
+          break;
+        }
+
+        case "start_camera_sim": {
+          get().startCameraSim();
+          break;
+        }
+
+        case "stop_camera_sim": {
+          get().stopCameraSim();
+          break;
+        }
+
+        case "set_hallway_occupied": {
+          get().setHallwayOneOccupied(effect.on);
           break;
         }
 
@@ -1206,6 +1291,34 @@ export const useGameStore = create<GameState>((set, get) => ({
           break;
         }
 
+        case "start_guard_wait_window": {
+          get().startGuardWaitTimer(effect.timeoutMs);
+          break;
+        }
+
+        case "set_mission_state": {
+          set({ mission: effect.state });
+          break;
+        }
+
+        case "set_mission_phase": {
+          get().setMissionStep(effect.phase);
+          break;
+        }
+
+        case "mission_failed": {
+          get().pushLog("mission", `Mission failed: ${effect.reason}`);
+          get().setTimerRunning(false);
+          if (effect.bannerTitle || effect.bannerMessage) {
+            get().bannerPush(
+              effect.bannerTitle ?? "ALERT",
+              effect.bannerMessage ?? "Mission failed.",
+              3200,
+            );
+          }
+          break;
+        }
+
         default:
           break;
       }
@@ -1214,7 +1327,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   dispatchMissionEvent: async (event) => {
     const state = get();
-
     const prevPhase = state.mission.phase;
     const result = handleMissionEvent(state.mission, event);
 
@@ -1227,10 +1339,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     await get().applyMissionEffects(result.effects);
 
     return {
-      handled: true,
-      ok: true,
-      advanced: result.nextState.phase !== prevPhase,
-      gated: false,
+      handled: result.commandResult?.handled ?? true,
+      ok: result.commandResult?.ok ?? true,
+      advanced:
+        result.commandResult?.advanced ?? result.nextState.phase !== prevPhase,
+      gated: result.commandResult?.gated ?? false,
     };
   },
 
@@ -1796,7 +1909,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       get().pushLog("godark", "Go dark cleared.");
 
-      // fire biometric scan immediately after blackout
       await get().triggerBiometricOverlay(900);
     }, durationMs);
 
@@ -2092,6 +2204,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       const isLaptopTarget =
         device.id === "office-laptop-01" || device.kind === "workstation";
+
+      if (isLaptopTarget) {
+        get().setTerminalHost("local_jcarter");
+      }
 
       if (isLaptopTarget && mission.phase === "laptop_objective") {
         await get().dispatchMissionEvent({

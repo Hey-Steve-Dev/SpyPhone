@@ -77,6 +77,10 @@ export type MissionEffect =
       on: boolean;
     }
   | {
+      type: "set_terminal_cwd";
+      cwd: string;
+    }
+  | {
       type: "reset_terminal";
     }
   | {
@@ -149,6 +153,7 @@ export type TerminalCommandResult =
       terminalOut: string[];
       handlerOut?: string[];
       nextState: MissionState;
+      effects?: MissionEffect[];
     };
 
 export type MissionEvent =
@@ -161,7 +166,7 @@ export type MissionEvent =
   | { type: "SCANNER_CHATTER_HEARD" }
   | { type: "GUARD_WAIT_EXPIRED" }
   | { type: "TERMINAL_READY" }
-  | { type: "TERMINAL_COMMAND"; input: string; mode?: Mode };
+  | { type: "TERMINAL_COMMAND"; input: string; mode?: Mode; cwd?: string };
 
 export type MissionEventResult = {
   nextState: MissionState;
@@ -1065,11 +1070,30 @@ export function handleMissionEvent(
   }
 
   if (event.type === "TERMINAL_COMMAND") {
+    const inTerminalMission =
+      state.phase === "terminal_intro" ||
+      state.phase.startsWith("terminal_") ||
+      state.phase === "complete";
+
+    if (!inTerminalMission) {
+      return {
+        nextState: state,
+        effects: [],
+        commandResult: {
+          handled: false,
+          ok: false,
+          advanced: false,
+          gated: false,
+        },
+      };
+    }
+
     const result = runMissionCommand(
       event.input,
       event.mode ?? "easy",
       state,
       safeCtx.jammerEnabled,
+      event.cwd ?? "/home/jcarter",
     );
 
     if (!result.handled) {
@@ -1088,6 +1112,7 @@ export function handleMissionEvent(
     return {
       nextState: result.nextState,
       effects: [
+        ...(result.effects ?? []),
         ...(result.terminalOut.length
           ? [
               {
@@ -1130,11 +1155,93 @@ export function handleMissionEvent(
   };
 }
 
+function listForCwd(cwd: string): string[] | null {
+  switch (cwd) {
+    case "/home/jcarter":
+      return ["Desktop", "Documents", "Downloads", "Pictures", "saved_notes"];
+    case "/home/jcarter/saved_notes":
+      return ["useful_info.txt", "network"];
+    case "/home/jcarter/saved_notes/network":
+      return ["maintenance"];
+    case "/home/jcarter/saved_notes/network/maintenance":
+      return ["info"];
+    case "/home/jcarter/saved_notes/network/maintenance/info":
+      return ["elevators"];
+    case "/home/jcarter/saved_notes/network/maintenance/info/elevators":
+      return ["weekly_passcodes"];
+    case "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes":
+      return ["2026_week_09", "2026_week_10", "current_week", "archive"];
+    case "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/current_week":
+      return [
+        "elevator_override.txt",
+        "service_notes.txt",
+        "rotation_schedule.txt",
+      ];
+    default:
+      return null;
+  }
+}
+
+function canReadFile(cwd: string, fileName: string) {
+  if (cwd === "/home/jcarter/saved_notes" && fileName === "useful_info.txt") {
+    return [
+      "Personal Quick Notes",
+      "",
+      "Printer PIN: 7712",
+      "Locker combo: 2041",
+      "",
+      "Elevator maintenance override codes are rotated weekly.",
+      "Maintenance portal path:",
+      "network/maintenance/info/elevators/weekly_passcodes",
+      "",
+      "Use the current week folder to get the active code.",
+    ];
+  }
+
+  if (
+    cwd ===
+      "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/current_week" &&
+    fileName === "elevator_override.txt"
+  ) {
+    return [
+      "Elevator Maintenance Override",
+      "Week 11",
+      "",
+      "Override Code: 4839",
+      "",
+      "Note:",
+      "Code resets automatically every Monday at 04:00.",
+    ];
+  }
+
+  return null;
+}
+
+function resolveCd(cwd: string, argRaw: string): string | null {
+  const arg = norm(argRaw);
+
+  if (!arg) return cwd;
+  if (arg === "~") return "/home/jcarter";
+  if (arg === "/home/jcarter") return "/home/jcarter";
+  if (arg === "..") {
+    if (cwd === "/home/jcarter") return "/home/jcarter";
+    return cwd.split("/").slice(0, -1).join("/") || "/home/jcarter";
+  }
+
+  if (arg.startsWith("/")) {
+    return listForCwd(arg) ? arg : null;
+  }
+
+  const next = cwd === "/home/jcarter" ? `${cwd}/${arg}` : `${cwd}/${arg}`;
+  return listForCwd(next) ? next : null;
+}
+
 export function runMissionCommand(
   input: string,
   mode: Mode,
   state: MissionState,
   _jammerEnabled: boolean,
+  cwd: string,
 ): TerminalCommandResult {
   const raw = norm(input);
 
@@ -1149,7 +1256,7 @@ export function runMissionCommand(
         handled: true,
         ok: true,
         advanced: false,
-        terminalOut: ["/home/jcarter"],
+        terminalOut: [cwd],
         handlerOut: [],
         nextState: state,
       };
@@ -1165,171 +1272,99 @@ export function runMissionCommand(
   }
 
   if (phase === "terminal_brief_search") {
-    if (matches(raw, "ls", mode, ["ls -la", "ls -l", "ls -a"])) {
+    if (matches(raw, "pwd", mode)) {
       return {
         handled: true,
         ok: true,
         advanced: false,
-        terminalOut: [
-          "Desktop",
-          "Documents",
-          "Downloads",
-          "Pictures",
-          "saved_notes",
-        ],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (matches(raw, "cd saved_notes", mode, ["CD saved_notes"])) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: ["/home/jcarter/saved_notes"],
+        terminalOut: [cwd],
         handlerOut: [],
         nextState: state,
       };
     }
 
     if (matches(raw, "ls", mode, ["ls -la", "ls -l", "ls -a"])) {
+      const listing = listForCwd(cwd);
       return {
         handled: true,
-        ok: true,
+        ok: !!listing,
         advanced: false,
-        terminalOut: [
-          "Desktop",
-          "Documents",
-          "Downloads",
-          "Pictures",
-          "saved_notes",
-        ],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (matches(raw, "cat useful_info.txt", mode, ["cat ./useful_info.txt"])) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: [
-          "Personal Quick Notes",
-          "",
-          "Printer PIN: 7712",
-          "Locker combo: 2041",
-          "",
-          "Elevator maintenance override codes are rotated weekly.",
-          "Maintenance portal path:",
-          "network/maintenance/info/elevators/weekly_passcodes",
-          "",
-          "Use the current week folder to get the active code.",
-        ],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (matches(raw, "cd network", mode)) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: ["/home/jcarter/saved_notes/network"],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (matches(raw, "cd maintenance", mode)) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: ["/home/jcarter/saved_notes/network/maintenance"],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (matches(raw, "cd info", mode)) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: ["/home/jcarter/saved_notes/network/maintenance/info"],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (matches(raw, "cd elevators", mode)) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: [
-          "/home/jcarter/saved_notes/network/maintenance/info/elevators",
-        ],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (matches(raw, "cd weekly_passcodes", mode)) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: [
-          "2026_week_09",
-          "2026_week_10",
-          "current_week",
-          "archive",
-        ],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (matches(raw, "cd current_week", mode)) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: [
-          "elevator_override.txt",
-          "service_notes.txt",
-          "rotation_schedule.txt",
-        ],
+        terminalOut: listing ?? ["ls: cannot access directory"],
         handlerOut: [],
         nextState: state,
       };
     }
 
     if (
+      normLower(raw).startsWith("cd ") ||
+      normLower(raw) === "cd" ||
+      normLower(raw) === "cd .."
+    ) {
+      const arg =
+        normLower(raw) === "cd" ? "~" : raw.slice(raw.indexOf("cd") + 2).trim();
+      const nextCwd = resolveCd(cwd, arg);
+
+      if (!nextCwd) {
+        return {
+          handled: true,
+          ok: false,
+          advanced: false,
+          terminalOut: [`cd: no such file or directory: ${arg}`],
+          handlerOut: [],
+          nextState: state,
+        };
+      }
+
+      return {
+        handled: true,
+        ok: true,
+        advanced: false,
+        terminalOut: [],
+        handlerOut: [],
+        nextState: state,
+        effects: [{ type: "set_terminal_cwd", cwd: nextCwd }],
+      };
+    }
+
+    if (
+      matches(raw, "cat useful_info.txt", mode, ["cat ./useful_info.txt"]) ||
       matches(raw, "cat elevator_override.txt", mode, [
         "cat ./elevator_override.txt",
       ])
     ) {
-      const nextState = withPhase(state, "complete");
+      const fileName = raw.split(" ").slice(1).join(" ").replace("./", "");
+      const fileOut = canReadFile(cwd, fileName);
+
+      if (!fileOut) {
+        return {
+          handled: true,
+          ok: false,
+          advanced: false,
+          terminalOut: [`cat: ${fileName}: No such file or directory`],
+          handlerOut: [],
+          nextState: state,
+        };
+      }
+
+      if (fileName === "elevator_override.txt") {
+        const nextState = withPhase(state, "complete");
+        return {
+          handled: true,
+          ok: true,
+          advanced: true,
+          terminalOut: fileOut,
+          handlerOut: handlerForTerminalPhase(nextState.phase),
+          nextState,
+        };
+      }
+
       return {
         handled: true,
         ok: true,
-        advanced: true,
-        terminalOut: [
-          "Elevator Maintenance Override",
-          "Week 11",
-          "",
-          "Override Code: 4839",
-          "",
-          "Note:",
-          "Code resets automatically every Monday at 04:00.",
-        ],
-        handlerOut: handlerForTerminalPhase(nextState.phase),
-        nextState,
+        advanced: false,
+        terminalOut: fileOut,
+        handlerOut: [],
+        nextState: state,
       };
     }
 
