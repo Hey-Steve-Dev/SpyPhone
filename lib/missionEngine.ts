@@ -135,6 +135,13 @@ export type MissionEffect =
       lines: string[];
     }
   | {
+      type: "set_tunnel_targets";
+      deviceIds: string[];
+    }
+  | {
+      type: "clear_tunnel_targets";
+    }
+  | {
       type: "mission_failed";
       reason: string;
       bannerTitle?: string;
@@ -179,7 +186,9 @@ export type MissionEventResult = {
   };
 };
 
-// --- helpers ---
+const CAMERA_TUNNEL_DEVICE_ID = "camera_access_point";
+const LAPTOP_TUNNEL_DEVICE_ID = "security_laptop";
+
 function norm(s: string) {
   return s.trim().replace(/\s+/g, " ");
 }
@@ -323,6 +332,7 @@ function reviewAdvanceEffects(
       nextState,
       effects: [
         { type: "clear_reply_chips" },
+        { type: "set_tunnel_targets", deviceIds: [CAMERA_TUNNEL_DEVICE_ID] },
         ...(event.label
           ? [{ type: "player_message", text: event.label } as MissionEffect]
           : []),
@@ -489,7 +499,6 @@ export function missionIntro(state: MissionState): string[] {
         "OK. Good.",
         "I'm hearing chatter on the band. One of the guards is on patrol.",
         "Go to Camera 12 and wait for him to pass.",
-        "go go go",
       ];
 
     case "move_prompt":
@@ -537,6 +546,7 @@ export function handleMissionEvent(
         { type: "set_terminal_locked", on: true },
         { type: "clear_thread" },
         { type: "reset_terminal" },
+        { type: "clear_tunnel_targets" },
         {
           type: "handler_sequence",
           items: [opsLine("Comms check. You online?", 1500, 1100)],
@@ -639,6 +649,10 @@ export function handleMissionEvent(
           nextState,
           effects: [
             { type: "clear_reply_chips" },
+            {
+              type: "set_tunnel_targets",
+              deviceIds: [CAMERA_TUNNEL_DEVICE_ID],
+            },
             ...(event.label
               ? [{ type: "player_message", text: event.label } as MissionEffect]
               : []),
@@ -676,6 +690,10 @@ export function handleMissionEvent(
           nextState,
           effects: [
             { type: "clear_reply_chips" },
+            {
+              type: "set_tunnel_targets",
+              deviceIds: [CAMERA_TUNNEL_DEVICE_ID],
+            },
             ...(event.label
               ? [{ type: "player_message", text: event.label } as MissionEffect]
               : []),
@@ -726,7 +744,6 @@ export function handleMissionEvent(
               opsLine("Go to Camera 12 and wait for him to pass.", 1500, 1000),
             ],
           },
-
           {
             type: "set_reply_chips",
             chips: [{ id: "move_now", label: "Moving", action: "moving_now" }],
@@ -766,6 +783,7 @@ export function handleMissionEvent(
         nextState,
         effects: [
           { type: "clear_reply_chips" },
+          { type: "set_tunnel_targets", deviceIds: [LAPTOP_TUNNEL_DEVICE_ID] },
           ...(event.label
             ? [{ type: "player_message", text: event.label } as MissionEffect]
             : []),
@@ -792,6 +810,7 @@ export function handleMissionEvent(
         nextState,
         effects: [
           { type: "clear_reply_chips" },
+          { type: "clear_tunnel_targets" },
           ...(event.label
             ? [{ type: "player_message", text: event.label } as MissionEffect]
             : []),
@@ -925,29 +944,71 @@ export function handleMissionEvent(
   }
 
   if (event.type === "TUNNEL_LINKED") {
-    if (state.phase !== "laptop_objective") {
+    if (
+      state.phase === "network_objective" ||
+      state.phase === "camera_access_confirm"
+    ) {
+      if (event.deviceId !== CAMERA_TUNNEL_DEVICE_ID) {
+        return {
+          nextState: state,
+          effects: [],
+        };
+      }
+
+      const nextState = withPhase(state, "camera_access_confirm");
+
       return {
-        nextState: state,
-        effects: [],
+        nextState,
+        effects: [
+          {
+            type: "handler_sequence",
+            items: [opsLine("Signal when you have camera access.", 1450, 1100)],
+          },
+          {
+            type: "set_reply_chips",
+            chips: [
+              {
+                id: "camera_access_confirm",
+                label: "I have camera access",
+                action: "camera_access_confirm",
+              },
+            ],
+          },
+          { type: "set_terminal_locked", on: true },
+        ],
       };
     }
 
-    const nextState = withPhase(state, "laptop_access_confirm");
+    if (state.phase === "laptop_objective") {
+      if (event.deviceId !== LAPTOP_TUNNEL_DEVICE_ID) {
+        return {
+          nextState: state,
+          effects: [],
+        };
+      }
+
+      const nextState = withPhase(state, "laptop_access_confirm");
+
+      return {
+        nextState,
+        effects: [
+          {
+            type: "set_reply_chips",
+            chips: [
+              {
+                id: "laptop_access_confirm",
+                label: "I'm connected",
+                action: "laptop_access_confirm",
+              },
+            ],
+          },
+        ],
+      };
+    }
 
     return {
-      nextState,
-      effects: [
-        {
-          type: "set_reply_chips",
-          chips: [
-            {
-              id: "laptop_access_confirm",
-              label: "I'm connected",
-              action: "laptop_access_confirm",
-            },
-          ],
-        },
-      ],
+      nextState: state,
+      effects: [],
     };
   }
 
@@ -1231,7 +1292,7 @@ function resolveCd(cwd: string, argRaw: string): string | null {
     return listForCwd(arg) ? arg : null;
   }
 
-  const next = cwd === "/home/jcarter" ? `${cwd}/${arg}` : `${cwd}/${arg}`;
+  const next = `${cwd}/${arg}`;
   return listForCwd(next) ? next : null;
 }
 
@@ -1260,6 +1321,7 @@ export function runMissionCommand(
         nextState: state,
       };
     }
+
     return {
       handled: true,
       ok: false,

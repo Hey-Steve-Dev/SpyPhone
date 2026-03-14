@@ -339,10 +339,10 @@ function makeInitialCameras(online = false): Record<number, CameraFeed> {
   };
 }
 
-function makeInitialNearbyDevices(): NearbyDevice[] {
+function makeTunnelDeviceCatalog(): NearbyDevice[] {
   return [
     {
-      id: "sec-cam-bridge-01",
+      id: "camera_access_point",
       name: "SEC-CAM-BRIDGE",
       kind: "camera relay",
       poweredOn: true,
@@ -352,7 +352,7 @@ function makeInitialNearbyDevices(): NearbyDevice[] {
       tunnelOutcome: "success",
     },
     {
-      id: "office-laptop-01",
+      id: "security_laptop",
       name: "OFFICE-LAPTOP",
       kind: "workstation",
       poweredOn: true,
@@ -362,7 +362,7 @@ function makeInitialNearbyDevices(): NearbyDevice[] {
       tunnelOutcome: "success",
     },
     {
-      id: "printer-01",
+      id: "printer_01",
       name: "PRN-OFFICE-03",
       kind: "network printer",
       poweredOn: true,
@@ -372,7 +372,7 @@ function makeInitialNearbyDevices(): NearbyDevice[] {
       tunnelOutcome: "limited",
     },
     {
-      id: "desk-phone-02",
+      id: "desk_phone_02",
       name: "VOIP-DESK-02",
       kind: "desk phone",
       poweredOn: true,
@@ -383,6 +383,8 @@ function makeInitialNearbyDevices(): NearbyDevice[] {
     },
   ];
 }
+
+const ALL_TUNNEL_DEVICES = makeTunnelDeviceCatalog();
 
 type GameState = {
   trace: number;
@@ -567,6 +569,7 @@ type GameState = {
   deleteNote: (id: string) => void;
 
   nearbyDevices: NearbyDevice[];
+  allowedTunnelDeviceIds: string[];
   isTunnelScanning: boolean;
   tunnelScanComplete: boolean;
   selectedTunnelDeviceId: string | null;
@@ -577,6 +580,8 @@ type GameState = {
   shellReadyFromTunnel: boolean;
 
   setNearbyDevices: (devices: NearbyDevice[]) => void;
+  setTunnelTargets: (deviceIds: string[]) => void;
+  clearTunnelTargets: () => void;
   runTunnelScan: () => Promise<void>;
   selectTunnelDevice: (deviceId: string) => void;
   clearTunnelSelection: () => void;
@@ -609,16 +614,20 @@ export const useGameStore = create<GameState>((set, get) => ({
       booted: true,
       cameraNetworkOnline: false,
       cameras: makeInitialCameras(false),
-      nearbyDevices:
-        s.nearbyDevices.length > 0
-          ? s.nearbyDevices
-          : makeInitialNearbyDevices(),
+      nearbyDevices: [],
+      allowedTunnelDeviceIds: [],
+      tunnelScanComplete: false,
+      selectedTunnelDeviceId: null,
+      tunnelConnectionState: "idle",
+      tunnelStatusMessage: "Scanner idle.",
+      activeRemoteHostId: null,
+      shellReadyFromTunnel: false,
     });
 
     get().clearGuardWaitTimer();
     get().pushLog("system", "Boot sequence started.");
     get().pushLog("camera", "Camera network is offline.");
-    get().pushLog("tunnel", "Local tunnel targets seeded.");
+    get().pushLog("tunnel", "Tunnel target list cleared.");
 
     void get().dispatchMissionEvent({ type: "BOOT" });
   },
@@ -1148,14 +1157,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     const autoTypingDelay =
       900 + Math.min(text.length * 18, 1100) + rand(120, 320);
 
-    const typingDelay = typingMs ?? autoTypingDelay;
+    const finalTypingMs = typingMs ?? autoTypingDelay;
 
     await wait(reactionDelay);
 
     set({ messagesTyping: true });
-    get().bannerPush("OPS", "…", typingDelay);
+    get().bannerPush("OPS", "…", finalTypingMs);
 
-    await wait(typingDelay);
+    await wait(finalTypingMs);
 
     set({ messagesTyping: false });
     get().bannerPush("OPS", text, 3500);
@@ -1306,6 +1315,16 @@ export const useGameStore = create<GameState>((set, get) => ({
           break;
         }
 
+        case "set_tunnel_targets": {
+          get().setTunnelTargets(effect.deviceIds);
+          break;
+        }
+
+        case "clear_tunnel_targets": {
+          get().clearTunnelTargets();
+          break;
+        }
+
         case "mission_failed": {
           get().pushLog("mission", `Mission failed: ${effect.reason}`);
           get().setTimerRunning(false);
@@ -1328,7 +1347,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   dispatchMissionEvent: async (event) => {
     const state = get();
     const prevPhase = state.mission.phase;
-    const result = handleMissionEvent(state.mission, event);
+    const result = handleMissionEvent(state.mission, event, {
+      jammerEnabled: state.jammer.enabled,
+      hallwayOccupied: state.hallwayOneOccupied,
+    });
 
     set({ mission: result.nextState });
     get().pushLog(
@@ -1510,7 +1532,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const bandDelayMs =
       band === "SAT" ? 450 : band === "LTE" || band === "WIFI" ? -80 : 0;
 
-    const delay = 450 + Math.floor(Math.random() * 300) + bandDelayMs;
+    const delayMs = 450 + Math.floor(Math.random() * 300) + bandDelayMs;
 
     let failProb = 0.08;
     if (band === "SAT") failProb += 0.06;
@@ -1561,7 +1583,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         get().pushLog("network", "Secure link established.");
         get().bannerPush("COMMS", "Secure link established.", 1800);
       }
-    }, delay);
+    }, delayMs);
   },
 
   setCommsJammed: (on) => {
@@ -1632,6 +1654,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (id === 12) {
       const occupied = cam?.state === "occupied" || cam?.state === "motion";
       set({ hallwayOneOccupied: occupied });
+      void get().dispatchMissionEvent({ type: "CAMERA_VIEWED", cameraId: 12 });
     }
 
     if (
@@ -2012,7 +2035,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       };
     }),
 
-  nearbyDevices: makeInitialNearbyDevices(),
+  nearbyDevices: [],
+  allowedTunnelDeviceIds: [],
   isTunnelScanning: false,
   tunnelScanComplete: false,
   selectedTunnelDeviceId: null,
@@ -2040,12 +2064,54 @@ export const useGameStore = create<GameState>((set, get) => ({
       };
     }),
 
+  setTunnelTargets: (deviceIds) =>
+    set(() => {
+      get().pushLog(
+        "tunnel",
+        deviceIds.length > 0
+          ? `Tunnel targets set: ${deviceIds.join(", ")}.`
+          : "Tunnel targets cleared.",
+      );
+
+      return {
+        allowedTunnelDeviceIds: [...deviceIds],
+        nearbyDevices: [],
+        tunnelScanComplete: false,
+        selectedTunnelDeviceId: null,
+        isTunnelAttempting: false,
+        tunnelConnectionState: "idle",
+        tunnelStatusMessage: "Scanner idle.",
+        activeRemoteHostId: null,
+        shellReadyFromTunnel: false,
+      };
+    }),
+
+  clearTunnelTargets: () =>
+    set(() => {
+      get().pushLog("tunnel", "Tunnel targets cleared.");
+      return {
+        allowedTunnelDeviceIds: [],
+        nearbyDevices: [],
+        tunnelScanComplete: false,
+        selectedTunnelDeviceId: null,
+        isTunnelAttempting: false,
+        tunnelConnectionState: "idle",
+        tunnelStatusMessage: "Scanner idle.",
+        activeRemoteHostId: null,
+        shellReadyFromTunnel: false,
+      };
+    }),
+
   runTunnelScan: async () => {
-    const devices = get().nearbyDevices.filter((device) => device.poweredOn);
+    const { allowedTunnelDeviceIds, isTunnelScanning, isTunnelAttempting } =
+      get();
+
+    if (isTunnelScanning || isTunnelAttempting) return;
 
     set({
       isTunnelScanning: true,
       tunnelScanComplete: false,
+      nearbyDevices: [],
       selectedTunnelDeviceId: null,
       tunnelConnectionState: "scanning",
       tunnelStatusMessage: "Reading powered systems in local range...",
@@ -2057,7 +2123,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     await wait(2200);
 
+    const devices = ALL_TUNNEL_DEVICES.filter(
+      (device) =>
+        device.poweredOn && allowedTunnelDeviceIds.includes(device.id),
+    );
+
     set({
+      nearbyDevices: devices,
       isTunnelScanning: false,
       tunnelScanComplete: true,
       tunnelConnectionState: "idle",
@@ -2080,9 +2152,15 @@ export const useGameStore = create<GameState>((set, get) => ({
       const device =
         s.nearbyDevices.find((entry) => entry.id === deviceId) ?? null;
 
-      if (device) {
-        get().pushLog("tunnel", `Selected tunnel target ${device.name}.`);
+      if (!device) {
+        get().pushLog(
+          "tunnel",
+          `Ignored tunnel selection for unavailable target ${deviceId}.`,
+        );
+        return {};
       }
+
+      get().pushLog("tunnel", `Selected tunnel target ${device.name}.`);
 
       return {
         selectedTunnelDeviceId: deviceId,
@@ -2117,7 +2195,15 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   attemptTunnelConnection: async () => {
-    const { selectedTunnelDeviceId, nearbyDevices, mission } = get();
+    const {
+      selectedTunnelDeviceId,
+      nearbyDevices,
+      mission,
+      isTunnelAttempting,
+      isTunnelScanning,
+    } = get();
+
+    if (isTunnelScanning || isTunnelAttempting) return;
 
     if (!selectedTunnelDeviceId) {
       set({
@@ -2137,13 +2223,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (!device) {
       set({
         tunnelConnectionState: "failure",
-        tunnelStatusMessage: "Selected device not found.",
+        tunnelStatusMessage: "Selected target is not available.",
         activeRemoteHostId: null,
         shellReadyFromTunnel: false,
       });
       get().pushLog(
         "tunnel",
-        "Tunnel attempt failed. Selected device not found.",
+        "Tunnel attempt failed. Selected target is not in current scan results.",
       );
       return;
     }
@@ -2187,24 +2273,26 @@ export const useGameStore = create<GameState>((set, get) => ({
         `Tunnel established to ${device.name}. Secure shell enabled.`,
       );
 
-      const isCameraBridge =
-        device.id === "sec-cam-bridge-01" || device.kind === "camera relay";
-
+      const isCameraBridge = device.id === "camera_access_point";
       if (isCameraBridge) {
         get().setCameraNetworkOnline(true);
         get().bannerPush("CAMERAS", "Camera feeds online.", 1800);
 
-        if (mission.phase === "network_objective") {
+        if (
+          mission.phase === "network_objective" ||
+          mission.phase === "camera_access_confirm"
+        ) {
           await get().dispatchMissionEvent({
-            type: "NETWORK_LINKED",
-            ssid: device.name,
+            type: "TUNNEL_LINKED",
+            deviceId: device.id,
+            deviceName: device.name,
           });
         }
+
+        return;
       }
 
-      const isLaptopTarget =
-        device.id === "office-laptop-01" || device.kind === "workstation";
-
+      const isLaptopTarget = device.id === "security_laptop";
       if (isLaptopTarget) {
         get().setTerminalHost("local_jcarter");
       }
@@ -2246,10 +2334,10 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   resetTunnelState: () =>
-    set(() => {
+    set((s) => {
       get().pushLog("tunnel", "Tunnel state reset.");
       return {
-        nearbyDevices: makeInitialNearbyDevices(),
+        nearbyDevices: [],
         isTunnelScanning: false,
         tunnelScanComplete: false,
         selectedTunnelDeviceId: null,
@@ -2258,6 +2346,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         tunnelStatusMessage: "Scanner idle.",
         activeRemoteHostId: null,
         shellReadyFromTunnel: false,
+        allowedTunnelDeviceIds: s.allowedTunnelDeviceIds,
       };
     }),
 }));
