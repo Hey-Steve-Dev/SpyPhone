@@ -11,6 +11,7 @@ export type MissionPhase =
   | "network_objective"
   | "camera_access_confirm"
   | "camera_watch"
+  | "go_dark"
   | "move_prompt"
   | "post_move_confirm"
   | "laptop_objective"
@@ -438,10 +439,6 @@ function makeSuccessfulMoveEffects(): MissionEffect[] {
       message: "STANDBY",
     },
     {
-      type: "trigger_biometric_scan",
-      durationMs: 900,
-    },
-    {
       type: "set_reply_chips",
       chips: [{ id: "post_move_in", label: "I'm in", action: "post_move_in" }],
     },
@@ -483,7 +480,7 @@ export function missionIntro(state: MissionState): string[] {
         "OK. Good.",
         "I'm hearing chatter on the band. One of the guards is on patrol.",
         "Go to Camera 12 and wait for him to pass.",
-        "Signal when you're moving.",
+        "go go go",
       ];
 
     case "move_prompt":
@@ -718,9 +715,10 @@ export function handleMissionEvent(
                 1000,
               ),
               opsLine("Go to Camera 12 and wait for him to pass.", 1500, 1000),
-              opsLine("Signal when you're moving.", 1300, 1200),
+              opsLine("go go go", 1300, 1200),
             ],
           },
+
           {
             type: "set_reply_chips",
             chips: [{ id: "move_now", label: "Moving", action: "moving_now" }],

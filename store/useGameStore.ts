@@ -1196,6 +1196,16 @@ export const useGameStore = create<GameState>((set, get) => ({
           break;
         }
 
+        case "trigger_go_dark": {
+          get().triggerGoDark(effect.durationMs, effect.message);
+          break;
+        }
+
+        case "trigger_biometric_scan": {
+          await get().triggerBiometricOverlay(effect.durationMs);
+          break;
+        }
+
         default:
           break;
       }
@@ -1775,7 +1785,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       `Go dark triggered for ${durationMs}ms${message ? ` with message "${message}".` : "."}`,
     );
 
-    const timer = setTimeout(() => {
+    const timer = setTimeout(async () => {
       set({
         goDark: {
           active: false,
@@ -1783,7 +1793,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         },
         goDarkTimer: null,
       });
+
       get().pushLog("godark", "Go dark cleared.");
+
+      // fire biometric scan immediately after blackout
+      await get().triggerBiometricOverlay(900);
     }, durationMs);
 
     set({ goDarkTimer: timer });
