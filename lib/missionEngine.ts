@@ -25,6 +25,7 @@ export type MissionState = {
   missionId: "bootcamp_01";
   phase: MissionPhase;
   step: number;
+  elevatorCode: string;
 };
 
 export type ReplyChip = {
@@ -192,6 +193,10 @@ export type MissionEventResult = {
 
 const CAMERA_TUNNEL_DEVICE_ID = "camera_access_point";
 const LAPTOP_TUNNEL_DEVICE_ID = "security_laptop";
+
+function generateElevatorCode(): string {
+  return Math.floor(1000 + Math.random() * 9000).toString();
+}
 
 function norm(s: string) {
   return s.trim().replace(/\s+/g, " ");
@@ -385,6 +390,7 @@ export function makeInitialMissionState(): MissionState {
     missionId: "bootcamp_01",
     phase: "boot_intro",
     step: 0,
+    elevatorCode: generateElevatorCode(),
   };
 }
 
@@ -541,7 +547,10 @@ export function handleMissionEvent(
   };
 
   if (event.type === "BOOT") {
-    const nextState = withPhase(state, "boot_confirm_online");
+    const nextState = withPhase(
+      makeInitialMissionState(),
+      "boot_confirm_online",
+    );
 
     return {
       nextState,
@@ -818,7 +827,11 @@ export function handleMissionEvent(
             type: "handler_sequence",
             items: [
               opsLine("Good.", 1200, 800),
-              opsLine("Open Terminal.", 1300, 1100),
+              opsLine(
+                "Open Terminal. Our intel says this is a new employee, the laptop should be fairly clean.",
+                1300,
+                1100,
+              ),
               opsLine("Type `pwd` to see where you are.", 1350, 900),
               opsLine(
                 "You should see something like `/home` with a username at the end. Let me know if you see it.",
@@ -892,10 +905,11 @@ export function handleMissionEvent(
             type: "handler_sequence",
             items: [
               opsLine(
-                "Look for anything that sounds personal, saved, or useful. Use `cd` for folders and `cat` for text files.",
+                "Use `cat` to read files like info.txt or anything with a . extension. Use `cd` to move into folders. You might find more folders or files inside.",
                 1450,
-                1000,
+                900,
               ),
+              opsLine("Look for anything personal or useful.", 1400, 1000),
             ],
           },
         ],
@@ -1234,7 +1248,11 @@ function listForCwd(cwd: string): string[] | null {
   }
 }
 
-function canReadFile(cwd: string, fileName: string) {
+function canReadFile(
+  state: MissionState,
+  cwd: string,
+  fileName: string,
+): string[] | null {
   if (cwd === "/home/jcarter/saved_notes" && fileName === "useful_info.txt") {
     return [
       "Personal Quick Notes",
@@ -1259,7 +1277,7 @@ function canReadFile(cwd: string, fileName: string) {
       "Elevator Maintenance Override",
       "Week 11",
       "",
-      "Override Code: 4839",
+      `Override Code: ${state.elevatorCode}`,
       "",
       "Note:",
       "Code resets automatically every Monday at 04:00.",
@@ -1386,7 +1404,7 @@ export function runMissionCommand(
       ])
     ) {
       const fileName = raw.split(" ").slice(1).join(" ").replace("./", "");
-      const fileOut = canReadFile(cwd, fileName);
+      const fileOut = canReadFile(state, cwd, fileName);
 
       if (!fileOut) {
         return {
