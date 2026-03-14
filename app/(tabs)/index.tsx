@@ -2,7 +2,9 @@ import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+
+const gunmetalBg = require("@/assets/images/gunmetal-bg.png");
 
 type AppTile = {
   key: string;
@@ -18,91 +20,91 @@ const APPS: AppTile[] = [
     label: "Terminal",
     icon: "⌘",
     route: "/terminal",
-    color: "#6f7bff",
+    color: "#8e97b8",
   },
   {
     key: "cameras",
     label: "Cameras",
     icon: "◫",
     route: "/cameras",
-    color: "#9fa8da",
+    color: "#9aa3b8",
   },
   {
     key: "messages",
     label: "Coms",
     icon: "≋",
     route: "/messages",
-    color: "#ff9a7a",
+    color: "#b8988e",
   },
   {
     key: "network",
     label: "Network",
     icon: "⌁",
     route: "/network",
-    color: "#00bcd4",
+    color: "#7fa0aa",
   },
   {
     key: "echoscan",
     label: "EchoScan",
     icon: "◍",
     route: "/audio-scanner",
-    color: "#5da8ff",
+    color: "#89a0be",
   },
   {
     key: "scanner",
     label: "RF Scanner",
     icon: "⌯",
     route: "/scanner",
-    color: "#6df3ac",
+    color: "#8eaf9d",
   },
   {
     key: "jammer",
     label: "Jammer",
     icon: "≈",
     route: "/jammer",
-    color: "#ff5a83",
+    color: "#b08b98",
   },
   {
     key: "notes",
     label: "Notes",
     icon: "✎",
     route: "/notes",
-    color: "#cfd8dc",
+    color: "#a9afb5",
   },
   {
     key: "mask",
     label: "Mask",
     icon: "◉",
     route: "/mask",
-    color: "#9575cd",
+    color: "#978fb2",
   },
   {
     key: "vault",
     label: "Vault",
     icon: "▣",
     route: "/vault",
-    color: "#4db6ac",
+    color: "#88a89f",
   },
   {
     key: "ops",
     label: "Ops HUD",
     icon: "◷",
     route: "/ops",
-    color: "#ff7043",
+    color: "#b39184",
   },
   {
     key: "log",
     label: "Log",
     icon: "≡",
     route: "/log",
-    color: "#8fa3ff",
+    color: "#8f9bb8",
   },
   {
     key: "tunnel",
     label: "Tunnel",
     icon: "⌬",
     route: "/tunnel",
-    color: "#63a4ff",
+    color: "#869eb7",
   },
 ];
 
@@ -130,15 +132,7 @@ export default function HomePhoneScreen() {
       ]}
     >
       <View style={styles.tileInner}>
-        <View
-          style={[
-            styles.icon,
-            {
-              backgroundColor: a.color + "2E",
-              borderColor: a.color + "66",
-            },
-          ]}
-        >
+        <View style={styles.icon}>
           <Text style={[styles.iconText, { color: a.color }]}>{a.icon}</Text>
 
           {a.key === "messages" && unreadMessages > 0 && (
@@ -158,6 +152,13 @@ export default function HomePhoneScreen() {
   return (
     <PhoneFrame showGestureBar={false}>
       <View style={styles.screen}>
+        <Image
+          source={gunmetalBg}
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        />
+        <View style={styles.overlay} />
+
         <View style={styles.mainArea}>
           <View style={styles.grid}>{gridApps.map((a) => renderApp(a))}</View>
         </View>
@@ -178,6 +179,17 @@ const styles = StyleSheet.create({
     paddingTop: 64,
     paddingHorizontal: 16,
     justifyContent: "space-between",
+    backgroundColor: "#11161c",
+    overflow: "hidden",
+  },
+
+  backgroundImage: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(7, 10, 14, 0.22)",
   },
 
   mainArea: {
@@ -220,15 +232,17 @@ const styles = StyleSheet.create({
   icon: {
     width: 58,
     height: 58,
-    borderRadius: 16,
+    borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
     borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "rgba(18,22,28,0.9)",
   },
 
   iconText: {
-    fontSize: 22,
+    fontSize: 24,
     fontWeight: "800",
     includeFontPadding: false,
     textAlign: "center",
@@ -253,16 +267,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
     borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(20,24,30,0.72)",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: "rgba(255,255,255,0.08)",
   },
 
   badge: {
     position: "absolute",
     top: -4,
     right: -4,
-    backgroundColor: "#ff3b30",
+    backgroundColor: "#b23a32",
     minWidth: 18,
     height: 18,
     borderRadius: 9,

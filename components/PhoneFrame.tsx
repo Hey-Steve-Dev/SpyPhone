@@ -7,8 +7,10 @@ import GoDarkOverlay from "@/constants/goDarkOverlay";
 import { useGameStore } from "@/store/useGameStore";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect } from "react";
-import { Platform, StyleSheet, View } from "react-native";
+import { ImageBackground, Platform, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+
+const gunmetalBg = require("@/assets/images/gunmetal-bg.png");
 
 type Props = {
   children: React.ReactNode;
@@ -48,22 +50,27 @@ export default function PhoneFrame({
   }, [startHeartbeat]);
 
   const Inner = (
-    <>
+    <View style={styles.content}>
+      <ImageBackground
+        source={gunmetalBg}
+        resizeMode="cover"
+        style={styles.bgImage}
+        imageStyle={styles.bgImageStyle}
+      />
+
       <StatusBarFake />
       <BannerComms />
 
-      <View style={styles.content}>
-        <View style={styles.body}>{children}</View>
+      <View style={styles.body}>{children}</View>
 
-        {overlay ? <View style={styles.overlay}>{overlay}</View> : null}
+      {overlay ? <View style={styles.overlay}>{overlay}</View> : null}
 
-        {isWeb && showGestureBar ? (
-          <View style={styles.gestureDock}>
-            <HomeGestureBar />
-          </View>
-        ) : null}
-      </View>
-    </>
+      {isWeb && showGestureBar ? (
+        <View style={styles.gestureDock}>
+          <HomeGestureBar />
+        </View>
+      ) : null}
+    </View>
   );
 
   if (!isWeb) {
@@ -114,11 +121,22 @@ const styles = StyleSheet.create({
     flex: 1,
     position: "relative",
     overflow: "hidden",
+    backgroundColor: "#070b18",
   },
 
   content: {
     flex: 1,
     position: "relative",
+    overflow: "hidden",
+  },
+
+  bgImage: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "red",
+  },
+
+  bgImageStyle: {
+    opacity: 1,
   },
 
   body: {
