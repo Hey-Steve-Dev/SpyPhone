@@ -427,7 +427,7 @@ function makeSuccessfulMoveEffects(): MissionEffect[] {
   return [
     {
       type: "handler_sequence",
-      items: [opsLine("Go. Go. Go.", 1200, 800)],
+      items: [opsLine("go go go", 1200, 1400)],
     },
     { type: "stop_camera_sim" },
     { type: "resolve_camera_objective" },
@@ -715,7 +715,6 @@ export function handleMissionEvent(
                 1000,
               ),
               opsLine("Go to Camera 12 and wait for him to pass.", 1500, 1000),
-              opsLine("go go go", 1300, 1200),
             ],
           },
 
