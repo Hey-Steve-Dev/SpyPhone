@@ -18,7 +18,19 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
-const TYPING_HANDOFF_MS = 500;
+
+type LiveBubble =
+  | {
+      phase: "typing";
+    }
+  | {
+      phase: "message";
+      id: string;
+      text: string;
+      at: number;
+      from: "ops" | "system";
+    }
+  | null;
 
 export default function MessagesScreen() {
   const thread = useGameStore((s) => s.thread);
@@ -33,11 +45,10 @@ export default function MessagesScreen() {
   );
 
   const [input, setInput] = useState("");
-  const [dots, setDots] = useState("…");
-  const [showTypingBubble, setShowTypingBubble] = useState(false);
+  const [dots, setDots] = useState("...");
+  const [liveBubble, setLiveBubble] = useState<LiveBubble>(null);
 
   const scrollRef = useRef<ScrollView>(null);
-  const typingHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastInboundIdRef = useRef<string | null>(null);
 
   const lastInboundMessage = useMemo(() => {
@@ -48,6 +59,11 @@ export default function MessagesScreen() {
     return null;
   }, [thread]);
 
+  const renderedThread = useMemo(() => {
+    if (liveBubble?.phase !== "message") return thread;
+    return thread.filter((item) => item.id !== liveBubble.id);
+  }, [thread, liveBubble]);
+
   useFocusEffect(
     useCallback(() => {
       clearUnreadMessages();
@@ -55,47 +71,31 @@ export default function MessagesScreen() {
   );
 
   useEffect(() => {
-    return () => {
-      if (typingHideTimer.current) clearTimeout(typingHideTimer.current);
-    };
-  }, []);
-
-  useEffect(() => {
     if (messagesTyping) {
-      if (typingHideTimer.current) {
-        clearTimeout(typingHideTimer.current);
-        typingHideTimer.current = null;
-      }
-      setShowTypingBubble(true);
+      setLiveBubble({ phase: "typing" });
       return;
     }
 
-    if (!showTypingBubble) return;
+    if (!lastInboundMessage) return;
 
-    typingHideTimer.current = setTimeout(() => {
-      setShowTypingBubble(false);
-      typingHideTimer.current = null;
-    }, TYPING_HANDOFF_MS);
-  }, [messagesTyping, showTypingBubble]);
+    const currentInboundId = lastInboundMessage.id;
 
-  useEffect(() => {
-    const currentInboundId = lastInboundMessage?.id ?? null;
+    if (currentInboundId === lastInboundIdRef.current) return;
 
-    if (currentInboundId && currentInboundId !== lastInboundIdRef.current) {
-      lastInboundIdRef.current = currentInboundId;
+    lastInboundIdRef.current = currentInboundId;
 
-      if (typingHideTimer.current) {
-        clearTimeout(typingHideTimer.current);
-        typingHideTimer.current = null;
-      }
-
-      setShowTypingBubble(false);
-    }
-  }, [lastInboundMessage]);
+    setLiveBubble({
+      phase: "message",
+      id: lastInboundMessage.id,
+      text: lastInboundMessage.text,
+      at: lastInboundMessage.at,
+      from: lastInboundMessage.from === "system" ? "system" : "ops",
+    });
+  }, [messagesTyping, lastInboundMessage]);
 
   useEffect(() => {
-    if (!showTypingBubble) {
-      setDots("…");
+    if (liveBubble?.phase !== "typing") {
+      setDots("...");
       return;
     }
 
@@ -107,7 +107,7 @@ export default function MessagesScreen() {
     }, 260);
 
     return () => clearInterval(id);
-  }, [showTypingBubble]);
+  }, [liveBubble]);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -115,7 +115,7 @@ export default function MessagesScreen() {
     }, 40);
 
     return () => clearTimeout(id);
-  }, [thread.length, replyChips.length, showTypingBubble]);
+  }, [renderedThread.length, replyChips.length, liveBubble]);
 
   function handleSend(raw?: string) {
     if (!inputEnabled || !sendEnabled || messagesTyping) return;
@@ -141,7 +141,7 @@ export default function MessagesScreen() {
           <Text style={styles.kicker}>SECURE COMMS</Text>
           <Text style={styles.title}>Messages</Text>
           <Text style={styles.subtle}>
-            {showTypingBubble ? "ops typing" : "channel active"}
+            {liveBubble?.phase === "typing" ? "ops typing" : "channel active"}
           </Text>
         </View>
 
@@ -153,7 +153,7 @@ export default function MessagesScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {thread.map((item) => {
+            {renderedThread.map((item) => {
               const mine = item.from === "player";
 
               return (
@@ -182,11 +182,25 @@ export default function MessagesScreen() {
               );
             })}
 
-            {showTypingBubble && (
+            {liveBubble && (
               <View style={[styles.row, styles.rowLeft]}>
                 <View style={[styles.bubble, styles.handlerBubble]}>
-                  <Text style={[styles.meta, styles.handlerMeta]}>OPS</Text>
-                  <Text style={styles.typingText}>{dots}</Text>
+                  <Text style={[styles.meta, styles.handlerMeta]}>
+                    {liveBubble.phase === "message"
+                      ? liveBubble.from === "system"
+                        ? "SYS"
+                        : "OPS"
+                      : "OPS"}
+                    {liveBubble.phase === "message"
+                      ? ` · ${formatTime(liveBubble.at)}`
+                      : ""}
+                  </Text>
+
+                  {liveBubble.phase === "typing" ? (
+                    <Text style={styles.typingText}>{dots}</Text>
+                  ) : (
+                    <Text style={styles.messageText}>{liveBubble.text}</Text>
+                  )}
                 </View>
               </View>
             )}
