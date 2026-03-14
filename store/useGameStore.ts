@@ -647,7 +647,7 @@ type GameState = {
 
 export const useGameStore = create<GameState>((set, get) => ({
   trace: 16,
-  secondsLeft: 150,
+  secondsLeft: 1500,
   timerRunning: true,
   hallwayOneOccupied: false,
   setHallwayOneOccupied: (occupied) => {
