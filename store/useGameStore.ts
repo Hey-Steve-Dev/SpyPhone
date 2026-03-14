@@ -151,6 +151,10 @@ type BiometricOverlayState = {
   active: boolean;
 };
 
+type EndGameWipeState = {
+  active: boolean;
+};
+
 type TerminalLine = {
   id: string;
   kind: "out" | "cmd";
@@ -179,7 +183,8 @@ export type GlobalLogKind =
   | "terminal"
   | "godark"
   | "biometric"
-  | "tunnel";
+  | "tunnel"
+  | "endgame";
 
 export type GlobalLogItem = {
   id: string;
@@ -208,6 +213,51 @@ function rand(min: number, max: number) {
 }
 
 const CAMERA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+
+function makeInitialBanner(): Banner {
+  return { on: false, title: "SECURE COMMS", message: "…" };
+}
+
+function makeInitialNetworkState(): NetworkState {
+  return {
+    preferredBand: "LTE",
+    autoHop: true,
+    stealth: true,
+    connectedId: null,
+    connectedMeta: null,
+    logs: [],
+    scanCache: [],
+  };
+}
+
+function makeInitialScannerState(): ScannerState {
+  return {
+    poweredOn: false,
+    hold: false,
+    activeFreq: null,
+    logs: [],
+    scriptedChatterPlayed: false,
+  };
+}
+
+function makeInitialGoDarkState(): GoDarkState {
+  return {
+    active: false,
+    message: "STANDBY",
+  };
+}
+
+function makeInitialBiometricOverlayState(): BiometricOverlayState {
+  return {
+    active: true,
+  };
+}
+
+function makeInitialEndGameWipeState(): EndGameWipeState {
+  return {
+    active: false,
+  };
+}
 
 function makeInitialTerminal(): TerminalState {
   return {
@@ -395,6 +445,7 @@ type GameState = {
 
   booted: boolean;
   bootGame: () => void;
+  resetGameLoop: () => Promise<void>;
 
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => Promise<void>;
@@ -560,6 +611,11 @@ type GameState = {
   hideBiometricOverlay: () => void;
   triggerBiometricOverlay: (durationMs?: number) => Promise<void>;
 
+  endGameWipe: EndGameWipeState;
+  endGameWipeTimer: ReturnType<typeof setTimeout> | null;
+  triggerEndGameWipe: (durationMs?: number) => void;
+  clearEndGameWipe: () => void;
+
   notes: NoteItem[];
   addNote: (note: NoteItem) => void;
   updateNote: (
@@ -622,6 +678,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       tunnelStatusMessage: "Scanner idle.",
       activeRemoteHostId: null,
       shellReadyFromTunnel: false,
+      endGameWipe: makeInitialEndGameWipeState(),
+      endGameWipeTimer: null,
     });
 
     get().clearGuardWaitTimer();
@@ -630,6 +688,138 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().pushLog("tunnel", "Tunnel target list cleared.");
 
     void get().dispatchMissionEvent({ type: "BOOT" });
+  },
+
+  resetGameLoop: async () => {
+    const state = get();
+
+    const heartbeatWasOn = state.heartbeatOn;
+    const soundEnabled = state.soundEnabled;
+    const masks = state.masks;
+
+    get().stopCameraSim();
+    get().clearGuardWaitTimer();
+    get().clearGoDark();
+    get().clearEndGameWipe();
+
+    const heartbeatFn = get().startHeartbeat as any;
+    const heartbeatId = heartbeatFn?._id;
+    if (heartbeatId) {
+      clearInterval(heartbeatId);
+      delete heartbeatFn._id;
+    }
+
+    const nextTerminal = makeInitialTerminal();
+
+    setCommandEngineMode(nextTerminal.mode);
+
+    set({
+      trace: 16,
+      secondsLeft: 150,
+      timerRunning: true,
+      hallwayOneOccupied: false,
+
+      booted: true,
+
+      soundEnabled,
+
+      network: makeInitialNetworkState(),
+
+      heartbeatOn: heartbeatWasOn,
+
+      commsConnected: false,
+      commsConnecting: false,
+      commsJammed: false,
+
+      jammer: {
+        enabled: false,
+        band: "UHF",
+        strength: 62,
+        sweep: "narrow",
+        burst: "med",
+        stealth: true,
+        autoMask: false,
+      },
+
+      mask: "ghost",
+      masks,
+
+      audioScannerOn: false,
+
+      scanner: makeInitialScannerState(),
+
+      terminalLocked: true,
+      terminal: nextTerminal,
+
+      banner: makeInitialBanner(),
+
+      unreadMessages: 0,
+      thread: [],
+      replyChips: [],
+
+      messagesInputEnabled: true,
+      messagesSendEnabled: true,
+      messagesTyping: false,
+
+      mission: makeInitialMissionState(),
+
+      missionDeadlineAt: null,
+
+      cameraNetworkOnline: false,
+      cameras: makeInitialCameras(false),
+      selectedCamId: 12,
+      cameraSimTimer: null,
+      standbyMode: false,
+      standbyMessage: "STANDBY…",
+      cameraObjectiveActive: false,
+      cameraObjectiveResolved: false,
+      targetCameraId: null,
+
+      guardWaitTimer: null,
+
+      goDark: makeInitialGoDarkState(),
+      goDarkTimer: null,
+
+      biometricOverlay: makeInitialBiometricOverlayState(),
+
+      endGameWipe: makeInitialEndGameWipeState(),
+      endGameWipeTimer: null,
+
+      notes: [],
+
+      nearbyDevices: [],
+      allowedTunnelDeviceIds: [],
+      isTunnelScanning: false,
+      tunnelScanComplete: false,
+      selectedTunnelDeviceId: null,
+      isTunnelAttempting: false,
+      tunnelConnectionState: "idle",
+      tunnelStatusMessage: "Scanner idle.",
+      activeRemoteHostId: null,
+      shellReadyFromTunnel: false,
+
+      log: [
+        {
+          id: makeId(),
+          at: Date.now(),
+          kind: "system",
+          text: "Ghost phone system initialized.",
+        },
+        {
+          id: makeId(),
+          at: Date.now(),
+          kind: "endgame",
+          text: "Device wipe complete. Restarting simulation.",
+        },
+      ],
+    });
+
+    get().pushLog("system", "Game loop reset.");
+    get().pushLog("camera", "Camera network is offline.");
+    get().pushLog("tunnel", "Tunnel target list cleared.");
+
+    await wait(40);
+    await get().dispatchMissionEvent({ type: "BOOT" });
   },
 
   soundEnabled: false,
@@ -665,15 +855,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   clearLog: () => set({ log: [] }),
 
-  network: {
-    preferredBand: "LTE",
-    autoHop: true,
-    stealth: true,
-    connectedId: null,
-    connectedMeta: null,
-    logs: [],
-    scanCache: [],
-  },
+  network: makeInitialNetworkState(),
 
   attemptMoveNow: async () => {
     await get().dispatchMissionEvent({ type: "MOVE_ATTEMPT" });
@@ -862,13 +1044,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       return { audioScannerOn: next };
     }),
 
-  scanner: {
-    poweredOn: false,
-    hold: false,
-    activeFreq: null,
-    logs: [],
-    scriptedChatterPlayed: false,
-  },
+  scanner: makeInitialScannerState(),
 
   setScannerPower: (on) =>
     set((s) => {
@@ -1082,7 +1258,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       };
     }),
 
-  banner: { on: false, title: "SECURE COMMS", message: "…" },
+  banner: makeInitialBanner(),
   setBanner: (banner) => {
     set({ banner });
     get().pushLog(
@@ -1297,6 +1473,11 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         case "trigger_biometric_scan": {
           await get().triggerBiometricOverlay(effect.durationMs);
+          break;
+        }
+
+        case "trigger_end_game_wipe": {
+          get().triggerEndGameWipe(effect.durationMs);
           break;
         }
 
@@ -1821,7 +2002,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const timer = setInterval(() => {
       const st = get();
       if (!st.cameraNetworkOnline) return;
-      if (st.standbyMode || st.goDark.active) return;
+      if (st.standbyMode || st.goDark.active || st.endGameWipe.active) return;
 
       const simIds = CAMERA_IDS.filter((id) => id !== 12);
       const pickedId = simIds[Math.floor(Math.random() * simIds.length)];
@@ -1897,10 +2078,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ guardWaitTimer: null });
   },
 
-  goDark: {
-    active: false,
-    message: "STANDBY",
-  },
+  goDark: makeInitialGoDarkState(),
   goDarkTimer: null,
 
   triggerGoDark: (durationMs = 3200, message = "STANDBY") => {
@@ -1953,9 +2131,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().pushLog("godark", "Go dark manually cleared.");
   },
 
-  biometricOverlay: {
-    active: true,
-  },
+  biometricOverlay: makeInitialBiometricOverlayState(),
 
   showBiometricOverlay: () => {
     set({
@@ -1994,6 +2170,62 @@ export const useGameStore = create<GameState>((set, get) => ({
       },
     });
     get().pushLog("biometric", "Biometric overlay cleared.");
+  },
+
+  endGameWipe: makeInitialEndGameWipeState(),
+  endGameWipeTimer: null,
+
+  triggerEndGameWipe: (durationMs = 300000) => {
+    const existingTimer = get().endGameWipeTimer;
+    if (existingTimer) clearTimeout(existingTimer);
+
+    get().stopCameraSim();
+    get().clearGuardWaitTimer();
+
+    set({
+      endGameWipe: {
+        active: true,
+      },
+      endGameWipeTimer: null,
+      messagesTyping: false,
+      standbyMode: false,
+      goDark: {
+        active: false,
+        message: "STANDBY",
+      },
+      goDarkTimer: null,
+      biometricOverlay: {
+        active: false,
+      },
+      banner: {
+        on: false,
+        title: "SECURE COMMS",
+        message: "…",
+      },
+    });
+
+    get().pushLog("endgame", `End-game wipe triggered for ${durationMs}ms.`);
+
+    const timer = setTimeout(() => {
+      set({ endGameWipeTimer: null });
+      void get().resetGameLoop();
+    }, durationMs);
+
+    set({ endGameWipeTimer: timer });
+  },
+
+  clearEndGameWipe: () => {
+    const timer = get().endGameWipeTimer;
+    if (timer) clearTimeout(timer);
+
+    set({
+      endGameWipe: {
+        active: false,
+      },
+      endGameWipeTimer: null,
+    });
+
+    get().pushLog("endgame", "End-game wipe cleared.");
   },
 
   notes: [],
@@ -2103,10 +2335,14 @@ export const useGameStore = create<GameState>((set, get) => ({
     }),
 
   runTunnelScan: async () => {
-    const { allowedTunnelDeviceIds, isTunnelScanning, isTunnelAttempting } =
-      get();
+    const {
+      allowedTunnelDeviceIds,
+      isTunnelScanning,
+      isTunnelAttempting,
+      endGameWipe,
+    } = get();
 
-    if (isTunnelScanning || isTunnelAttempting) return;
+    if (isTunnelScanning || isTunnelAttempting || endGameWipe.active) return;
 
     set({
       isTunnelScanning: true,
@@ -2122,6 +2358,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().pushLog("tunnel", "Tunnel scan started.");
 
     await wait(2200);
+
+    if (get().endGameWipe.active) return;
 
     const devices = ALL_TUNNEL_DEVICES.filter(
       (device) =>
@@ -2201,9 +2439,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       mission,
       isTunnelAttempting,
       isTunnelScanning,
+      endGameWipe,
     } = get();
 
-    if (isTunnelScanning || isTunnelAttempting) return;
+    if (isTunnelScanning || isTunnelAttempting || endGameWipe.active) return;
 
     if (!selectedTunnelDeviceId) {
       set({
@@ -2259,6 +2498,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     get().pushLog("tunnel", `Tunnel attempt started for ${device.name}.`);
 
     await wait(2400);
+
+    if (get().endGameWipe.active) return;
 
     if (device.tunnelOutcome === "success") {
       set({

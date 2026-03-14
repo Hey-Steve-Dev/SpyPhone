@@ -119,6 +119,10 @@ export type MissionEffect =
       durationMs?: number;
     }
   | {
+      type: "trigger_end_game_wipe";
+      durationMs?: number;
+    }
+  | {
       type: "start_guard_wait_window";
       timeoutMs?: number;
     }
@@ -1093,23 +1097,18 @@ export function handleMissionEvent(
       ],
     };
   }
-
   if (event.type === "MOVE_ATTEMPT") {
     if (safeCtx.hallwayOccupied) {
       return {
-        nextState: withPhase(state, "camera_watch"),
+        nextState: state,
         effects: [
+          { type: "clear_reply_chips" },
+          { type: "stop_camera_sim" },
+          { type: "set_hallway_occupied", on: false },
+          { type: "clear_camera_target", cameraId: 12 },
           {
-            type: "handler_sequence",
-            items: [
-              opsLine("Negative. Guard is still in the hall.", 1450, 1200),
-            ],
-          },
-          {
-            type: "mission_failed",
-            reason: "movement_while_hall_occupied",
-            bannerTitle: "ALERT",
-            bannerMessage: "Compromised.",
+            type: "trigger_end_game_wipe",
+            durationMs: 1000,
           },
         ],
       };

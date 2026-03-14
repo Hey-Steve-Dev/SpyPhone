@@ -2,6 +2,7 @@ import BannerComms from "@/components/BannerComms";
 import HomeGestureBar from "@/components/HomeGestureBar";
 import StatusBarFake from "@/components/StatusBarFake";
 import BiometricOverlay from "@/constants/BiometricOverlay";
+import EndGameOverlay from "@/constants/endGameOverlay";
 import GoDarkOverlay from "@/constants/goDarkOverlay";
 import { useGameStore } from "@/store/useGameStore";
 import { usePathname, useRouter } from "expo-router";
@@ -23,10 +24,13 @@ export default function PhoneFrame({
   const isWeb = Platform.OS === "web";
   const router = useRouter();
   const pathname = usePathname();
+
   const terminalLocked = false;
   const bannerPush = useGameStore((s) => s.bannerPush);
-  const ENFORCE_TERMINAL_LOCK = false;
   const startHeartbeat = useGameStore((s) => s.startHeartbeat);
+  const endGameWipeActive = useGameStore((s) => s.endGameWipe.active);
+
+  const ENFORCE_TERMINAL_LOCK = false;
 
   useEffect(() => {
     if (!ENFORCE_TERMINAL_LOCK) return;
@@ -69,6 +73,7 @@ export default function PhoneFrame({
           {Inner}
           <BiometricOverlay />
           <GoDarkOverlay />
+          <EndGameOverlay visible={endGameWipeActive} />
         </View>
       </SafeAreaView>
     );
@@ -85,6 +90,7 @@ export default function PhoneFrame({
                 {Inner}
                 <BiometricOverlay />
                 <GoDarkOverlay />
+                <EndGameOverlay visible={endGameWipeActive} />
               </View>
             </View>
           </View>
@@ -107,6 +113,7 @@ const styles = StyleSheet.create({
   nativeFrame: {
     flex: 1,
     position: "relative",
+    overflow: "hidden",
   },
 
   content: {
@@ -172,5 +179,6 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
     overflow: "hidden",
     backgroundColor: "#070b18",
+    position: "relative",
   },
 });
