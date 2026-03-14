@@ -71,13 +71,7 @@ const APPS: AppTile[] = [
     route: "/notes",
     color: "#a9afb5",
   },
-  {
-    key: "mask",
-    label: "Mask",
-    icon: "◉",
-    route: "/mask",
-    color: "#978fb2",
-  },
+  { key: "mask", label: "Mask", icon: "◉", route: "/mask", color: "#978fb2" },
   {
     key: "vault",
     label: "Vault",
@@ -85,20 +79,8 @@ const APPS: AppTile[] = [
     route: "/vault",
     color: "#88a89f",
   },
-  {
-    key: "ops",
-    label: "Ops HUD",
-    icon: "◷",
-    route: "/ops",
-    color: "#b39184",
-  },
-  {
-    key: "log",
-    label: "Log",
-    icon: "≡",
-    route: "/log",
-    color: "#8f9bb8",
-  },
+  { key: "ops", label: "Ops HUD", icon: "◷", route: "/ops", color: "#b39184" },
+  { key: "log", label: "Log", icon: "≡", route: "/log", color: "#8f9bb8" },
   {
     key: "tunnel",
     label: "Tunnel",
@@ -123,9 +105,7 @@ export default function HomePhoneScreen() {
   const renderApp = (a: AppTile, inDock = false) => (
     <Pressable
       key={a.key}
-      onPress={() => {
-        router.push(a.route as any);
-      }}
+      onPress={() => router.push(a.route as any)}
       style={({ pressed }) => [
         inDock ? styles.dockTile : styles.tile,
         pressed && styles.tilePressed,
