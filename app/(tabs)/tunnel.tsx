@@ -1,6 +1,7 @@
 import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
-import React, { useMemo } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useMemo } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -28,6 +29,13 @@ export default function TunnelScreen() {
     (s) => s.attemptTunnelConnection,
   );
   const clearTunnelSelection = useGameStore((s) => s.clearTunnelSelection);
+  const resetTunnelState = useGameStore((s) => s.resetTunnelState);
+
+  useFocusEffect(
+    useCallback(() => {
+      resetTunnelState();
+    }, [resetTunnelState]),
+  );
 
   const selectedDevice = useMemo(
     () => nearbyDevices.find((d) => d.id === selectedTunnelDeviceId) ?? null,
@@ -125,40 +133,41 @@ export default function TunnelScreen() {
           ) : null}
 
           <View style={styles.deviceListContent}>
-            {nearbyDevices.map((device) => {
-              const selected = device.id === selectedTunnelDeviceId;
+            {tunnelScanComplete &&
+              nearbyDevices.map((device) => {
+                const selected = device.id === selectedTunnelDeviceId;
 
-              return (
-                <Pressable
-                  key={device.id}
-                  onPress={() => selectTunnelDevice(device.id)}
-                  disabled={isTunnelScanning || isTunnelAttempting}
-                  style={[
-                    styles.deviceCard,
-                    selected && styles.deviceCardSelected,
-                  ]}
-                >
-                  <View style={styles.deviceTopRow}>
-                    <Text style={styles.deviceName}>{device.name}</Text>
-                    <Text
-                      style={[
-                        styles.devicePower,
-                        device.poweredOn
-                          ? styles.devicePowerOn
-                          : styles.devicePowerOff,
-                      ]}
-                    >
-                      {device.poweredOn ? "ONLINE" : "OFFLINE"}
+                return (
+                  <Pressable
+                    key={device.id}
+                    onPress={() => selectTunnelDevice(device.id)}
+                    disabled={isTunnelScanning || isTunnelAttempting}
+                    style={[
+                      styles.deviceCard,
+                      selected && styles.deviceCardSelected,
+                    ]}
+                  >
+                    <View style={styles.deviceTopRow}>
+                      <Text style={styles.deviceName}>{device.name}</Text>
+                      <Text
+                        style={[
+                          styles.devicePower,
+                          device.poweredOn
+                            ? styles.devicePowerOn
+                            : styles.devicePowerOff,
+                        ]}
+                      >
+                        {device.poweredOn ? "ONLINE" : "OFFLINE"}
+                      </Text>
+                    </View>
+
+                    <Text style={styles.deviceMeta}>
+                      Signal: {device.signalStrength}
                     </Text>
-                  </View>
-
-                  <Text style={styles.deviceMeta}>
-                    Signal: {device.signalStrength}
-                  </Text>
-                  <Text style={styles.deviceMeta}>Type: {device.kind}</Text>
-                </Pressable>
-              );
-            })}
+                    <Text style={styles.deviceMeta}>Type: {device.kind}</Text>
+                  </Pressable>
+                );
+              })}
           </View>
         </View>
 
