@@ -439,13 +439,12 @@ function handlerForTerminalPhase(phase: MissionPhase): string[] {
       ];
 
     case "complete":
-      return ["Good work."];
+      return [""];
 
     default:
       return ["Stand by."];
   }
 }
-
 function makeSuccessfulMoveEffects(): MissionEffect[] {
   return [
     {
@@ -881,23 +880,20 @@ export function handleMissionEvent(
 
     if (
       state.phase === "terminal_brief_search" &&
-      event.action === "terminal_need_help"
+      event.action === "terminal_found_code"
     ) {
+      const nextState = withPhase(state, "complete");
+
       return {
-        nextState: state,
+        nextState,
         effects: [
+          { type: "clear_reply_chips" },
           ...(event.label
             ? [{ type: "player_message", text: event.label } as MissionEffect]
             : []),
           {
-            type: "handler_sequence",
-            items: [
-              opsLine(
-                "Look for anything that sounds personal, saved, or useful. Use `cd` for folders and `cat` for text files.",
-                1450,
-                1000,
-              ),
-            ],
+            type: "trigger_end_game_wipe",
+            durationMs: 3000,
           },
         ],
       };
