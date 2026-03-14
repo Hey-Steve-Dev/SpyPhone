@@ -59,10 +59,21 @@ export default function MessagesScreen() {
     return null;
   }, [thread]);
 
-  const renderedThread = useMemo(() => {
-    if (liveBubble?.phase !== "message") return thread;
-    return thread.filter((item) => item.id !== liveBubble.id);
+  const shouldRenderLiveBubble = useMemo(() => {
+    if (!liveBubble) return false;
+
+    if (liveBubble.phase === "typing") return true;
+
+    const lastThreadItem = thread[thread.length - 1];
+    return lastThreadItem?.id === liveBubble.id;
   }, [thread, liveBubble]);
+
+  const renderedThread = useMemo(() => {
+    if (!shouldRenderLiveBubble) return thread;
+    if (liveBubble?.phase !== "message") return thread;
+
+    return thread.filter((item) => item.id !== liveBubble.id);
+  }, [thread, liveBubble, shouldRenderLiveBubble]);
 
   useFocusEffect(
     useCallback(() => {
@@ -182,7 +193,7 @@ export default function MessagesScreen() {
               );
             })}
 
-            {liveBubble && (
+            {shouldRenderLiveBubble && liveBubble && (
               <View style={[styles.row, styles.rowLeft]}>
                 <View style={[styles.bubble, styles.handlerBubble]}>
                   <Text style={[styles.meta, styles.handlerMeta]}>
