@@ -3,6 +3,7 @@ import { runCommandEngine } from "@/lib/commandEngine";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,7 +13,23 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
+const IS_NATIVE_DEVICE = Platform.OS === "ios" || Platform.OS === "android";
 const PROMPT = "$";
+
+const TERMINAL_KEYBOARD_ALPHA_ROWS = [
+  ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+  ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
+  ["-", "z", "x", "c", "v", "b", "n", "m", ".", "/"],
+];
+
+const TERMINAL_KEYBOARD_SYMBOL_ROWS = [
+  ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+  ["~", "\\", "|", "_", "=", "$", "*", ":"],
+  ["(", ")", "[", "]", "{", "}", "&", ";"],
+  ["'", '"', "!", "?", "+", "@", "#"],
+];
+
+type KeyboardMode = "alpha" | "symbols";
 
 export default function TerminalScreen() {
   const appendTerminalLine = useGameStore((s) => s.appendTerminalLine);
@@ -22,24 +39,81 @@ export default function TerminalScreen() {
   const setTerminalSession = useGameStore((s) => s.setTerminalSession);
 
   const lines = useGameStore((s) => s.terminal.lines);
-
   const dispatchMissionEvent = useGameStore((s) => s.dispatchMissionEvent);
-
   const terminalLocked = useGameStore((s) => s.terminalLocked);
 
   const cwd = session.cwd;
 
   const [input, setInput] = useState("");
+  const [inputFocused, setInputFocused] = useState(false);
+  const [selection, setSelection] = useState({ start: 0, end: 0 });
+  const [keyboardMode, setKeyboardMode] = useState<KeyboardMode>("alpha");
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+
+  const showCustomKeyboard =
+    IS_NATIVE_DEVICE && inputFocused && !terminalLocked;
+  const activeRows =
+    keyboardMode === "alpha"
+      ? TERMINAL_KEYBOARD_ALPHA_ROWS
+      : TERMINAL_KEYBOARD_SYMBOL_ROWS;
 
   function append(kind: "out" | "cmd", text: string) {
     appendTerminalLine(kind, text);
   }
 
   function focusInput() {
-    setTimeout(() => inputRef.current?.focus(), 20);
+    setTimeout(() => inputRef.current?.focus(), 10);
+  }
+
+  function insertAtCursor(textToInsert: string) {
+    if (terminalLocked) return;
+
+    const start = selection.start ?? input.length;
+    const end = selection.end ?? input.length;
+
+    const nextValue = input.slice(0, start) + textToInsert + input.slice(end);
+    const nextCaret = start + textToInsert.length;
+
+    setInput(nextValue);
+    setSelection({ start: nextCaret, end: nextCaret });
+    focusInput();
+  }
+
+  function backspaceAtCursor() {
+    if (terminalLocked) return;
+
+    const start = selection.start ?? input.length;
+    const end = selection.end ?? input.length;
+
+    if (start !== end) {
+      const nextValue = input.slice(0, start) + input.slice(end);
+      setInput(nextValue);
+      setSelection({ start, end: start });
+      focusInput();
+      return;
+    }
+
+    if (start <= 0) return;
+
+    const nextValue = input.slice(0, start - 1) + input.slice(end);
+    const nextCaret = start - 1;
+
+    setInput(nextValue);
+    setSelection({ start: nextCaret, end: nextCaret });
+    focusInput();
+  }
+
+  function moveCursor(delta: number) {
+    if (terminalLocked) return;
+
+    const next = Math.max(
+      0,
+      Math.min(input.length, (selection.start ?? 0) + delta),
+    );
+    setSelection({ start: next, end: next });
+    focusInput();
   }
 
   useEffect(() => {
@@ -51,11 +125,12 @@ export default function TerminalScreen() {
 
   async function runCommand(raw: string) {
     const cmd = raw.trim();
-    if (!cmd) return;
+    if (!cmd || terminalLocked) return;
 
     append("cmd", `${PROMPT}${cmd}`);
 
     setInput("");
+    setSelection({ start: 0, end: 0 });
     focusInput();
 
     if (cmd.toLowerCase() === "clear") {
@@ -78,14 +153,43 @@ export default function TerminalScreen() {
     res.output.forEach((line) => append("out", line));
   }
 
+  function renderKeyboardRow(row: string[], rowIndex: number) {
+    return (
+      <View
+        key={`${keyboardMode}-row-${rowIndex}`}
+        style={[
+          styles.keyboardRow,
+          row.length <= 8 && styles.keyboardRowNarrow,
+          row.length === 9 && styles.keyboardRowMedium,
+        ]}
+      >
+        {row.map((keyValue) => (
+          <Pressable
+            key={`${keyboardMode}-${keyValue}`}
+            onPress={() => insertAtCursor(keyValue)}
+            style={({ pressed }) => [
+              styles.key,
+              styles.charKey,
+              pressed && styles.keyPressed,
+            ]}
+          >
+            <Text style={styles.keyText}>{keyValue}</Text>
+          </Pressable>
+        ))}
+      </View>
+    );
+  }
+
   return (
     <PhoneFrame>
       <View style={styles.wrap}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Terminal</Text>
-          <Text style={styles.headerSub}>
-            {terminalLocked ? "No link" : "Secure Shell"}
-          </Text>
+          <View>
+            <Text style={styles.headerTitle}>Terminal</Text>
+            <Text style={styles.headerSub}>
+              {terminalLocked ? "No link" : "Secure Shell"}
+            </Text>
+          </View>
         </View>
 
         <View style={styles.screen}>
@@ -93,6 +197,7 @@ export default function TerminalScreen() {
             ref={scrollRef}
             style={styles.scroll}
             contentContainerStyle={styles.scrollContent}
+            keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
             {lines.map((l) => (
@@ -102,6 +207,7 @@ export default function TerminalScreen() {
                   styles.line,
                   l.kind === "cmd" ? styles.lineCmd : styles.lineOut,
                 ]}
+                selectable
               >
                 {l.text}
               </Text>
@@ -109,29 +215,168 @@ export default function TerminalScreen() {
           </ScrollView>
 
           <View style={styles.inputDock}>
-            <View style={styles.termInput}>
+            <Pressable
+              onPress={focusInput}
+              style={({ pressed }) => [
+                styles.termInput,
+                pressed && styles.termInputPressed,
+                terminalLocked && styles.termInputDisabled,
+              ]}
+            >
               <Text style={styles.prompt}>{PROMPT}</Text>
 
               <TextInput
                 ref={inputRef}
                 value={input}
                 onChangeText={setInput}
+                selection={selection}
+                onSelectionChange={(e) => {
+                  setSelection(e.nativeEvent.selection);
+                }}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
                 autoCapitalize="none"
                 autoCorrect={false}
-                style={styles.inputCmd}
-                placeholder="type command…"
+                spellCheck={false}
+                contextMenuHidden={false}
+                placeholder={
+                  terminalLocked ? "terminal unavailable…" : "type command…"
+                }
                 placeholderTextColor="rgba(255,255,255,0.35)"
-                onSubmitEditing={() => void runCommand(input)}
+                style={styles.inputCmd}
+                onSubmitEditing={() => {
+                  void runCommand(input);
+                }}
                 returnKeyType="go"
+                editable={!terminalLocked}
+                showSoftInputOnFocus={!IS_NATIVE_DEVICE}
+                caretHidden={false}
+                selectionColor="#00e0ff"
+                cursorColor="#00e0ff"
+                blurOnSubmit={false}
               />
 
               <Pressable
-                onPress={() => void runCommand(input)}
-                style={styles.runBtn}
+                onPress={() => {
+                  void runCommand(input);
+                }}
+                disabled={terminalLocked}
+                style={({ pressed }) => [
+                  styles.inputRunBtn,
+                  terminalLocked && styles.inputRunBtnDisabled,
+                  pressed && styles.inputRunBtnPressed,
+                ]}
               >
-                <Text style={styles.runTxt}>↻</Text>
+                <Text style={styles.inputRunBtnTxt}>↻</Text>
               </Pressable>
-            </View>
+            </Pressable>
+
+            {showCustomKeyboard && (
+              <View style={styles.keyboardWrap}>
+                <View style={styles.keyboardModeRow}>
+                  <Pressable
+                    onPress={() => setKeyboardMode("alpha")}
+                    style={({ pressed }) => [
+                      styles.modeKey,
+                      keyboardMode === "alpha" && styles.modeKeyActive,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modeKeyText,
+                        keyboardMode === "alpha" && styles.modeKeyTextActive,
+                      ]}
+                    >
+                      ABC
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => setKeyboardMode("symbols")}
+                    style={({ pressed }) => [
+                      styles.modeKey,
+                      keyboardMode === "symbols" && styles.modeKeyActive,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.modeKeyText,
+                        keyboardMode === "symbols" && styles.modeKeyTextActive,
+                      ]}
+                    >
+                      #+=
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => moveCursor(-1)}
+                    style={({ pressed }) => [
+                      styles.modeKey,
+                      styles.utilityKey,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.modeKeyText}>◀</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => moveCursor(1)}
+                    style={({ pressed }) => [
+                      styles.modeKey,
+                      styles.utilityKey,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.modeKeyText}>▶</Text>
+                  </Pressable>
+                </View>
+
+                <View style={styles.keyboardRows}>
+                  {activeRows.map((row, rowIndex) =>
+                    renderKeyboardRow(row, rowIndex),
+                  )}
+                </View>
+
+                <View style={styles.keyboardBottomRow}>
+                  <Pressable
+                    onPress={() => insertAtCursor(" ")}
+                    style={({ pressed }) => [
+                      styles.key,
+                      styles.spaceKey,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.keyText}>space</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={backspaceAtCursor}
+                    style={({ pressed }) => [
+                      styles.key,
+                      styles.deleteKey,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.keyText}>⌫</Text>
+                  </Pressable>
+
+                  <Pressable
+                    onPress={() => {
+                      void runCommand(input);
+                    }}
+                    style={({ pressed }) => [
+                      styles.key,
+                      styles.enterKey,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.keyText}>enter</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </View>
@@ -142,98 +387,232 @@ export default function TerminalScreen() {
 const styles = StyleSheet.create({
   wrap: {
     flex: 1,
+    paddingHorizontal: 0,
     paddingTop: 10,
+    paddingBottom: 0,
   },
 
   header: {
     paddingHorizontal: 10,
     paddingBottom: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 
   headerTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "white",
+    color: "rgba(255,255,255,0.92)",
   },
 
   headerSub: {
+    marginTop: 2,
     fontSize: 12,
-    color: "rgba(255,255,255,0.6)",
+    color: "rgba(255,255,255,0.60)",
   },
 
   screen: {
     flex: 1,
+    borderTopWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
     backgroundColor: "rgba(0,0,0,0.55)",
+    overflow: "hidden",
   },
 
-  scroll: {
-    flex: 1,
-  },
+  scroll: { flex: 1 },
 
   scrollContent: {
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 14,
     gap: 6,
   },
 
   line: {
-    fontFamily: "monospace",
     fontSize: 13,
+    lineHeight: 18,
+    fontFamily: "monospace" as const,
   },
 
-  lineCmd: {
-    color: "#00e0ff",
-  },
-
-  lineOut: {
-    color: "#7CFF9E",
-  },
+  lineOut: { color: "#7CFF9E" },
+  lineCmd: { color: "#00e0ff" },
 
   inputDock: {
-    padding: 8,
+    paddingHorizontal: 8,
+    paddingTop: 8,
     paddingBottom: 8 + HOME_BAR_SPACE,
+    backgroundColor: "#000000",
     borderTopWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
+    borderTopColor: "rgba(255,255,255,0.08)",
+    gap: 8,
   },
 
   termInput: {
     flexDirection: "row",
     alignItems: "center",
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.1)",
-    borderRadius: 12,
-    paddingHorizontal: 10,
+    borderColor: "rgba(255,255,255,0.08)",
+    backgroundColor: "rgba(15,15,15,0.85)",
+    paddingLeft: 10,
+    paddingRight: 8,
     height: 42,
-    backgroundColor: "rgba(0,0,0,0.8)",
+  },
+
+  termInputPressed: {
+    borderColor: "rgba(255,255,255,0.14)",
+  },
+
+  termInputDisabled: {
+    opacity: 0.7,
   },
 
   prompt: {
-    color: "#7CFF9E",
-    fontFamily: "monospace",
-    marginRight: 8,
     fontSize: 16,
+    color: "#7CFF9E",
+    fontFamily: "monospace" as const,
+    marginRight: 8,
     fontWeight: "700",
   },
 
   inputCmd: {
     flex: 1,
-    color: "#00e0ff",
-    fontFamily: "monospace",
     fontSize: 13,
+    color: "#00e0ff",
+    fontFamily: "monospace" as const,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
   },
 
-  runBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+  inputRunBtn: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "rgba(0,224,255,0.30)",
+    backgroundColor: "rgba(0,224,255,0.14)",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0,224,255,0.15)",
-    borderWidth: 1,
-    borderColor: "rgba(0,224,255,0.4)",
   },
 
-  runTxt: {
+  inputRunBtnDisabled: {
+    opacity: 0.45,
+  },
+
+  inputRunBtnPressed: {
+    opacity: 0.8,
+    transform: [{ scale: 0.96 }],
+  },
+
+  inputRunBtnTxt: {
     color: "#00e0ff",
-    fontWeight: "bold",
+    fontSize: 15,
+    fontWeight: "900",
+    lineHeight: 16,
+  },
+
+  keyboardWrap: {
+    gap: 6,
+  },
+
+  keyboardModeRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+
+  keyboardRows: {
+    gap: 6,
+  },
+
+  keyboardRow: {
+    flexDirection: "row",
+    gap: 4,
+  },
+
+  keyboardRowMedium: {
+    paddingHorizontal: 10,
+  },
+
+  keyboardRowNarrow: {
+    paddingHorizontal: 18,
+  },
+
+  keyboardBottomRow: {
+    flexDirection: "row",
+    gap: 6,
+  },
+
+  key: {
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  charKey: {
+    flex: 1,
+    height: 54,
+  },
+
+  modeKey: {
+    flex: 1,
+    height: 34,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.10)",
+    backgroundColor: "rgba(255,255,255,0.06)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  utilityKey: {
+    flex: 0.85,
+  },
+
+  modeKeyActive: {
+    backgroundColor: "rgba(124,255,158,0.14)",
+    borderColor: "rgba(124,255,158,0.45)",
+  },
+
+  modeKeyText: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    fontFamily: "monospace" as const,
+  },
+
+  modeKeyTextActive: {
+    color: "#7CFF9E",
+  },
+
+  keyPressed: {
+    backgroundColor: "rgba(255,255,255,0.12)",
+  },
+
+  keyText: {
+    color: "rgba(255,255,255,0.92)",
+    fontSize: 15,
+    fontWeight: "700",
+    fontFamily: "monospace" as const,
+    textTransform: "lowercase",
+  },
+
+  spaceKey: {
+    flex: 1,
+    height: 36,
+  },
+
+  deleteKey: {
+    width: 82,
+    height: 36,
+  },
+
+  enterKey: {
+    width: 82,
+    height: 36,
   },
 });

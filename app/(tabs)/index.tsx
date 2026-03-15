@@ -2,91 +2,109 @@ import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import { useRouter } from "expo-router";
 import React from "react";
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Image,
+  ImageSourcePropType,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 const gunmetalBg = require("@/assets/images/gunmetal-bg.png");
+
+const terminalIcon = require("@/assets/icons/icon-terminal.png");
+const camerasIcon = require("@/assets/icons/icon-cameras.png");
+const comsIcon = require("@/assets/icons/icon-coms.png");
+const networkIcon = require("@/assets/icons/icon-network.png");
+const echoscanIcon = require("@/assets/icons/icon-echoscan.png");
+const rfScannerIcon = require("@/assets/icons/icon-rf-scanner.png");
+const jammerIcon = require("@/assets/icons/icon-jammer.png");
+const notesIcon = require("@/assets/icons/icon-notes.png");
+const maskIcon = require("@/assets/icons/icon-mask.png");
+const vaultIcon = require("@/assets/icons/icon-vault.png");
+const logIcon = require("@/assets/icons/icon-log.png");
+const tunnelIcon = require("@/assets/icons/icon-tunnel.png");
 
 type AppTile = {
   key: string;
   label: string;
-  icon: string;
+  icon: ImageSourcePropType;
   route: string;
-  color: string;
 };
 
 const APPS: AppTile[] = [
   {
     key: "terminal",
     label: "Terminal",
-    icon: "⌘",
+    icon: terminalIcon,
     route: "/terminal",
-    color: "#8e97b8",
   },
   {
     key: "cameras",
     label: "Cameras",
-    icon: "◫",
+    icon: camerasIcon,
     route: "/cameras",
-    color: "#9aa3b8",
   },
   {
     key: "messages",
     label: "Coms",
-    icon: "≋",
+    icon: comsIcon,
     route: "/messages",
-    color: "#b8988e",
   },
   {
     key: "network",
     label: "Network",
-    icon: "⌁",
+    icon: networkIcon,
     route: "/network",
-    color: "#7fa0aa",
   },
   {
     key: "echoscan",
     label: "EchoScan",
-    icon: "◍",
+    icon: echoscanIcon,
     route: "/audio-scanner",
-    color: "#89a0be",
   },
   {
     key: "scanner",
     label: "RF Scanner",
-    icon: "⌯",
+    icon: rfScannerIcon,
     route: "/scanner",
-    color: "#8eaf9d",
   },
   {
     key: "jammer",
     label: "Jammer",
-    icon: "≈",
+    icon: jammerIcon,
     route: "/jammer",
-    color: "#b08b98",
   },
   {
     key: "notes",
     label: "Notes",
-    icon: "✎",
+    icon: notesIcon,
     route: "/notes",
-    color: "#a9afb5",
   },
-  { key: "mask", label: "Mask", icon: "◉", route: "/mask", color: "#978fb2" },
+  {
+    key: "mask",
+    label: "Mask",
+    icon: maskIcon,
+    route: "/mask",
+  },
   {
     key: "vault",
     label: "Vault",
-    icon: "▣",
+    icon: vaultIcon,
     route: "/vault",
-    color: "#88a89f",
   },
-  { key: "ops", label: "Ops HUD", icon: "◷", route: "/ops", color: "#b39184" },
-  { key: "log", label: "Log", icon: "≡", route: "/log", color: "#8f9bb8" },
+  {
+    key: "log",
+    label: "Log",
+    icon: logIcon,
+    route: "/log",
+  },
   {
     key: "tunnel",
     label: "Tunnel",
-    icon: "⌬",
+    icon: tunnelIcon,
     route: "/tunnel",
-    color: "#869eb7",
   },
 ];
 
@@ -113,7 +131,11 @@ export default function HomePhoneScreen() {
     >
       <View style={styles.tileInner}>
         <View style={styles.icon}>
-          <Text style={[styles.iconText, { color: a.color }]}>{a.icon}</Text>
+          <Image
+            source={a.icon}
+            style={styles.iconImage}
+            resizeMode="contain"
+          />
 
           {a.key === "messages" && unreadMessages > 0 && (
             <View style={styles.badge}>
@@ -216,16 +238,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.06)",
-    backgroundColor: "rgba(18,22,28,0.9)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.15)",
+
+    position: "relative",
   },
 
-  iconText: {
-    fontSize: 24,
-    fontWeight: "800",
-    includeFontPadding: false,
-    textAlign: "center",
+  iconImage: {
+    width: "100%",
+    height: "100%",
   },
 
   label: {
