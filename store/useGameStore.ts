@@ -15,8 +15,8 @@ import {
   type MissionEvent,
   type MissionState,
 } from "@/lib/missionEngine";
+import { Asset } from "expo-asset";
 import { create } from "zustand";
-
 type Banner = {
   on: boolean;
   title: string;
@@ -436,6 +436,33 @@ function makeTunnelDeviceCatalog(): NearbyDevice[] {
 
 const ALL_TUNNEL_DEVICES = makeTunnelDeviceCatalog();
 
+const UI_ASSET_MODULES = [
+  require("@/assets/images/gunmetal-bg.png"),
+
+  require("@/assets/icons/icon-terminal.png"),
+  require("@/assets/icons/icon-cameras.png"),
+  require("@/assets/icons/icon-coms.png"),
+  require("@/assets/icons/icon-network.png"),
+  require("@/assets/icons/icon-echoscan.png"),
+  require("@/assets/icons/icon-rf-scanner.png"),
+  require("@/assets/icons/icon-jammer.png"),
+  require("@/assets/icons/icon-notes.png"),
+  require("@/assets/icons/icon-mask.png"),
+  require("@/assets/icons/icon-vault.png"),
+  require("@/assets/icons/icon-log.png"),
+  require("@/assets/icons/icon-tunnel.png"),
+];
+
+let uiAssetsPreloadPromise: Promise<void> | null = null;
+
+function preloadUiAssets() {
+  if (!uiAssetsPreloadPromise) {
+    uiAssetsPreloadPromise = Asset.loadAsync(UI_ASSET_MODULES).then(() => {});
+  }
+
+  return uiAssetsPreloadPromise;
+}
+
 type GameState = {
   trace: number;
   secondsLeft: number;
@@ -665,6 +692,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     if (s.booted) return;
 
     void initGameAudio();
+    void preloadUiAssets();
 
     set({
       booted: true,

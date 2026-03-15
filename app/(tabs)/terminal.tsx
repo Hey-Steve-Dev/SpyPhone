@@ -16,6 +16,12 @@ const HOME_BAR_SPACE = 44;
 const IS_NATIVE_DEVICE = Platform.OS === "ios" || Platform.OS === "android";
 const PROMPT = "$";
 
+const TACTICAL_FONT = Platform.select({
+  ios: "Menlo",
+  android: "monospace",
+  default: "monospace",
+});
+
 const TERMINAL_KEYBOARD_ALPHA_ROWS = [
   ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
   ["a", "s", "d", "f", "g", "h", "j", "k", "l"],
@@ -40,7 +46,8 @@ export default function TerminalScreen() {
 
   const lines = useGameStore((s) => s.terminal.lines);
   const dispatchMissionEvent = useGameStore((s) => s.dispatchMissionEvent);
-  const terminalLocked = useGameStore((s) => s.terminalLocked);
+
+  useGameStore((s) => s.terminalLocked);
 
   const cwd = session.cwd;
 
@@ -48,12 +55,15 @@ export default function TerminalScreen() {
   const [inputFocused, setInputFocused] = useState(false);
   const [selection, setSelection] = useState({ start: 0, end: 0 });
   const [keyboardMode, setKeyboardMode] = useState<KeyboardMode>("alpha");
+  const [shift, setShift] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
+  const terminalLocked = false;
   const showCustomKeyboard =
     IS_NATIVE_DEVICE && inputFocused && !terminalLocked;
+
   const activeRows =
     keyboardMode === "alpha"
       ? TERMINAL_KEYBOARD_ALPHA_ROWS
@@ -67,6 +77,26 @@ export default function TerminalScreen() {
     setTimeout(() => inputRef.current?.focus(), 10);
   }
 
+  function getShiftedAlphaValue(keyValue: string) {
+    if (/^[a-z]$/.test(keyValue)) {
+      return keyValue.toUpperCase();
+    }
+
+    if (keyValue === "-") return "_";
+    if (keyValue === ".") return "~";
+    if (keyValue === "/") return ":";
+
+    return keyValue;
+  }
+
+  function getDisplayValue(keyValue: string) {
+    if (keyboardMode === "alpha" && shift) {
+      return getShiftedAlphaValue(keyValue);
+    }
+
+    return keyValue;
+  }
+
   function insertAtCursor(textToInsert: string) {
     if (terminalLocked) return;
 
@@ -78,6 +108,11 @@ export default function TerminalScreen() {
 
     setInput(nextValue);
     setSelection({ start: nextCaret, end: nextCaret });
+
+    if (shift && keyboardMode === "alpha") {
+      setShift(false);
+    }
+
     focusInput();
   }
 
@@ -131,6 +166,7 @@ export default function TerminalScreen() {
 
     setInput("");
     setSelection({ start: 0, end: 0 });
+    setShift(false);
     focusInput();
 
     if (cmd.toLowerCase() === "clear") {
@@ -163,19 +199,23 @@ export default function TerminalScreen() {
           row.length === 9 && styles.keyboardRowMedium,
         ]}
       >
-        {row.map((keyValue) => (
-          <Pressable
-            key={`${keyboardMode}-${keyValue}`}
-            onPress={() => insertAtCursor(keyValue)}
-            style={({ pressed }) => [
-              styles.key,
-              styles.charKey,
-              pressed && styles.keyPressed,
-            ]}
-          >
-            <Text style={styles.keyText}>{keyValue}</Text>
-          </Pressable>
-        ))}
+        {row.map((keyValue) => {
+          const displayValue = getDisplayValue(keyValue);
+
+          return (
+            <Pressable
+              key={`${keyboardMode}-${keyValue}`}
+              onPress={() => insertAtCursor(displayValue)}
+              style={({ pressed }) => [
+                styles.key,
+                styles.charKey,
+                pressed && styles.keyPressed,
+              ]}
+            >
+              <Text style={styles.keyText}>{displayValue}</Text>
+            </Pressable>
+          );
+        })}
       </View>
     );
   }
@@ -185,10 +225,8 @@ export default function TerminalScreen() {
       <View style={styles.wrap}>
         <View style={styles.header}>
           <View>
-            <Text style={styles.headerTitle}>Terminal</Text>
-            <Text style={styles.headerSub}>
-              {terminalLocked ? "No link" : "Secure Shell"}
-            </Text>
+            <Text style={styles.headerTitle}>TERMINAL</Text>
+            <Text style={styles.headerSub}>LOCAL SHELL</Text>
           </View>
         </View>
 
@@ -239,9 +277,7 @@ export default function TerminalScreen() {
                 autoCorrect={false}
                 spellCheck={false}
                 contextMenuHidden={false}
-                placeholder={
-                  terminalLocked ? "terminal unavailable…" : "type command…"
-                }
+                placeholder="type command..."
                 placeholderTextColor="rgba(255,255,255,0.35)"
                 style={styles.inputCmd}
                 onSubmitEditing={() => {
@@ -275,7 +311,10 @@ export default function TerminalScreen() {
               <View style={styles.keyboardWrap}>
                 <View style={styles.keyboardModeRow}>
                   <Pressable
-                    onPress={() => setKeyboardMode("alpha")}
+                    onPress={() => {
+                      setKeyboardMode("alpha");
+                      setShift(false);
+                    }}
                     style={({ pressed }) => [
                       styles.modeKey,
                       keyboardMode === "alpha" && styles.modeKeyActive,
@@ -293,7 +332,10 @@ export default function TerminalScreen() {
                   </Pressable>
 
                   <Pressable
-                    onPress={() => setKeyboardMode("symbols")}
+                    onPress={() => {
+                      setKeyboardMode("symbols");
+                      setShift(false);
+                    }}
                     style={({ pressed }) => [
                       styles.modeKey,
                       keyboardMode === "symbols" && styles.modeKeyActive,
@@ -341,6 +383,22 @@ export default function TerminalScreen() {
 
                 <View style={styles.keyboardBottomRow}>
                   <Pressable
+                    onPress={() => {
+                      if (keyboardMode === "alpha") {
+                        setShift((prev) => !prev);
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.key,
+                      styles.shiftKey,
+                      shift && keyboardMode === "alpha" && styles.shiftActive,
+                      pressed && styles.keyPressed,
+                    ]}
+                  >
+                    <Text style={styles.keyText}>⇧</Text>
+                  </Pressable>
+
+                  <Pressable
                     onPress={() => insertAtCursor(" ")}
                     style={({ pressed }) => [
                       styles.key,
@@ -360,19 +418,6 @@ export default function TerminalScreen() {
                     ]}
                   >
                     <Text style={styles.keyText}>⌫</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => {
-                      void runCommand(input);
-                    }}
-                    style={({ pressed }) => [
-                      styles.key,
-                      styles.enterKey,
-                      pressed && styles.keyPressed,
-                    ]}
-                  >
-                    <Text style={styles.keyText}>enter</Text>
                   </Pressable>
                 </View>
               </View>
@@ -404,12 +449,16 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "800",
     color: "rgba(255,255,255,0.92)",
+    fontFamily: TACTICAL_FONT,
+    letterSpacing: 1.2,
   },
 
   headerSub: {
     marginTop: 2,
-    fontSize: 12,
+    fontSize: 11,
     color: "rgba(255,255,255,0.60)",
+    fontFamily: TACTICAL_FONT,
+    letterSpacing: 1,
   },
 
   screen: {
@@ -420,7 +469,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  scroll: { flex: 1 },
+  scroll: {
+    flex: 1,
+  },
 
   scrollContent: {
     paddingHorizontal: 12,
@@ -432,20 +483,26 @@ const styles = StyleSheet.create({
   line: {
     fontSize: 13,
     lineHeight: 18,
-    fontFamily: "monospace" as const,
+    fontFamily: TACTICAL_FONT,
+    letterSpacing: 0.4,
   },
 
-  lineOut: { color: "#7CFF9E" },
-  lineCmd: { color: "#00e0ff" },
+  lineOut: {
+    color: "#7CFF9E",
+  },
+
+  lineCmd: {
+    color: "#00e0ff",
+  },
 
   inputDock: {
-    paddingHorizontal: 8,
-    paddingTop: 8,
+    paddingHorizontal: 6,
+    paddingTop: 6,
     paddingBottom: 8 + HOME_BAR_SPACE,
     backgroundColor: "#000000",
     borderTopWidth: 1,
     borderTopColor: "rgba(255,255,255,0.08)",
-    gap: 8,
+    gap: 6,
   },
 
   termInput: {
@@ -471,7 +528,7 @@ const styles = StyleSheet.create({
   prompt: {
     fontSize: 16,
     color: "#7CFF9E",
-    fontFamily: "monospace" as const,
+    fontFamily: TACTICAL_FONT,
     marginRight: 8,
     fontWeight: "700",
   },
@@ -480,9 +537,10 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     color: "#00e0ff",
-    fontFamily: "monospace" as const,
+    fontFamily: TACTICAL_FONT,
     paddingVertical: 0,
     paddingHorizontal: 0,
+    letterSpacing: 0.3,
   },
 
   inputRunBtn: {
@@ -510,37 +568,40 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "900",
     lineHeight: 16,
+    fontFamily: TACTICAL_FONT,
   },
 
   keyboardWrap: {
-    gap: 6,
+    gap: 4,
+    paddingHorizontal: 2,
   },
 
   keyboardModeRow: {
     flexDirection: "row",
-    gap: 6,
+    gap: 4,
   },
 
   keyboardRows: {
-    gap: 6,
+    gap: 4,
   },
 
   keyboardRow: {
     flexDirection: "row",
-    gap: 4,
+    gap: 3,
   },
 
   keyboardRowMedium: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
   },
 
   keyboardRowNarrow: {
-    paddingHorizontal: 18,
+    paddingHorizontal: 8,
   },
 
   keyboardBottomRow: {
     flexDirection: "row",
-    gap: 6,
+    gap: 4,
+    marginTop: 1,
   },
 
   key: {
@@ -554,13 +615,13 @@ const styles = StyleSheet.create({
 
   charKey: {
     flex: 1,
-    height: 54,
+    height: 58,
   },
 
   modeKey: {
     flex: 1,
-    height: 34,
-    borderRadius: 9,
+    height: 36,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.10)",
     backgroundColor: "rgba(255,255,255,0.06)",
@@ -569,7 +630,7 @@ const styles = StyleSheet.create({
   },
 
   utilityKey: {
-    flex: 0.85,
+    flex: 0.82,
   },
 
   modeKeyActive: {
@@ -581,8 +642,8 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.92)",
     fontSize: 12,
     fontWeight: "800",
-    letterSpacing: 0.3,
-    fontFamily: "monospace" as const,
+    letterSpacing: 0.5,
+    fontFamily: TACTICAL_FONT,
   },
 
   modeKeyTextActive: {
@@ -597,22 +658,28 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.92)",
     fontSize: 15,
     fontWeight: "700",
-    fontFamily: "monospace" as const,
-    textTransform: "lowercase",
+    fontFamily: TACTICAL_FONT,
+    textTransform: "none",
+    letterSpacing: 0.3,
+  },
+
+  shiftKey: {
+    width: 72,
+    height: 40,
+  },
+
+  shiftActive: {
+    backgroundColor: "rgba(124,255,158,0.18)",
+    borderColor: "rgba(124,255,158,0.55)",
   },
 
   spaceKey: {
     flex: 1,
-    height: 36,
+    height: 40,
   },
 
   deleteKey: {
-    width: 82,
-    height: 36,
-  },
-
-  enterKey: {
-    width: 82,
-    height: 36,
+    width: 72,
+    height: 40,
   },
 });
