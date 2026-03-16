@@ -264,6 +264,8 @@ const styles = StyleSheet.create({
 
   backgroundImage: {
     ...StyleSheet.absoluteFillObject,
+    width: "auto",
+    height: "auto",
   },
 
   overlay: {

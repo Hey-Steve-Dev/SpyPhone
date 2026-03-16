@@ -842,23 +842,25 @@ export function handleMissionEvent(
       };
     }
 
-    if (state.phase === "camera_watch" && event.action === "moving_now") {
-      const result = handleMissionEvent(
-        withPhase(state, "move_prompt"),
-        { type: "MOVE_ATTEMPT" },
-        safeCtx,
-      );
+    if (event.action === "moving_now") {
+      if (state.phase === "camera_watch" || state.phase === "move_prompt") {
+        const result = handleMissionEvent(
+          state,
+          { type: "MOVE_ATTEMPT" },
+          safeCtx,
+        );
 
-      return {
-        nextState: result.nextState,
-        effects: [
-          { type: "clear_reply_chips" },
-          ...(event.label
-            ? [{ type: "player_message", text: event.label } as MissionEffect]
-            : []),
-          ...result.effects,
-        ],
-      };
+        return {
+          nextState: result.nextState,
+          effects: [
+            { type: "clear_reply_chips" },
+            ...(event.label
+              ? [{ type: "player_message", text: event.label } as MissionEffect]
+              : []),
+            ...result.effects,
+          ],
+        };
+      }
     }
 
     if (
@@ -1150,6 +1152,7 @@ export function handleMissionEvent(
     return {
       nextState,
       effects: [
+        { type: "set_hallway_occupied", on: false },
         {
           type: "handler_sequence",
           items: [
@@ -1200,7 +1203,10 @@ export function handleMissionEvent(
       };
     }
 
-    if (safeCtx.hallwayOccupied) {
+    const unsafeMove =
+      state.phase === "camera_watch" && safeCtx.hallwayOccupied;
+
+    if (unsafeMove) {
       return {
         nextState: state,
         effects: [
