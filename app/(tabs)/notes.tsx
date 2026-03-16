@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -149,7 +150,8 @@ export default function NotesScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={10}
     >
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Notes</Text>
@@ -171,47 +173,55 @@ export default function NotesScreen() {
 
       {showingEditor ? (
         <View style={styles.editorWrap}>
-          <View style={styles.editorTop}>
-            <Text style={styles.editorHeading}>
-              {isCreating ? "New Note" : "Edit Note"}
-            </Text>
-
-            <Pressable onPress={closeEditor} style={styles.backBtn}>
-              <Text style={styles.backBtnText}>Back</Text>
-            </Pressable>
-          </View>
-
-          <TextInput
-            value={draftTitle}
-            onChangeText={setDraftTitle}
-            placeholder="Title"
-            placeholderTextColor="#7c8aa5"
-            style={styles.titleInput}
-          />
-
-          <TextInput
-            value={draftBody}
-            onChangeText={setDraftBody}
-            placeholder="Write your note..."
-            placeholderTextColor="#7c8aa5"
-            multiline
-            textAlignVertical="top"
-            style={styles.bodyInput}
-          />
-
-          <View style={styles.actionRow}>
-            <Pressable style={styles.saveBtn} onPress={handleSave}>
-              <Text style={styles.saveBtnText}>
-                {isCreating ? "Create Note" : "Save Changes"}
+          <ScrollView
+            style={styles.editorScroll}
+            contentContainerStyle={styles.editorContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.editorTop}>
+              <Text style={styles.editorHeading}>
+                {isCreating ? "New Note" : "Edit Note"}
               </Text>
-            </Pressable>
 
-            <Pressable style={styles.deleteBtn} onPress={handleDelete}>
-              <Text style={styles.deleteBtnText}>
-                {isCreating ? "Cancel" : "Delete"}
-              </Text>
-            </Pressable>
-          </View>
+              <Pressable onPress={closeEditor} style={styles.backBtn}>
+                <Text style={styles.backBtnText}>Back</Text>
+              </Pressable>
+            </View>
+
+            <TextInput
+              value={draftTitle}
+              onChangeText={setDraftTitle}
+              placeholder="Title"
+              placeholderTextColor="#7c8aa5"
+              style={styles.titleInput}
+              returnKeyType="next"
+            />
+
+            <TextInput
+              value={draftBody}
+              onChangeText={setDraftBody}
+              placeholder="Write your note..."
+              placeholderTextColor="#7c8aa5"
+              multiline
+              textAlignVertical="top"
+              style={styles.bodyInput}
+            />
+
+            <View style={styles.actionRow}>
+              <Pressable style={styles.saveBtn} onPress={handleSave}>
+                <Text style={styles.saveBtnText}>
+                  {isCreating ? "Create Note" : "Save Changes"}
+                </Text>
+              </Pressable>
+
+              <Pressable style={styles.deleteBtn} onPress={handleDelete}>
+                <Text style={styles.deleteBtnText}>
+                  {isCreating ? "Cancel" : "Delete"}
+                </Text>
+              </Pressable>
+            </View>
+          </ScrollView>
         </View>
       ) : (
         <View style={styles.listWrap}>
@@ -233,6 +243,7 @@ export default function NotesScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.listContent}
               style={styles.list}
+              keyboardShouldPersistTaps="handled"
               renderItem={({ item }) => (
                 <Pressable
                   onPress={() => openNote(item.id)}
@@ -397,7 +408,16 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#1d2a40",
     borderRadius: 18,
+    overflow: "hidden",
+  },
+
+  editorScroll: {
+    flex: 1,
+  },
+
+  editorContent: {
     padding: 12,
+    paddingBottom: 24,
   },
 
   editorTop: {
@@ -442,7 +462,6 @@ const styles = StyleSheet.create({
   },
 
   bodyInput: {
-    flex: 1,
     minHeight: 220,
     backgroundColor: "#121b2d",
     borderWidth: 1,

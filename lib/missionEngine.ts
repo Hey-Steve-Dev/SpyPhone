@@ -1115,6 +1115,13 @@ export function handleMissionEvent(
   }
 
   if (event.type === "MOVE_ATTEMPT") {
+    if (state.phase !== "camera_watch" && state.phase !== "move_prompt") {
+      return {
+        nextState: state,
+        effects: [],
+      };
+    }
+
     if (safeCtx.hallwayOccupied) {
       return {
         nextState: state,
