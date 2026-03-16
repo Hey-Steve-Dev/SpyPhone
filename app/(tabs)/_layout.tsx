@@ -1,4 +1,3 @@
-import BannerComms from "@/components/BannerComms";
 import { useGameStore } from "@/store/useGameStore";
 import { Stack } from "expo-router";
 import React, { useEffect } from "react";
@@ -49,8 +48,6 @@ export default function PhoneLayout() {
         <Stack.Screen name="log" />
         <Stack.Screen name="tunnel" />
       </Stack>
-
-      <BannerComms />
     </View>
   );
 }
