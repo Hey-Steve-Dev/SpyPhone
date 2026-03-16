@@ -1,18 +1,14 @@
 import { useGameStore } from "@/store/useGameStore";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import {
-  GestureResponderEvent,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from "react-native";
+import { Animated, PanResponder, StyleSheet, Text, View } from "react-native";
 
 const STATUS_BAR_HEIGHT = 34;
 const STATUS_BAR_GAP = 40;
-const SWIPE_DISMISS_THRESHOLD = 28;
 const HANDOFF_GRACE_MS = 350;
+const SWIPE_DISMISS_THRESHOLD = 36;
+const TAP_MOVE_TOLERANCE = 8;
+const DISMISS_TO_Y = -180;
 
 type BannerState = {
   on: boolean;
@@ -34,9 +30,12 @@ export default function BannerComms() {
   });
 
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchStartY = useRef<number | null>(null);
-  const touchStartX = useRef<number | null>(null);
-  const didDismissOnGesture = useRef(false);
+  const isDragging = useRef(false);
+  const isDismissing = useRef(false);
+  const gestureHandled = useRef(false);
+
+  const translateY = useRef(new Animated.Value(0)).current;
+  const opacity = useRef(new Animated.Value(1)).current;
 
   const isMessagesRoute =
     pathname === "/messages" ||
@@ -61,12 +60,26 @@ export default function BannerComms() {
   }, [liveBannerKey, dismissedKey]);
 
   useEffect(() => {
+    return () => {
+      if (hideTimer.current) {
+        clearTimeout(hideTimer.current);
+        hideTimer.current = null;
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (hideTimer.current) {
       clearTimeout(hideTimer.current);
       hideTimer.current = null;
     }
 
+    if (isDragging.current || isDismissing.current) return;
+
     if (banner.on) {
+      translateY.setValue(0);
+      opacity.setValue(1);
+
       setVisibleBanner({
         on: true,
         title: banner.title || "",
@@ -76,19 +89,16 @@ export default function BannerComms() {
     }
 
     hideTimer.current = setTimeout(() => {
+      if (isDragging.current || isDismissing.current) return;
+
       setVisibleBanner((prev) => ({
         ...prev,
         on: false,
       }));
+      translateY.setValue(0);
+      opacity.setValue(1);
     }, HANDOFF_GRACE_MS);
-
-    return () => {
-      if (hideTimer.current) {
-        clearTimeout(hideTimer.current);
-        hideTimer.current = null;
-      }
-    };
-  }, [banner.on, banner.title, banner.message]);
+  }, [banner.on, banner.title, banner.message, opacity, translateY]);
 
   useEffect(() => {
     if (!isTyping) {
@@ -106,40 +116,133 @@ export default function BannerComms() {
     return () => clearInterval(id);
   }, [isTyping]);
 
-  const resetTouchTracking = () => {
-    touchStartY.current = null;
-    touchStartX.current = null;
-    didDismissOnGesture.current = false;
+  const animateBackToRest = () => {
+    Animated.parallel([
+      Animated.spring(translateY, {
+        toValue: 0,
+        damping: 18,
+        stiffness: 220,
+        mass: 0.9,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 140,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      isDragging.current = false;
+      gestureHandled.current = false;
+    });
   };
 
-  const handleTouchStart = (e: GestureResponderEvent) => {
-    touchStartY.current = e.nativeEvent.pageY;
-    touchStartX.current = e.nativeEvent.pageX;
-    didDismissOnGesture.current = false;
-  };
+  const animateDismiss = () => {
+    if (isDismissing.current) return;
 
-  const handleTouchMove = (e: GestureResponderEvent) => {
-    if (touchStartY.current == null || touchStartX.current == null) return;
-    if (didDismissOnGesture.current) return;
+    isDragging.current = false;
+    isDismissing.current = true;
+    gestureHandled.current = true;
 
-    const deltaY = e.nativeEvent.pageY - touchStartY.current;
-    const deltaX = e.nativeEvent.pageX - touchStartX.current;
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: DISMISS_TO_Y,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+      Animated.timing(opacity, {
+        toValue: 0,
+        duration: 180,
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (!finished) return;
 
-    const isSwipeUp = deltaY <= -SWIPE_DISMISS_THRESHOLD;
-    const isMostlyVertical = Math.abs(deltaY) > Math.abs(deltaX);
-
-    if (isSwipeUp && isMostlyVertical) {
-      didDismissOnGesture.current = true;
       setDismissedKey(visibleBannerKey);
-    }
+      setVisibleBanner((prev) => ({
+        ...prev,
+        on: false,
+      }));
+
+      translateY.setValue(0);
+      opacity.setValue(1);
+      isDismissing.current = false;
+      gestureHandled.current = false;
+    });
   };
 
-  const handleTouchEnd = () => {
-    resetTouchTracking();
+  const handleTapOpen = () => {
+    if (isDragging.current || isDismissing.current || gestureHandled.current) {
+      return;
+    }
+    router.push("/messages");
   };
+
+  const panResponder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: (_, gestureState) => {
+        return Math.abs(gestureState.dy) > 4 || Math.abs(gestureState.dx) > 4;
+      },
+      onPanResponderGrant: () => {
+        if (hideTimer.current) {
+          clearTimeout(hideTimer.current);
+          hideTimer.current = null;
+        }
+
+        gestureHandled.current = false;
+
+        translateY.stopAnimation();
+        opacity.stopAnimation();
+      },
+      onPanResponderMove: (_, gestureState) => {
+        if (isDismissing.current) return;
+
+        const movedEnough =
+          Math.abs(gestureState.dy) > 2 || Math.abs(gestureState.dx) > 2;
+
+        if (movedEnough) {
+          isDragging.current = true;
+        }
+
+        const nextY = Math.min(0, gestureState.dy);
+        translateY.setValue(nextY);
+
+        const nextOpacity = Math.max(0.2, 1 - Math.abs(nextY) / 180);
+        opacity.setValue(nextOpacity);
+      },
+      onPanResponderRelease: (_, gestureState) => {
+        if (isDismissing.current) return;
+
+        const absDx = Math.abs(gestureState.dx);
+        const absDy = Math.abs(gestureState.dy);
+        const isTap = absDx < TAP_MOVE_TOLERANCE && absDy < TAP_MOVE_TOLERANCE;
+        const dismissByDistance = gestureState.dy <= -SWIPE_DISMISS_THRESHOLD;
+        const dismissByVelocity = gestureState.vy <= -0.75;
+
+        if (isTap) {
+          translateY.setValue(0);
+          opacity.setValue(1);
+          isDragging.current = false;
+          handleTapOpen();
+          return;
+        }
+
+        if (dismissByDistance || dismissByVelocity) {
+          animateDismiss();
+          return;
+        }
+
+        animateBackToRest();
+      },
+      onPanResponderTerminate: () => {
+        if (isDismissing.current) return;
+        animateBackToRest();
+      },
+    }),
+  ).current;
 
   if (
-    !visibleBanner.on ||
+    (!visibleBanner.on && !isDismissing.current) ||
     isMessagesRoute ||
     dismissedKey === visibleBannerKey
   ) {
@@ -158,22 +261,19 @@ export default function BannerComms() {
 
   return (
     <View pointerEvents="box-none" style={styles.wrap}>
-      <Pressable
-        onPress={() => {
-          if (didDismissOnGesture.current) return;
-          router.push("/messages");
-        }}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        onTouchCancel={handleTouchEnd}
-        style={styles.pressable}
+      <Animated.View
+        {...panResponder.panHandlers}
+        style={[
+          styles.banner,
+          {
+            transform: [{ translateY }],
+            opacity,
+          },
+        ]}
       >
-        <View style={styles.banner}>
-          <Text style={styles.header}>{header}</Text>
-          <Text style={styles.text}>{displayMsg}</Text>
-        </View>
-      </Pressable>
+        <Text style={styles.header}>{header}</Text>
+        <Text style={styles.text}>{displayMsg}</Text>
+      </Animated.View>
     </View>
   );
 }
@@ -189,18 +289,14 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
 
-  pressable: {
-    width: "100%",
-  },
-
   banner: {
     width: "100%",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
     borderRadius: 16,
     backgroundColor: "#1a1f2b",
     borderWidth: 1,
     borderColor: "rgba(255,255,255,0.12)",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
   },
 
   header: {
