@@ -1,11 +1,18 @@
 import { useGameStore } from "@/store/useGameStore";
 import { usePathname, useRouter } from "expo-router";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 const STATUS_BAR_HEIGHT = 34;
 const STATUS_BAR_GAP = 40;
 const SWIPE_DISMISS_THRESHOLD = 28;
+const HANDOFF_GRACE_MS = 350;
+
+type BannerState = {
+  on: boolean;
+  title: string;
+  message: string;
+};
 
 export default function BannerComms() {
   const banner = useGameStore((s) => s.banner);
@@ -16,23 +23,65 @@ export default function BannerComms() {
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
 
+  const [visibleBanner, setVisibleBanner] = useState<BannerState>({
+    on: false,
+    title: "",
+    message: "",
+  });
+
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const isMessagesRoute =
     pathname === "/messages" ||
     pathname.endsWith("/messages") ||
     pathname.includes("(tabs)/messages");
 
-  const bannerKey = useMemo(() => {
+  const liveBannerKey = useMemo(() => {
     return `${banner.title || ""}__${banner.message || ""}`;
   }, [banner.title, banner.message]);
 
-  const rawMessage = (banner.message || "").trim();
-  const isTyping = banner.on && rawMessage === "…";
+  const visibleBannerKey = useMemo(() => {
+    return `${visibleBanner.title || ""}__${visibleBanner.message || ""}`;
+  }, [visibleBanner.title, visibleBanner.message]);
+
+  const rawMessage = (visibleBanner.message || "").trim();
+  const isTyping = visibleBanner.on && rawMessage === "…";
 
   useEffect(() => {
-    if (dismissedKey && dismissedKey !== bannerKey) {
+    if (dismissedKey && dismissedKey !== liveBannerKey) {
       setDismissedKey(null);
     }
-  }, [bannerKey, dismissedKey]);
+  }, [liveBannerKey, dismissedKey]);
+
+  useEffect(() => {
+    if (hideTimer.current) {
+      clearTimeout(hideTimer.current);
+      hideTimer.current = null;
+    }
+
+    if (banner.on) {
+      setVisibleBanner({
+        on: true,
+        title: banner.title || "",
+        message: banner.message || "",
+      });
+      return;
+    }
+
+    hideTimer.current = setTimeout(() => {
+      setVisibleBanner((prev) => ({
+        ...prev,
+        on: false,
+      }));
+    }, HANDOFF_GRACE_MS);
+
+    return () => {
+      if (hideTimer.current) {
+        clearTimeout(hideTimer.current);
+        hideTimer.current = null;
+      }
+    };
+  }, [banner.on, banner.title, banner.message]);
 
   useEffect(() => {
     if (!isTyping) {
@@ -50,9 +99,15 @@ export default function BannerComms() {
     return () => clearInterval(id);
   }, [isTyping]);
 
-  if (!banner.on || isMessagesRoute || dismissedKey === bannerKey) return null;
+  if (
+    !visibleBanner.on ||
+    isMessagesRoute ||
+    dismissedKey === visibleBannerKey
+  ) {
+    return null;
+  }
 
-  const title = (banner.title || "").trim();
+  const title = (visibleBanner.title || "").trim();
   const msg = rawMessage;
 
   const header =
@@ -71,7 +126,7 @@ export default function BannerComms() {
           if (touchStartY == null) return;
           const deltaY = e.nativeEvent.pageY - touchStartY;
           if (deltaY <= -SWIPE_DISMISS_THRESHOLD) {
-            setDismissedKey(bannerKey);
+            setDismissedKey(visibleBannerKey);
           }
           setTouchStartY(null);
         }}
