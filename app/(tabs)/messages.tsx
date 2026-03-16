@@ -18,13 +18,16 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
+const LIVE_BUBBLE_GRACE_MS = 350;
 
 type LiveBubble =
   | {
       phase: "typing";
+      uiKey: string;
     }
   | {
       phase: "message";
+      uiKey: string;
       id: string;
       text: string;
       at: number;
@@ -50,6 +53,17 @@ export default function MessagesScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const lastInboundIdRef = useRef<string | null>(null);
+  const hideLiveBubbleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const pendingTypingHandoffRef = useRef(false);
+  const didMountRef = useRef(false);
+  const liveKeyCounterRef = useRef(0);
+
+  const nextLiveUiKey = useCallback(() => {
+    liveKeyCounterRef.current += 1;
+    return `live-bubble-${liveKeyCounterRef.current}`;
+  }, []);
 
   const lastInboundMessage = useMemo(() => {
     for (let i = thread.length - 1; i >= 0; i -= 1) {
@@ -59,21 +73,10 @@ export default function MessagesScreen() {
     return null;
   }, [thread]);
 
-  const shouldRenderLiveBubble = useMemo(() => {
-    if (!liveBubble) return false;
-
-    if (liveBubble.phase === "typing") return true;
-
-    const lastThreadItem = thread[thread.length - 1];
-    return lastThreadItem?.id === liveBubble.id;
+  const hasLiveMessageInThread = useMemo(() => {
+    if (liveBubble?.phase !== "message") return false;
+    return thread.some((item) => item.id === liveBubble.id);
   }, [thread, liveBubble]);
-
-  const renderedThread = useMemo(() => {
-    if (!shouldRenderLiveBubble) return thread;
-    if (liveBubble?.phase !== "message") return thread;
-
-    return thread.filter((item) => item.id !== liveBubble.id);
-  }, [thread, liveBubble, shouldRenderLiveBubble]);
 
   useFocusEffect(
     useCallback(() => {
@@ -82,27 +85,86 @@ export default function MessagesScreen() {
   );
 
   useEffect(() => {
-    if (messagesTyping) {
-      setLiveBubble({ phase: "typing" });
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      lastInboundIdRef.current = lastInboundMessage?.id ?? null;
       return;
     }
 
-    if (!lastInboundMessage) return;
+    if (hideLiveBubbleTimerRef.current) {
+      clearTimeout(hideLiveBubbleTimerRef.current);
+      hideLiveBubbleTimerRef.current = null;
+    }
 
-    const currentInboundId = lastInboundMessage.id;
+    if (messagesTyping) {
+      pendingTypingHandoffRef.current = true;
 
-    if (currentInboundId === lastInboundIdRef.current) return;
+      setLiveBubble((prev) => {
+        if (prev?.phase === "typing") return prev;
 
-    lastInboundIdRef.current = currentInboundId;
+        return {
+          phase: "typing",
+          uiKey: nextLiveUiKey(),
+        };
+      });
 
-    setLiveBubble({
-      phase: "message",
-      id: lastInboundMessage.id,
-      text: lastInboundMessage.text,
-      at: lastInboundMessage.at,
-      from: lastInboundMessage.from === "system" ? "system" : "ops",
-    });
-  }, [messagesTyping, lastInboundMessage]);
+      return;
+    }
+
+    if (
+      pendingTypingHandoffRef.current &&
+      lastInboundMessage &&
+      lastInboundMessage.id !== lastInboundIdRef.current
+    ) {
+      const currentInboundId = lastInboundMessage.id;
+      lastInboundIdRef.current = currentInboundId;
+      pendingTypingHandoffRef.current = false;
+
+      setLiveBubble((prev) => ({
+        phase: "message",
+        uiKey: prev?.uiKey ?? nextLiveUiKey(),
+        id: lastInboundMessage.id,
+        text: lastInboundMessage.text,
+        at: lastInboundMessage.at,
+        from: lastInboundMessage.from === "system" ? "system" : "ops",
+      }));
+
+      hideLiveBubbleTimerRef.current = setTimeout(() => {
+        setLiveBubble((current) => {
+          if (current?.phase === "message" && current.id === currentInboundId) {
+            return null;
+          }
+          return current;
+        });
+        hideLiveBubbleTimerRef.current = null;
+      }, LIVE_BUBBLE_GRACE_MS);
+
+      return;
+    }
+
+    if (
+      lastInboundMessage?.id &&
+      lastInboundMessage.id !== lastInboundIdRef.current
+    ) {
+      lastInboundIdRef.current = lastInboundMessage.id;
+    }
+
+    if (liveBubble?.phase === "typing") {
+      hideLiveBubbleTimerRef.current = setTimeout(() => {
+        setLiveBubble((current) =>
+          current?.phase === "typing" ? null : current,
+        );
+        hideLiveBubbleTimerRef.current = null;
+      }, LIVE_BUBBLE_GRACE_MS);
+    }
+
+    return () => {
+      if (hideLiveBubbleTimerRef.current) {
+        clearTimeout(hideLiveBubbleTimerRef.current);
+        hideLiveBubbleTimerRef.current = null;
+      }
+    };
+  }, [messagesTyping, lastInboundMessage, liveBubble?.phase, nextLiveUiKey]);
 
   useEffect(() => {
     if (liveBubble?.phase !== "typing") {
@@ -126,7 +188,7 @@ export default function MessagesScreen() {
     }, 40);
 
     return () => clearTimeout(id);
-  }, [renderedThread.length, replyChips.length, liveBubble]);
+  }, [thread.length, replyChips.length, liveBubble]);
 
   function handleSend(raw?: string) {
     if (!inputEnabled || !sendEnabled || messagesTyping) return;
@@ -143,6 +205,37 @@ export default function MessagesScreen() {
       hour: "numeric",
       minute: "2-digit",
     });
+  }
+
+  function renderThreadBubble(item: {
+    id: string;
+    text: string;
+    at: number;
+    from: "player" | "ops" | "system";
+  }) {
+    const mine = item.from === "player";
+
+    return (
+      <View
+        key={`thread-${item.id}`}
+        style={[styles.row, mine ? styles.rowRight : styles.rowLeft]}
+      >
+        <View
+          style={[
+            styles.bubble,
+            mine ? styles.playerBubble : styles.handlerBubble,
+          ]}
+        >
+          <Text
+            style={[styles.meta, mine ? styles.playerMeta : styles.handlerMeta]}
+          >
+            {mine ? "YOU" : item.from === "system" ? "SYS" : "OPS"} ·{" "}
+            {formatTime(item.at)}
+          </Text>
+          <Text style={styles.messageText}>{item.text}</Text>
+        </View>
+      </View>
+    );
   }
 
   return (
@@ -164,54 +257,64 @@ export default function MessagesScreen() {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
           >
-            {renderedThread.map((item) => {
-              const mine = item.from === "player";
-
-              return (
-                <View
-                  key={item.id}
-                  style={[styles.row, mine ? styles.rowRight : styles.rowLeft]}
-                >
+            {thread.map((item) => {
+              if (
+                liveBubble?.phase === "message" &&
+                hasLiveMessageInThread &&
+                item.id === liveBubble.id
+              ) {
+                return (
                   <View
-                    style={[
-                      styles.bubble,
-                      mine ? styles.playerBubble : styles.handlerBubble,
-                    ]}
+                    key={`live-inline-${liveBubble.uiKey}`}
+                    style={[styles.row, styles.rowLeft]}
                   >
-                    <Text
-                      style={[
-                        styles.meta,
-                        mine ? styles.playerMeta : styles.handlerMeta,
-                      ]}
-                    >
-                      {mine ? "YOU" : item.from === "system" ? "SYS" : "OPS"} ·{" "}
-                      {formatTime(item.at)}
-                    </Text>
-                    <Text style={styles.messageText}>{item.text}</Text>
+                    <View style={[styles.bubble, styles.handlerBubble]}>
+                      <Text style={[styles.meta, styles.handlerMeta]}>
+                        {liveBubble.from === "system" ? "SYS" : "OPS"} ·{" "}
+                        {formatTime(liveBubble.at)}
+                      </Text>
+                      <Text style={styles.messageText}>{liveBubble.text}</Text>
+                    </View>
                   </View>
-                </View>
-              );
+                );
+              }
+
+              return renderThreadBubble({
+                id: item.id,
+                text: item.text,
+                at: item.at,
+                from:
+                  item.from === "player"
+                    ? "player"
+                    : item.from === "system"
+                      ? "system"
+                      : "ops",
+              });
             })}
 
-            {shouldRenderLiveBubble && liveBubble && (
-              <View style={[styles.row, styles.rowLeft]}>
+            {liveBubble?.phase === "typing" && (
+              <View
+                key={`live-typing-${liveBubble.uiKey}`}
+                style={[styles.row, styles.rowLeft]}
+              >
+                <View style={[styles.bubble, styles.handlerBubble]}>
+                  <Text style={[styles.meta, styles.handlerMeta]}>OPS</Text>
+                  <Text style={styles.typingText}>{dots}</Text>
+                </View>
+              </View>
+            )}
+
+            {liveBubble?.phase === "message" && !hasLiveMessageInThread && (
+              <View
+                key={`live-tail-${liveBubble.uiKey}`}
+                style={[styles.row, styles.rowLeft]}
+              >
                 <View style={[styles.bubble, styles.handlerBubble]}>
                   <Text style={[styles.meta, styles.handlerMeta]}>
-                    {liveBubble.phase === "message"
-                      ? liveBubble.from === "system"
-                        ? "SYS"
-                        : "OPS"
-                      : "OPS"}
-                    {liveBubble.phase === "message"
-                      ? ` · ${formatTime(liveBubble.at)}`
-                      : ""}
+                    {liveBubble.from === "system" ? "SYS" : "OPS"} ·{" "}
+                    {formatTime(liveBubble.at)}
                   </Text>
-
-                  {liveBubble.phase === "typing" ? (
-                    <Text style={styles.typingText}>{dots}</Text>
-                  ) : (
-                    <Text style={styles.messageText}>{liveBubble.text}</Text>
-                  )}
+                  <Text style={styles.messageText}>{liveBubble.text}</Text>
                 </View>
               </View>
             )}
@@ -227,7 +330,7 @@ export default function MessagesScreen() {
             >
               {replyChips.map((item) => (
                 <Pressable
-                  key={item.id}
+                  key={`chip-${item.id}`}
                   onPress={() => {
                     void handleMessageReplyAction(item.action, item.label);
                   }}
