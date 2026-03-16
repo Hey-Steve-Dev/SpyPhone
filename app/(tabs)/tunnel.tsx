@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useMemo } from "react";
@@ -43,201 +42,197 @@ export default function TunnelScreen() {
   );
 
   return (
-    <PhoneFrame>
-      <ScrollView
-        style={styles.screen}
-        contentContainerStyle={styles.screenContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.header}>
-          <Text style={styles.eyebrow}>FIELD ACCESS</Text>
-          <Text style={styles.title}>Tunnel</Text>
-          <Text style={styles.subtitle}>
-            Search powered devices and establish a remote route.
+    <ScrollView
+      style={styles.screen}
+      contentContainerStyle={styles.screenContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={styles.header}>
+        <Text style={styles.eyebrow}>FIELD ACCESS</Text>
+        <Text style={styles.title}>Tunnel</Text>
+        <Text style={styles.subtitle}>
+          Search powered devices and establish a remote route.
+        </Text>
+      </View>
+
+      <View style={styles.actionRow}>
+        <Pressable
+          onPress={() => void runTunnelScan()}
+          disabled={isTunnelScanning || isTunnelAttempting}
+          style={[
+            styles.primaryButton,
+            (isTunnelScanning || isTunnelAttempting) && styles.buttonDisabled,
+          ]}
+        >
+          <Text style={styles.primaryButtonText}>
+            {isTunnelScanning ? "SCANNING..." : "SCAN NEARBY DEVICES"}
           </Text>
-        </View>
+        </Pressable>
 
-        <View style={styles.actionRow}>
-          <Pressable
-            onPress={() => void runTunnelScan()}
-            disabled={isTunnelScanning || isTunnelAttempting}
-            style={[
-              styles.primaryButton,
-              (isTunnelScanning || isTunnelAttempting) && styles.buttonDisabled,
-            ]}
-          >
-            <Text style={styles.primaryButtonText}>
-              {isTunnelScanning ? "SCANNING..." : "SCAN NEARBY DEVICES"}
-            </Text>
-          </Pressable>
+        <Pressable
+          onPress={clearTunnelSelection}
+          disabled={isTunnelScanning || isTunnelAttempting}
+          style={[
+            styles.secondaryButton,
+            (isTunnelScanning || isTunnelAttempting) && styles.buttonDisabled,
+          ]}
+        >
+          <Text style={styles.secondaryButtonText}>CLEAR</Text>
+        </Pressable>
+      </View>
 
-          <Pressable
-            onPress={clearTunnelSelection}
-            disabled={isTunnelScanning || isTunnelAttempting}
-            style={[
-              styles.secondaryButton,
-              (isTunnelScanning || isTunnelAttempting) && styles.buttonDisabled,
-            ]}
-          >
-            <Text style={styles.secondaryButtonText}>CLEAR</Text>
-          </Pressable>
-        </View>
+      <View style={styles.statusCard}>
+        <Text style={styles.cardLabel}>STATUS</Text>
 
-        <View style={styles.statusCard}>
-          <Text style={styles.cardLabel}>STATUS</Text>
-
-          {isTunnelScanning ? (
-            <View style={styles.statusInline}>
-              <ActivityIndicator />
-              <Text style={styles.statusText}>
-                Reading powered systems in local range...
-              </Text>
-            </View>
-          ) : (
+        {isTunnelScanning ? (
+          <View style={styles.statusInline}>
+            <ActivityIndicator />
             <Text style={styles.statusText}>
-              {tunnelStatusMessage || "Scanner idle."}
+              Reading powered systems in local range...
             </Text>
-          )}
-
-          <View style={styles.progressBarTrack}>
-            <View
-              style={[
-                styles.progressBarFill,
-                isTunnelScanning
-                  ? styles.progressScanning
-                  : tunnelScanComplete
-                    ? styles.progressComplete
-                    : styles.progressIdle,
-              ]}
-            />
           </View>
+        ) : (
+          <Text style={styles.statusText}>
+            {tunnelStatusMessage || "Scanner idle."}
+          </Text>
+        )}
+
+        <View style={styles.progressBarTrack}>
+          <View
+            style={[
+              styles.progressBarFill,
+              isTunnelScanning
+                ? styles.progressScanning
+                : tunnelScanComplete
+                  ? styles.progressComplete
+                  : styles.progressIdle,
+            ]}
+          />
         </View>
+      </View>
 
-        <View style={styles.listPanel}>
-          <Text style={styles.panelTitle}>Detected Devices</Text>
+      <View style={styles.listPanel}>
+        <Text style={styles.panelTitle}>Detected Devices</Text>
 
-          {!tunnelScanComplete && !isTunnelScanning ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                No scan has been run yet.
-              </Text>
-            </View>
-          ) : null}
+        {!tunnelScanComplete && !isTunnelScanning ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>No scan has been run yet.</Text>
+          </View>
+        ) : null}
 
-          {tunnelScanComplete && nearbyDevices.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyStateText}>
-                No powered devices detected.
-              </Text>
-            </View>
-          ) : null}
+        {tunnelScanComplete && nearbyDevices.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>
+              No powered devices detected.
+            </Text>
+          </View>
+        ) : null}
 
-          <View style={styles.deviceListContent}>
-            {tunnelScanComplete &&
-              nearbyDevices.map((device) => {
-                const selected = device.id === selectedTunnelDeviceId;
+        <View style={styles.deviceListContent}>
+          {tunnelScanComplete &&
+            nearbyDevices.map((device) => {
+              const selected = device.id === selectedTunnelDeviceId;
 
-                return (
-                  <Pressable
-                    key={device.id}
-                    onPress={() => selectTunnelDevice(device.id)}
-                    disabled={isTunnelScanning || isTunnelAttempting}
-                    style={[
-                      styles.deviceCard,
-                      selected && styles.deviceCardSelected,
-                    ]}
-                  >
-                    <View style={styles.deviceTopRow}>
-                      <Text style={styles.deviceName}>{device.name}</Text>
-                      <Text
-                        style={[
-                          styles.devicePower,
-                          device.poweredOn
-                            ? styles.devicePowerOn
-                            : styles.devicePowerOff,
-                        ]}
-                      >
-                        {device.poweredOn ? "ONLINE" : "OFFLINE"}
-                      </Text>
-                    </View>
-
-                    <Text style={styles.deviceMeta}>
-                      Signal: {device.signalStrength}
+              return (
+                <Pressable
+                  key={device.id}
+                  onPress={() => selectTunnelDevice(device.id)}
+                  disabled={isTunnelScanning || isTunnelAttempting}
+                  style={[
+                    styles.deviceCard,
+                    selected && styles.deviceCardSelected,
+                  ]}
+                >
+                  <View style={styles.deviceTopRow}>
+                    <Text style={styles.deviceName}>{device.name}</Text>
+                    <Text
+                      style={[
+                        styles.devicePower,
+                        device.poweredOn
+                          ? styles.devicePowerOn
+                          : styles.devicePowerOff,
+                      ]}
+                    >
+                      {device.poweredOn ? "ONLINE" : "OFFLINE"}
                     </Text>
-                    <Text style={styles.deviceMeta}>Type: {device.kind}</Text>
-                  </Pressable>
-                );
-              })}
-          </View>
+                  </View>
+
+                  <Text style={styles.deviceMeta}>
+                    Signal: {device.signalStrength}
+                  </Text>
+                  <Text style={styles.deviceMeta}>Type: {device.kind}</Text>
+                </Pressable>
+              );
+            })}
         </View>
+      </View>
 
-        <View style={styles.detailPanel}>
-          <Text style={styles.panelTitle}>Tunnel Control</Text>
+      <View style={styles.detailPanel}>
+        <Text style={styles.panelTitle}>Tunnel Control</Text>
 
-          {!selectedDevice ? (
-            <View style={styles.emptyDetail}>
-              <Text style={styles.emptyStateText}>
-                Select a device to inspect tunnel options.
+        {!selectedDevice ? (
+          <View style={styles.emptyDetail}>
+            <Text style={styles.emptyStateText}>
+              Select a device to inspect tunnel options.
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View style={styles.detailCard}>
+              <Text style={styles.detailName}>{selectedDevice.name}</Text>
+              <Text style={styles.detailLine}>
+                Power: {selectedDevice.poweredOn ? "ONLINE" : "OFFLINE"}
+              </Text>
+              <Text style={styles.detailLine}>
+                Signal: {selectedDevice.signalStrength}
+              </Text>
+              <Text style={styles.detailLine}>
+                Shell Support: {selectedDevice.supportsShell ? "YES" : "NO"}
+              </Text>
+              <Text style={styles.detailLine}>
+                Aux Access: {selectedDevice.supportsAuxOps ? "YES" : "NO"}
               </Text>
             </View>
-          ) : (
-            <>
-              <View style={styles.detailCard}>
-                <Text style={styles.detailName}>{selectedDevice.name}</Text>
-                <Text style={styles.detailLine}>
-                  Power: {selectedDevice.poweredOn ? "ONLINE" : "OFFLINE"}
-                </Text>
-                <Text style={styles.detailLine}>
-                  Signal: {selectedDevice.signalStrength}
-                </Text>
-                <Text style={styles.detailLine}>
-                  Shell Support: {selectedDevice.supportsShell ? "YES" : "NO"}
-                </Text>
-                <Text style={styles.detailLine}>
-                  Aux Access: {selectedDevice.supportsAuxOps ? "YES" : "NO"}
-                </Text>
-              </View>
 
-              <Pressable
-                onPress={() => void attemptTunnelConnection()}
-                disabled={
-                  isTunnelScanning ||
+            <Pressable
+              onPress={() => void attemptTunnelConnection()}
+              disabled={
+                isTunnelScanning ||
+                isTunnelAttempting ||
+                !selectedDevice.poweredOn
+              }
+              style={[
+                styles.primaryButton,
+                (isTunnelScanning ||
                   isTunnelAttempting ||
-                  !selectedDevice.poweredOn
-                }
-                style={[
-                  styles.primaryButton,
-                  (isTunnelScanning ||
-                    isTunnelAttempting ||
-                    !selectedDevice.poweredOn) &&
-                    styles.buttonDisabled,
-                ]}
-              >
-                <Text style={styles.primaryButtonText}>
-                  {isTunnelAttempting ? "TUNNELING..." : "ATTEMPT TUNNEL"}
-                </Text>
-              </Pressable>
+                  !selectedDevice.poweredOn) &&
+                  styles.buttonDisabled,
+              ]}
+            >
+              <Text style={styles.primaryButtonText}>
+                {isTunnelAttempting ? "TUNNELING..." : "ATTEMPT TUNNEL"}
+              </Text>
+            </Pressable>
 
-              <View style={styles.resultCard}>
-                <Text style={styles.cardLabel}>RESULT</Text>
-                <Text style={styles.resultText}>
-                  {tunnelConnectionState === "success" &&
-                  activeRemoteHostId === selectedDevice.id
-                    ? "Tunnel established. Secure shell is available."
-                    : tunnelConnectionState === "limited"
-                      ? "Tunnel active. Auxiliary operations only. No shell available."
-                      : tunnelConnectionState === "failure"
-                        ? "Tunnel failed. Target did not expose a usable route."
-                        : tunnelConnectionState === "attempting"
-                          ? "Negotiating remote path..."
-                          : "No connection attempt made yet."}
-                </Text>
-              </View>
-            </>
-          )}
-        </View>
-      </ScrollView>
-    </PhoneFrame>
+            <View style={styles.resultCard}>
+              <Text style={styles.cardLabel}>RESULT</Text>
+              <Text style={styles.resultText}>
+                {tunnelConnectionState === "success" &&
+                activeRemoteHostId === selectedDevice.id
+                  ? "Tunnel established. Secure shell is available."
+                  : tunnelConnectionState === "limited"
+                    ? "Tunnel active. Auxiliary operations only. No shell available."
+                    : tunnelConnectionState === "failure"
+                      ? "Tunnel failed. Target did not expose a usable route."
+                      : tunnelConnectionState === "attempting"
+                        ? "Negotiating remote path..."
+                        : "No connection attempt made yet."}
+              </Text>
+            </View>
+          </>
+        )}
+      </View>
+    </ScrollView>
   );
 }
 

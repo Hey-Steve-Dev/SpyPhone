@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useMemo, useState } from "react";
 import {
@@ -148,119 +147,117 @@ export default function NotesScreen() {
   const showingEditor = isCreating || !!selectedNote;
 
   return (
-    <PhoneFrame>
-      <KeyboardAvoidingView
-        style={styles.screen}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-      >
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Notes</Text>
-          <Text style={styles.headerSub}>Save clues, names, and commands</Text>
-        </View>
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Notes</Text>
+        <Text style={styles.headerSub}>Save clues, names, and commands</Text>
+      </View>
 
-        <View style={styles.topBar}>
+      <View style={styles.topBar}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search notes..."
+          placeholderTextColor="#7c8aa5"
+          style={styles.searchInput}
+        />
+        <Pressable style={styles.newBtn} onPress={startNewNote}>
+          <Text style={styles.newBtnText}>+ New</Text>
+        </Pressable>
+      </View>
+
+      {showingEditor ? (
+        <View style={styles.editorWrap}>
+          <View style={styles.editorTop}>
+            <Text style={styles.editorHeading}>
+              {isCreating ? "New Note" : "Edit Note"}
+            </Text>
+
+            <Pressable onPress={closeEditor} style={styles.backBtn}>
+              <Text style={styles.backBtnText}>Back</Text>
+            </Pressable>
+          </View>
+
           <TextInput
-            value={query}
-            onChangeText={setQuery}
-            placeholder="Search notes..."
+            value={draftTitle}
+            onChangeText={setDraftTitle}
+            placeholder="Title"
             placeholderTextColor="#7c8aa5"
-            style={styles.searchInput}
+            style={styles.titleInput}
           />
-          <Pressable style={styles.newBtn} onPress={startNewNote}>
-            <Text style={styles.newBtnText}>+ New</Text>
-          </Pressable>
-        </View>
 
-        {showingEditor ? (
-          <View style={styles.editorWrap}>
-            <View style={styles.editorTop}>
-              <Text style={styles.editorHeading}>
-                {isCreating ? "New Note" : "Edit Note"}
+          <TextInput
+            value={draftBody}
+            onChangeText={setDraftBody}
+            placeholder="Write your note..."
+            placeholderTextColor="#7c8aa5"
+            multiline
+            textAlignVertical="top"
+            style={styles.bodyInput}
+          />
+
+          <View style={styles.actionRow}>
+            <Pressable style={styles.saveBtn} onPress={handleSave}>
+              <Text style={styles.saveBtnText}>
+                {isCreating ? "Create Note" : "Save Changes"}
               </Text>
+            </Pressable>
 
-              <Pressable onPress={closeEditor} style={styles.backBtn}>
-                <Text style={styles.backBtnText}>Back</Text>
-              </Pressable>
-            </View>
-
-            <TextInput
-              value={draftTitle}
-              onChangeText={setDraftTitle}
-              placeholder="Title"
-              placeholderTextColor="#7c8aa5"
-              style={styles.titleInput}
-            />
-
-            <TextInput
-              value={draftBody}
-              onChangeText={setDraftBody}
-              placeholder="Write your note..."
-              placeholderTextColor="#7c8aa5"
-              multiline
-              textAlignVertical="top"
-              style={styles.bodyInput}
-            />
-
-            <View style={styles.actionRow}>
-              <Pressable style={styles.saveBtn} onPress={handleSave}>
-                <Text style={styles.saveBtnText}>
-                  {isCreating ? "Create Note" : "Save Changes"}
-                </Text>
-              </Pressable>
-
-              <Pressable style={styles.deleteBtn} onPress={handleDelete}>
-                <Text style={styles.deleteBtnText}>
-                  {isCreating ? "Cancel" : "Delete"}
-                </Text>
-              </Pressable>
-            </View>
+            <Pressable style={styles.deleteBtn} onPress={handleDelete}>
+              <Text style={styles.deleteBtnText}>
+                {isCreating ? "Cancel" : "Delete"}
+              </Text>
+            </Pressable>
           </View>
-        ) : (
-          <View style={styles.listWrap}>
-            {filteredNotes.length === 0 ? (
-              <View style={styles.emptyWrap}>
-                <Text style={styles.emptyTitle}>
-                  {notes.length === 0 ? "No notes yet" : "No matching notes"}
-                </Text>
-                <Text style={styles.emptyText}>
-                  {notes.length === 0
-                    ? "Tap New to create your first note."
-                    : "Try a different search term."}
-                </Text>
-              </View>
-            ) : (
-              <FlatList
-                data={filteredNotes}
-                keyExtractor={(item) => item.id}
-                showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.listContent}
-                style={styles.list}
-                renderItem={({ item }) => (
-                  <Pressable
-                    onPress={() => openNote(item.id)}
-                    style={styles.noteCard}
-                  >
-                    <Text style={styles.noteTitle} numberOfLines={1}>
-                      {item.title || "Untitled Note"}
-                    </Text>
+        </View>
+      ) : (
+        <View style={styles.listWrap}>
+          {filteredNotes.length === 0 ? (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>
+                {notes.length === 0 ? "No notes yet" : "No matching notes"}
+              </Text>
+              <Text style={styles.emptyText}>
+                {notes.length === 0
+                  ? "Tap New to create your first note."
+                  : "Try a different search term."}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredNotes}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.listContent}
+              style={styles.list}
+              renderItem={({ item }) => (
+                <Pressable
+                  onPress={() => openNote(item.id)}
+                  style={styles.noteCard}
+                >
+                  <Text style={styles.noteTitle} numberOfLines={1}>
+                    {item.title || "Untitled Note"}
+                  </Text>
 
-                    <Text style={styles.notePreview} numberOfLines={2}>
-                      {item.body || "No content"}
-                    </Text>
+                  <Text style={styles.notePreview} numberOfLines={2}>
+                    {item.body || "No content"}
+                  </Text>
 
-                    <Text style={styles.noteMeta}>
-                      Updated {formatTime(item.updatedAt)}
-                    </Text>
-                  </Pressable>
-                )}
-              />
-            )}
-          </View>
-        )}
+                  <Text style={styles.noteMeta}>
+                    Updated {formatTime(item.updatedAt)}
+                  </Text>
+                </Pressable>
+              )}
+            />
+          )}
+        </View>
+      )}
 
-        <View style={{ height: HOME_BAR_SPACE }} />
-      </KeyboardAvoidingView>
-    </PhoneFrame>
+      <View style={{ height: HOME_BAR_SPACE }} />
+    </KeyboardAvoidingView>
   );
 }
 

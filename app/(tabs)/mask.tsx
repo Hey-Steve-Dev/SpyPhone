@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import React from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
@@ -11,55 +10,53 @@ export default function MaskScreen() {
   const switchMask = useGameStore((s) => s.switchMask);
 
   return (
-    <PhoneFrame>
-      <View style={styles.wrap}>
-        {/* HEADER */}
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Identity Mask</Text>
-          <Text style={styles.headerSub}>
-            Active profile: {mask.toUpperCase()}
-          </Text>
-        </View>
-
-        {/* MASK LIST */}
-        <FlatList
-          data={masks}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{
-            paddingBottom: HOME_BAR_SPACE + 20,
-          }}
-          renderItem={({ item }) => {
-            const active = item.id === mask;
-
-            return (
-              <Pressable
-                style={[styles.card, active && styles.cardActive]}
-                onPress={() => switchMask(item.id)}
-              >
-                <View style={styles.cardHeader}>
-                  <Text
-                    style={[styles.cardTitle, active && styles.cardTitleActive]}
-                  >
-                    {item.label}
-                  </Text>
-
-                  {active && <Text style={styles.activeTag}>ACTIVE</Text>}
-                </View>
-
-                <Text style={styles.cardDesc}>{item.description}</Text>
-
-                <View style={styles.metaRow}>
-                  <Text style={styles.meta}>
-                    Trace modifier: {item.traceModifier}
-                  </Text>
-                </View>
-              </Pressable>
-            );
-          }}
-        />
+    <View style={styles.wrap}>
+      {/* HEADER */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Identity Mask</Text>
+        <Text style={styles.headerSub}>
+          Active profile: {mask.toUpperCase()}
+        </Text>
       </View>
-    </PhoneFrame>
+
+      {/* MASK LIST */}
+      <FlatList
+        data={masks}
+        keyExtractor={(item) => item.id}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{
+          paddingBottom: HOME_BAR_SPACE + 20,
+        }}
+        renderItem={({ item }) => {
+          const active = item.id === mask;
+
+          return (
+            <Pressable
+              style={[styles.card, active && styles.cardActive]}
+              onPress={() => switchMask(item.id)}
+            >
+              <View style={styles.cardHeader}>
+                <Text
+                  style={[styles.cardTitle, active && styles.cardTitleActive]}
+                >
+                  {item.label}
+                </Text>
+
+                {active && <Text style={styles.activeTag}>ACTIVE</Text>}
+              </View>
+
+              <Text style={styles.cardDesc}>{item.description}</Text>
+
+              <View style={styles.metaRow}>
+                <Text style={styles.meta}>
+                  Trace modifier: {item.traceModifier}
+                </Text>
+              </View>
+            </Pressable>
+          );
+        }}
+      />
+    </View>
   );
 }
 

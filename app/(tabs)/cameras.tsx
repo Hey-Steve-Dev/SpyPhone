@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import { useIsFocused } from "@react-navigation/native";
 import { AVPlaybackStatus, ResizeMode, Video } from "expo-av";
@@ -521,57 +520,55 @@ export default function CamerasScreen() {
   );
 
   return (
-    <PhoneFrame>
-      <View style={styles.wrap} onLayout={handleWrapLayout}>
-        {innerWidth > 0 && (
-          <>
-            <FeaturedCameraView width={contentWidth} />
+    <View style={styles.wrap} onLayout={handleWrapLayout}>
+      {innerWidth > 0 && (
+        <>
+          <FeaturedCameraView width={contentWidth} />
 
-            <View style={[styles.grid, { width: contentWidth }]}>
-              {tiles.map((id, index) => {
-                const cam = cameras[id];
-                const isSelected = selectedCamId === id;
-                const isEndOfRow = (index + 1) % columns === 0;
-                const isOffline =
-                  !cameraNetworkOnline || !cam || cam.state === "offline";
+          <View style={[styles.grid, { width: contentWidth }]}>
+            {tiles.map((id, index) => {
+              const cam = cameras[id];
+              const isSelected = selectedCamId === id;
+              const isEndOfRow = (index + 1) % columns === 0;
+              const isOffline =
+                !cameraNetworkOnline || !cam || cam.state === "offline";
 
-                return (
-                  <Pressable
-                    key={id}
-                    onPress={() => setSelectedCam(id)}
-                    style={[
-                      styles.tile,
-                      {
-                        width: tileSize,
-                        height: tileSize,
-                        marginRight: isEndOfRow ? 0 : tileGap,
-                      },
-                      isSelected && styles.tileSelected,
-                    ]}
-                  >
-                    <SmallCameraFeed offline={isOffline} />
+              return (
+                <Pressable
+                  key={id}
+                  onPress={() => setSelectedCam(id)}
+                  style={[
+                    styles.tile,
+                    {
+                      width: tileSize,
+                      height: tileSize,
+                      marginRight: isEndOfRow ? 0 : tileGap,
+                    },
+                    isSelected && styles.tileSelected,
+                  ]}
+                >
+                  <SmallCameraFeed offline={isOffline} />
 
-                    <View pointerEvents="none" style={styles.overlay}>
-                      <Text style={styles.overlayText}>
-                        {cam?.label ?? `CAM ${id}`}
-                      </Text>
-                    </View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </>
-        )}
-
-        {standbyMode && (
-          <View style={styles.standby}>
-            <Text style={styles.standbyText}>{standbyMessage}</Text>
+                  <View pointerEvents="none" style={styles.overlay}>
+                    <Text style={styles.overlayText}>
+                      {cam?.label ?? `CAM ${id}`}
+                    </Text>
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
-        )}
+        </>
+      )}
 
-        <View style={{ height: HOME_BAR_SPACE }} />
-      </View>
-    </PhoneFrame>
+      {standbyMode && (
+        <View style={styles.standby}>
+          <Text style={styles.standbyText}>{standbyMessage}</Text>
+        </View>
+      )}
+
+      <View style={{ height: HOME_BAR_SPACE }} />
+    </View>
   );
 }
 

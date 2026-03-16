@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
@@ -290,150 +289,143 @@ export default function ScannerScreen() {
   }
 
   return (
-    <PhoneFrame>
-      <View style={styles.wrap}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>Scanner</Text>
-            <Text style={styles.headerSub}>RF sweep / intercept monitor</Text>
-          </View>
+    <View style={styles.wrap}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>Scanner</Text>
+          <Text style={styles.headerSub}>RF sweep / intercept monitor</Text>
+        </View>
 
-          <View style={styles.statusPill}>
-            <View
+        <View style={styles.statusPill}>
+          <View
+            style={[
+              styles.statusDot,
+              isScanning ? styles.dotOn : styles.dotOff,
+            ]}
+          />
+          <Text style={styles.statusText}>
+            {isHold ? "HOLD" : isScanning ? "SCAN" : "PAUSE"}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.screenCard}>
+        <View style={styles.screenTop}>
+          <Text style={styles.bandText}>
+            {activeChannel?.band ?? "---"} BAND
+          </Text>
+          <Text style={styles.freqText}>{activeChannel?.freq ?? "---.--"}</Text>
+          <Text style={styles.labelText}>
+            {activeChannel?.label ?? "No signal selected"}
+          </Text>
+        </View>
+
+        <View style={styles.scopeWrap}>
+          <View style={styles.scopeGrid}>
+            <Animated.View
               style={[
-                styles.statusDot,
-                isScanning ? styles.dotOn : styles.dotOff,
+                styles.sweepLine,
+                { transform: [{ translateX: sweepTranslate }] },
               ]}
             />
-            <Text style={styles.statusText}>
-              {isHold ? "HOLD" : isScanning ? "SCAN" : "PAUSE"}
-            </Text>
           </View>
+          <Text style={styles.scopeStatus}>{noiseText}</Text>
         </View>
 
-        <View style={styles.screenCard}>
-          <View style={styles.screenTop}>
-            <Text style={styles.bandText}>
-              {activeChannel?.band ?? "---"} BAND
-            </Text>
-            <Text style={styles.freqText}>
-              {activeChannel?.freq ?? "---.--"}
-            </Text>
-            <Text style={styles.labelText}>
-              {activeChannel?.label ?? "No signal selected"}
-            </Text>
+        <View style={styles.meterRow}>
+          <Text style={styles.meterLabel}>SIG</Text>
+          <View style={styles.meterTrack}>
+            <View style={[styles.meterFill, { width: `${signal}%` }]} />
           </View>
-
-          <View style={styles.scopeWrap}>
-            <View style={styles.scopeGrid}>
-              <Animated.View
-                style={[
-                  styles.sweepLine,
-                  { transform: [{ translateX: sweepTranslate }] },
-                ]}
-              />
-            </View>
-            <Text style={styles.scopeStatus}>{noiseText}</Text>
-          </View>
-
-          <View style={styles.meterRow}>
-            <Text style={styles.meterLabel}>SIG</Text>
-            <View style={styles.meterTrack}>
-              <View style={[styles.meterFill, { width: `${signal}%` }]} />
-            </View>
-            <Text style={styles.meterValue}>{signal}%</Text>
-          </View>
+          <Text style={styles.meterValue}>{signal}%</Text>
         </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.bandRow}
-        >
-          {(["ALL", "VHF", "UHF", "AIR", "CIV"] as const).map((item) => {
-            const active = band === item;
-            return (
-              <Pressable
-                key={item}
-                onPress={() => setBand(item)}
-                style={[styles.bandBtn, active && styles.bandBtnActive]}
-              >
-                <Text
-                  style={[
-                    styles.bandBtnText,
-                    active && styles.bandBtnTextActive,
-                  ]}
-                >
-                  {item}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-
-        <View style={styles.controlsRow}>
-          <Pressable
-            style={styles.controlBtn}
-            onPress={() => handleStepChannel(-1)}
-          >
-            <Text style={styles.controlBtnText}>◀ PREV</Text>
-          </Pressable>
-
-          <Pressable
-            style={[styles.controlBtn, styles.primaryBtn]}
-            onPress={handleScanToggle}
-          >
-            <Text style={[styles.controlBtnText, styles.primaryBtnText]}>
-              {isScanning ? "PAUSE" : "SCAN"}
-            </Text>
-          </Pressable>
-
-          <Pressable style={styles.controlBtn} onPress={handleHoldToggle}>
-            <Text style={styles.controlBtnText}>
-              {isHold ? "RELEASE" : "HOLD"}
-            </Text>
-          </Pressable>
-
-          <Pressable
-            style={styles.controlBtn}
-            onPress={() => handleStepChannel(1)}
-          >
-            <Text style={styles.controlBtnText}>NEXT ▶</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.logHeader}>
-          <Text style={styles.logTitle}>Traffic Log</Text>
-          <Pressable onPress={clearLog}>
-            <Text style={styles.clearText}>Clear</Text>
-          </Pressable>
-        </View>
-
-        <ScrollView
-          ref={logScrollRef}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={styles.logContent}
-          style={styles.logCard}
-        >
-          {logs.length === 0 ? (
-            <Text style={styles.emptyText}>
-              No intercepted traffic yet. Start scanning to populate the feed.
-            </Text>
-          ) : (
-            logs.map((item) => (
-              <View key={item.id} style={styles.logItem}>
-                <View style={styles.logTop}>
-                  <Text style={styles.logFreq}>{item.freq}</Text>
-                  <Text style={styles.logTime}>{fmtTime(item.at)}</Text>
-                </View>
-                <Text style={styles.logLabel}>{item.label}</Text>
-                <Text style={styles.logText}>{item.text}</Text>
-              </View>
-            ))
-          )}
-        </ScrollView>
       </View>
-    </PhoneFrame>
+
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.bandRow}
+      >
+        {(["ALL", "VHF", "UHF", "AIR", "CIV"] as const).map((item) => {
+          const active = band === item;
+          return (
+            <Pressable
+              key={item}
+              onPress={() => setBand(item)}
+              style={[styles.bandBtn, active && styles.bandBtnActive]}
+            >
+              <Text
+                style={[styles.bandBtnText, active && styles.bandBtnTextActive]}
+              >
+                {item}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+
+      <View style={styles.controlsRow}>
+        <Pressable
+          style={styles.controlBtn}
+          onPress={() => handleStepChannel(-1)}
+        >
+          <Text style={styles.controlBtnText}>◀ PREV</Text>
+        </Pressable>
+
+        <Pressable
+          style={[styles.controlBtn, styles.primaryBtn]}
+          onPress={handleScanToggle}
+        >
+          <Text style={[styles.controlBtnText, styles.primaryBtnText]}>
+            {isScanning ? "PAUSE" : "SCAN"}
+          </Text>
+        </Pressable>
+
+        <Pressable style={styles.controlBtn} onPress={handleHoldToggle}>
+          <Text style={styles.controlBtnText}>
+            {isHold ? "RELEASE" : "HOLD"}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          style={styles.controlBtn}
+          onPress={() => handleStepChannel(1)}
+        >
+          <Text style={styles.controlBtnText}>NEXT ▶</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.logHeader}>
+        <Text style={styles.logTitle}>Traffic Log</Text>
+        <Pressable onPress={clearLog}>
+          <Text style={styles.clearText}>Clear</Text>
+        </Pressable>
+      </View>
+
+      <ScrollView
+        ref={logScrollRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.logContent}
+        style={styles.logCard}
+      >
+        {logs.length === 0 ? (
+          <Text style={styles.emptyText}>
+            No intercepted traffic yet. Start scanning to populate the feed.
+          </Text>
+        ) : (
+          logs.map((item) => (
+            <View key={item.id} style={styles.logItem}>
+              <View style={styles.logTop}>
+                <Text style={styles.logFreq}>{item.freq}</Text>
+                <Text style={styles.logTime}>{fmtTime(item.at)}</Text>
+              </View>
+              <Text style={styles.logLabel}>{item.label}</Text>
+              <Text style={styles.logText}>{item.text}</Text>
+            </View>
+          ))
+        )}
+      </ScrollView>
+    </View>
   );
 }
 

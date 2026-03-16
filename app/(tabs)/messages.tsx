@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import { useFocusEffect } from "@react-navigation/native";
 import React, {
@@ -239,157 +238,155 @@ export default function MessagesScreen() {
   }
 
   return (
-    <PhoneFrame>
-      <View style={styles.screen}>
-        <View style={styles.header}>
-          <Text style={styles.kicker}>SECURE COMMS</Text>
-          <Text style={styles.title}>Messages</Text>
-          <Text style={styles.subtle}>
-            {liveBubble?.phase === "typing" ? "ops typing" : "channel active"}
-          </Text>
-        </View>
+    <View style={styles.screen}>
+      <View style={styles.header}>
+        <Text style={styles.kicker}>SECURE COMMS</Text>
+        <Text style={styles.title}>Messages</Text>
+        <Text style={styles.subtle}>
+          {liveBubble?.phase === "typing" ? "ops typing" : "channel active"}
+        </Text>
+      </View>
 
-        <View style={styles.threadWrap}>
-          <ScrollView
-            ref={scrollRef}
-            style={styles.thread}
-            contentContainerStyle={styles.threadContent}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
-            {thread.map((item) => {
-              if (
-                liveBubble?.phase === "message" &&
-                hasLiveMessageInThread &&
-                item.id === liveBubble.id
-              ) {
-                return (
-                  <View
-                    key={`live-inline-${liveBubble.uiKey}`}
-                    style={[styles.row, styles.rowLeft]}
-                  >
-                    <View style={[styles.bubble, styles.handlerBubble]}>
-                      <Text style={[styles.meta, styles.handlerMeta]}>
-                        {liveBubble.from === "system" ? "SYS" : "OPS"} ·{" "}
-                        {formatTime(liveBubble.at)}
-                      </Text>
-                      <Text style={styles.messageText}>{liveBubble.text}</Text>
-                    </View>
+      <View style={styles.threadWrap}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.thread}
+          contentContainerStyle={styles.threadContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {thread.map((item) => {
+            if (
+              liveBubble?.phase === "message" &&
+              hasLiveMessageInThread &&
+              item.id === liveBubble.id
+            ) {
+              return (
+                <View
+                  key={`live-inline-${liveBubble.uiKey}`}
+                  style={[styles.row, styles.rowLeft]}
+                >
+                  <View style={[styles.bubble, styles.handlerBubble]}>
+                    <Text style={[styles.meta, styles.handlerMeta]}>
+                      {liveBubble.from === "system" ? "SYS" : "OPS"} ·{" "}
+                      {formatTime(liveBubble.at)}
+                    </Text>
+                    <Text style={styles.messageText}>{liveBubble.text}</Text>
                   </View>
-                );
-              }
-
-              return renderThreadBubble({
-                id: item.id,
-                text: item.text,
-                at: item.at,
-                from:
-                  item.from === "player"
-                    ? "player"
-                    : item.from === "system"
-                      ? "system"
-                      : "ops",
-              });
-            })}
-
-            {liveBubble?.phase === "typing" && (
-              <View
-                key={`live-typing-${liveBubble.uiKey}`}
-                style={[styles.row, styles.rowLeft]}
-              >
-                <View style={[styles.bubble, styles.handlerBubble]}>
-                  <Text style={[styles.meta, styles.handlerMeta]}>OPS</Text>
-                  <Text style={styles.typingText}>{dots}</Text>
                 </View>
-              </View>
-            )}
+              );
+            }
 
-            {liveBubble?.phase === "message" && !hasLiveMessageInThread && (
-              <View
-                key={`live-tail-${liveBubble.uiKey}`}
-                style={[styles.row, styles.rowLeft]}
-              >
-                <View style={[styles.bubble, styles.handlerBubble]}>
-                  <Text style={[styles.meta, styles.handlerMeta]}>
-                    {liveBubble.from === "system" ? "SYS" : "OPS"} ·{" "}
-                    {formatTime(liveBubble.at)}
-                  </Text>
-                  <Text style={styles.messageText}>{liveBubble.text}</Text>
-                </View>
+            return renderThreadBubble({
+              id: item.id,
+              text: item.text,
+              at: item.at,
+              from:
+                item.from === "player"
+                  ? "player"
+                  : item.from === "system"
+                    ? "system"
+                    : "ops",
+            });
+          })}
+
+          {liveBubble?.phase === "typing" && (
+            <View
+              key={`live-typing-${liveBubble.uiKey}`}
+              style={[styles.row, styles.rowLeft]}
+            >
+              <View style={[styles.bubble, styles.handlerBubble]}>
+                <Text style={[styles.meta, styles.handlerMeta]}>OPS</Text>
+                <Text style={styles.typingText}>{dots}</Text>
               </View>
-            )}
+            </View>
+          )}
+
+          {liveBubble?.phase === "message" && !hasLiveMessageInThread && (
+            <View
+              key={`live-tail-${liveBubble.uiKey}`}
+              style={[styles.row, styles.rowLeft]}
+            >
+              <View style={[styles.bubble, styles.handlerBubble]}>
+                <Text style={[styles.meta, styles.handlerMeta]}>
+                  {liveBubble.from === "system" ? "SYS" : "OPS"} ·{" "}
+                  {formatTime(liveBubble.at)}
+                </Text>
+                <Text style={styles.messageText}>{liveBubble.text}</Text>
+              </View>
+            </View>
+          )}
+        </ScrollView>
+      </View>
+
+      {replyChips.length > 0 && (
+        <View style={styles.quickBar}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.quickBarContent}
+          >
+            {replyChips.map((item) => (
+              <Pressable
+                key={`chip-${item.id}`}
+                onPress={() => {
+                  void handleMessageReplyAction(item.action, item.label);
+                }}
+                style={[
+                  styles.quickBtn,
+                  messagesTyping ? styles.quickBtnDisabled : undefined,
+                ]}
+                disabled={messagesTyping}
+              >
+                <Text style={styles.quickBtnText}>{item.label}</Text>
+              </Pressable>
+            ))}
           </ScrollView>
         </View>
+      )}
 
-        {replyChips.length > 0 && (
-          <View style={styles.quickBar}>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.quickBarContent}
-            >
-              {replyChips.map((item) => (
-                <Pressable
-                  key={`chip-${item.id}`}
-                  onPress={() => {
-                    void handleMessageReplyAction(item.action, item.label);
-                  }}
-                  style={[
-                    styles.quickBtn,
-                    messagesTyping ? styles.quickBtnDisabled : undefined,
-                  ]}
-                  disabled={messagesTyping}
-                >
-                  <Text style={styles.quickBtnText}>{item.label}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        )}
+      <View style={styles.composeWrap}>
+        <TextInput
+          value={input}
+          onChangeText={setInput}
+          placeholder={
+            inputEnabled ? "Send burst..." : "Messaging unavailable..."
+          }
+          placeholderTextColor="rgba(255,255,255,0.35)"
+          style={[
+            styles.input,
+            !inputEnabled ? styles.inputDisabled : undefined,
+          ]}
+          onSubmitEditing={() => handleSend()}
+          returnKeyType="send"
+          editable={inputEnabled && !messagesTyping}
+        />
 
-        <View style={styles.composeWrap}>
-          <TextInput
-            value={input}
-            onChangeText={setInput}
-            placeholder={
-              inputEnabled ? "Send burst..." : "Messaging unavailable..."
-            }
-            placeholderTextColor="rgba(255,255,255,0.35)"
+        <Pressable
+          onPress={() => handleSend()}
+          style={[
+            styles.sendBtn,
+            !inputEnabled || !sendEnabled || messagesTyping
+              ? styles.sendBtnDisabled
+              : undefined,
+          ]}
+          disabled={!inputEnabled || !sendEnabled || messagesTyping}
+        >
+          <Text
             style={[
-              styles.input,
-              !inputEnabled ? styles.inputDisabled : undefined,
-            ]}
-            onSubmitEditing={() => handleSend()}
-            returnKeyType="send"
-            editable={inputEnabled && !messagesTyping}
-          />
-
-          <Pressable
-            onPress={() => handleSend()}
-            style={[
-              styles.sendBtn,
+              styles.sendBtnText,
               !inputEnabled || !sendEnabled || messagesTyping
-                ? styles.sendBtnDisabled
+                ? styles.sendBtnTextDisabled
                 : undefined,
             ]}
-            disabled={!inputEnabled || !sendEnabled || messagesTyping}
           >
-            <Text
-              style={[
-                styles.sendBtnText,
-                !inputEnabled || !sendEnabled || messagesTyping
-                  ? styles.sendBtnTextDisabled
-                  : undefined,
-              ]}
-            >
-              SEND
-            </Text>
-          </Pressable>
-        </View>
-
-        <View style={{ height: HOME_BAR_SPACE }} />
+            SEND
+          </Text>
+        </Pressable>
       </View>
-    </PhoneFrame>
+
+      <View style={{ height: HOME_BAR_SPACE }} />
+    </View>
   );
 }
 

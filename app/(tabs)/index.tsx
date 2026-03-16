@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import { useRouter } from "expo-router";
 import React from "react";
@@ -179,82 +178,77 @@ export default function HomePhoneScreen() {
   );
 
   return (
-    <PhoneFrame showGestureBar={false}>
-      <View style={styles.screen}>
-        <Image
-          source={gunmetalBg}
-          style={styles.backgroundImage}
-          resizeMode="cover"
-        />
-        <View style={styles.overlay} />
+    <View style={styles.screen}>
+      <Image
+        source={gunmetalBg}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
+      <View style={styles.overlay} />
 
-        <View style={styles.topPanels}>
-          <View style={styles.panel}>
-            <View style={styles.panelHeader}>
-              <Text style={styles.panelLabel}>MISSION TIMER</Text>
+      <View style={styles.topPanels}>
+        <View style={styles.panel}>
+          <View style={styles.panelHeader}>
+            <Text style={styles.panelLabel}>MISSION TIMER</Text>
+            <View
+              style={[styles.panelDot, !timerRunning && styles.panelDotPaused]}
+            />
+          </View>
+
+          <Text style={styles.timerValue}>{formatTime(secondsLeft)}</Text>
+
+          <View style={styles.panelFooter}>
+            <Text style={styles.panelFooterText}>
+              {timerRunning ? "COUNTDOWN ACTIVE" : "PAUSED"}
+            </Text>
+            <View style={styles.scanLine} />
+          </View>
+        </View>
+
+        <View style={styles.panel}>
+          <View style={styles.panelHeader}>
+            <Text style={styles.panelLabel}>TRACE LOG</Text>
+            <Text style={styles.panelMiniValue}>{trace}%</Text>
+          </View>
+
+          <View style={styles.traceMeter}>
+            {Array.from({ length: TRACE_SEGMENTS }).map((_, i) => (
               <View
+                key={`trace-${i}`}
                 style={[
-                  styles.panelDot,
-                  !timerRunning && styles.panelDotPaused,
+                  styles.traceSegment,
+                  i < activeTraceSegments && styles.traceSegmentActive,
+                  trace >= 80 &&
+                    i < activeTraceSegments &&
+                    styles.traceSegmentDanger,
                 ]}
               />
-            </View>
-
-            <Text style={styles.timerValue}>{formatTime(secondsLeft)}</Text>
-
-            <View style={styles.panelFooter}>
-              <Text style={styles.panelFooterText}>
-                {timerRunning ? "COUNTDOWN ACTIVE" : "PAUSED"}
-              </Text>
-              <View style={styles.scanLine} />
-            </View>
+            ))}
           </View>
 
-          <View style={styles.panel}>
-            <View style={styles.panelHeader}>
-              <Text style={styles.panelLabel}>TRACE LOG</Text>
-              <Text style={styles.panelMiniValue}>{trace}%</Text>
-            </View>
-
-            <View style={styles.traceMeter}>
-              {Array.from({ length: TRACE_SEGMENTS }).map((_, i) => (
-                <View
-                  key={`trace-${i}`}
-                  style={[
-                    styles.traceSegment,
-                    i < activeTraceSegments && styles.traceSegmentActive,
-                    trace >= 80 &&
-                      i < activeTraceSegments &&
-                      styles.traceSegmentDanger,
-                  ]}
-                />
-              ))}
-            </View>
-
-            <View style={styles.panelFooter}>
-              <Text style={styles.panelFooterText}>
-                {trace >= 80
-                  ? "CRITICAL SIGNATURE"
-                  : trace >= 50
-                    ? "ELEVATED DETECTION"
-                    : "LOW SIGNATURE"}
-              </Text>
-              <View style={styles.scanLine} />
-            </View>
-          </View>
-        </View>
-
-        <View style={styles.mainArea}>
-          <View style={styles.grid}>{gridApps.map((a) => renderApp(a))}</View>
-        </View>
-
-        <View style={styles.dockWrap}>
-          <View style={styles.dock}>
-            {dockApps.map((a) => renderApp(a, true))}
+          <View style={styles.panelFooter}>
+            <Text style={styles.panelFooterText}>
+              {trace >= 80
+                ? "CRITICAL SIGNATURE"
+                : trace >= 50
+                  ? "ELEVATED DETECTION"
+                  : "LOW SIGNATURE"}
+            </Text>
+            <View style={styles.scanLine} />
           </View>
         </View>
       </View>
-    </PhoneFrame>
+
+      <View style={styles.mainArea}>
+        <View style={styles.grid}>{gridApps.map((a) => renderApp(a))}</View>
+      </View>
+
+      <View style={styles.dockWrap}>
+        <View style={styles.dock}>
+          {dockApps.map((a) => renderApp(a, true))}
+        </View>
+      </View>
+    </View>
   );
 }
 

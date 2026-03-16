@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     top: STATUS_BAR_HEIGHT + STATUS_BAR_GAP,
     paddingHorizontal: 10,
     zIndex: 100,
-    marginTop: 16,
+    marginTop: -40,
   },
 
   banner: {

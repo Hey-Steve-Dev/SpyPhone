@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -537,304 +536,302 @@ export default function NetworkScreen() {
   }, [engineTrace, connected, scanning, scanGen]);
 
   return (
-    <PhoneFrame>
-      <View style={styles.root}>
-        <View style={styles.top}>
-          <Text style={styles.title}>Network</Text>
+    <View style={styles.root}>
+      <View style={styles.top}>
+        <Text style={styles.title}>Network</Text>
 
-          <View style={styles.metaRow}>
-            <Text style={styles.meta}>
-              LINK: <Text style={styles.metaStrong}>{headerStatus.link}</Text>
-            </Text>
-            <Text style={styles.meta}>
-              BAND: <Text style={styles.metaStrong}>{preferredBand}</Text>
-            </Text>
-            <Text style={styles.meta}>
-              TRACE: <Text style={styles.metaStrong}>{headerStatus.trace}</Text>
-            </Text>
-          </View>
-
-          <View style={styles.tabs}>
-            <TabButton
-              label="Scan"
-              active={tab === "scan"}
-              onPress={() => setTab("scan")}
-            />
-            <TabButton
-              label="Hop"
-              active={tab === "hop"}
-              onPress={() => setTab("hop")}
-            />
-            <TabButton
-              label="Hack"
-              active={tab === "hack"}
-              onPress={() => setTab("hack")}
-            />
-            <TabButton
-              label="Log"
-              active={tab === "log"}
-              onPress={() => setTab("log")}
-            />
-          </View>
+        <View style={styles.metaRow}>
+          <Text style={styles.meta}>
+            LINK: <Text style={styles.metaStrong}>{headerStatus.link}</Text>
+          </Text>
+          <Text style={styles.meta}>
+            BAND: <Text style={styles.metaStrong}>{preferredBand}</Text>
+          </Text>
+          <Text style={styles.meta}>
+            TRACE: <Text style={styles.metaStrong}>{headerStatus.trace}</Text>
+          </Text>
         </View>
 
-        <View style={styles.content}>
-          {tab === "scan" && (
-            <FlatList
-              data={filteredResults}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listPad}
-              ListHeaderComponent={
-                <View style={styles.sectionHead}>
-                  <Text style={styles.sectionTitle}>
-                    Scan results{" "}
-                    <Text style={styles.sectionSub}>
-                      ({filteredResults.length})
-                    </Text>
-                  </Text>
-                  <Text style={styles.sectionHint}>
-                    {scanning ? "active probe running" : "tap a network"}
-                  </Text>
-
-                  <View style={styles.actionPanel}>
-                    <ActionBtn
-                      label={scanning ? "Scanning…" : "Scan"}
-                      onPress={beginScan}
-                      disabled={scanning}
-                    />
-                    <ActionBtn
-                      label="Select band"
-                      onPress={() => setTab("hop")}
-                    />
-                    <ActionBtn label="Clear" onPress={clearScan} />
-                  </View>
-                </View>
-              }
-              renderItem={({ item }) => (
-                <NetRow
-                  net={item}
-                  selected={targetId === item.id}
-                  connected={connected?.id === item.id}
-                  onSelect={() => selectNet(item)}
-                  onConnect={() => connectNet(item)}
-                />
-              )}
-              ListEmptyComponent={
-                <View style={styles.empty}>
-                  <Text style={styles.emptyText}>No networks cached.</Text>
-                  <Text style={styles.emptyTextMuted}>
-                    Use Scan to populate nearby networks.
-                  </Text>
-                </View>
-              }
-            />
-          )}
-
-          {tab === "hop" && (
-            <FlatList
-              data={["LTE", "5G", "WIFI", "SAT", "UHF", "VHF"] as Band[]}
-              keyExtractor={(b) => b}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listPad}
-              ListHeaderComponent={
-                <View style={styles.sectionHead}>
-                  <Text style={styles.sectionTitle}>Band hopping</Text>
-                  <Text style={styles.sectionHint}>
-                    preference guides scan + route selection
-                  </Text>
-
-                  <View style={styles.pillsRow}>
-                    <Pill
-                      label={`Auto-hop: ${autoHop ? "ON" : "OFF"}`}
-                      onPress={toggleAutoHop}
-                      active={autoHop}
-                    />
-                    <Pill
-                      label={`Stealth: ${stealth ? "ON" : "OFF"}`}
-                      onPress={toggleStealth}
-                      active={stealth}
-                    />
-                  </View>
-
-                  <View style={styles.actionPanel}>
-                    <ActionBtn label="Hop now" onPress={hopNow} />
-                    <ActionBtn
-                      label={`Auto: ${autoHop ? "ON" : "OFF"}`}
-                      onPress={toggleAutoHop}
-                    />
-                    <ActionBtn
-                      label={`Stealth: ${stealth ? "ON" : "OFF"}`}
-                      onPress={toggleStealth}
-                    />
-                  </View>
-                </View>
-              }
-              renderItem={({ item }) => (
-                <BandRow
-                  band={item}
-                  active={preferredBand === item}
-                  onPress={() => {
-                    setPreferredBand(item);
-                    pushLog("LINK", `Band: preferred=${item}`);
-                  }}
-                />
-              )}
-              ListFooterComponent={
-                <View style={styles.footerNote}>
-                  <Text style={styles.footerText}>
-                    Notes: stealth reduces probe aggressiveness and hop rate.
-                  </Text>
-                  <Text style={styles.footerText}>
-                    Auto-hop picks bands with better “RF quiet” heuristics.
-                  </Text>
-                </View>
-              }
-            />
-          )}
-
-          {tab === "hack" && (
-            <FlatList
-              data={filteredResults}
-              keyExtractor={(n) => n.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.listPad}
-              ListHeaderComponent={
-                <View style={styles.sectionHead}>
-                  <Text style={styles.sectionTitle}>Hack console</Text>
-                  <Text style={styles.sectionHint}>
-                    pick a target, probe, then attempt access
-                  </Text>
-
-                  <View style={styles.hackCard}>
-                    <Text style={styles.hackLabel}>Target</Text>
-                    <Text style={styles.hackValue}>
-                      {target
-                        ? summarizeNet(target)
-                        : connected
-                          ? summarizeNet(connected)
-                          : "none"}
-                    </Text>
-
-                    <Text style={[styles.hackLabel, { marginTop: 10 }]}>
-                      Passphrase hint
-                    </Text>
-                    <TextInput
-                      value={passphrase}
-                      onChangeText={setPassphrase}
-                      placeholder="optional: leaked phrase / operator note"
-                      placeholderTextColor={"rgba(255,255,255,0.35)"}
-                      style={styles.input}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
-
-                    <View style={styles.hackButtons}>
-                      <MiniBtn
-                        label={hackBusy ? "Probing…" : "Probe"}
-                        onPress={() => {
-                          void runProbe();
-                        }}
-                        disabled={hackBusy}
-                      />
-                      <MiniBtn
-                        label={hackBusy ? "Working…" : "Hack"}
-                        onPress={() => {
-                          void runHack();
-                        }}
-                        disabled={hackBusy}
-                      />
-                      <MiniBtn
-                        label={connected ? "Detach" : "Link"}
-                        onPress={() => {
-                          if (connected) disconnect();
-                          else if (target) connectNet(target);
-                          else pushLog("WARN", "Link: select a target first");
-                        }}
-                      />
-                    </View>
-                  </View>
-
-                  <Text style={[styles.sectionTitle, { marginTop: 12 }]}>
-                    Nearby targets
-                  </Text>
-                  <Text style={styles.sectionHint}>
-                    (tap to set as hack target)
-                  </Text>
-                </View>
-              }
-              renderItem={({ item }) => (
-                <NetRow
-                  net={item}
-                  selected={targetId === item.id}
-                  connected={connected?.id === item.id}
-                  onSelect={() => {
-                    setTargetId(item.id);
-                    pushLog("SCAN", `Target set → ${summarizeNet(item)}`);
-                  }}
-                  onConnect={() => connectNet(item)}
-                />
-              )}
-              ListEmptyComponent={
-                <View style={styles.empty}>
-                  <Text style={styles.emptyText}>No targets.</Text>
-                  <Text style={styles.emptyTextMuted}>
-                    Scan to populate nearby networks.
-                  </Text>
-                </View>
-              }
-            />
-          )}
-
-          {tab === "log" && (
-            <FlatList
-              ref={logListRef}
-              data={logItems}
-              keyExtractor={(i) => i.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.consoleContainer}
-              ListHeaderComponent={
-                <View style={[styles.sectionHead, { marginBottom: 8 }]}>
-                  <View style={styles.actionPanel}>
-                    <ActionBtn
-                      label="Mark"
-                      onPress={() => pushLog("SYS", "Marker: ---")}
-                    />
-                    <ActionBtn
-                      label="Purge"
-                      onPress={() => {
-                        const cleared = [
-                          {
-                            id: uid("log"),
-                            at: Date.now(),
-                            level: "SYS" as const,
-                            text: "NET: log cleared",
-                          },
-                        ];
-                        setLogItems(cleared);
-                        engineClearLog();
-                        engineSetNetwork({ logs: cleared });
-                      }}
-                    />
-                    <ActionBtn label="Scan" onPress={() => setTab("scan")} />
-                  </View>
-                </View>
-              }
-              renderItem={({ item }) => (
-                <View style={styles.logRow}>
-                  <Text style={styles.logTime}>{fmtTime(item.at)}</Text>
-                  <Text style={styles.logLevel}>{item.level}</Text>
-                  <Text style={styles.logText}>{item.text}</Text>
-                </View>
-              )}
-              onContentSizeChange={() => {
-                logListRef.current?.scrollToEnd({ animated: false });
-              }}
-            />
-          )}
+        <View style={styles.tabs}>
+          <TabButton
+            label="Scan"
+            active={tab === "scan"}
+            onPress={() => setTab("scan")}
+          />
+          <TabButton
+            label="Hop"
+            active={tab === "hop"}
+            onPress={() => setTab("hop")}
+          />
+          <TabButton
+            label="Hack"
+            active={tab === "hack"}
+            onPress={() => setTab("hack")}
+          />
+          <TabButton
+            label="Log"
+            active={tab === "log"}
+            onPress={() => setTab("log")}
+          />
         </View>
       </View>
-    </PhoneFrame>
+
+      <View style={styles.content}>
+        {tab === "scan" && (
+          <FlatList
+            data={filteredResults}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listPad}
+            ListHeaderComponent={
+              <View style={styles.sectionHead}>
+                <Text style={styles.sectionTitle}>
+                  Scan results{" "}
+                  <Text style={styles.sectionSub}>
+                    ({filteredResults.length})
+                  </Text>
+                </Text>
+                <Text style={styles.sectionHint}>
+                  {scanning ? "active probe running" : "tap a network"}
+                </Text>
+
+                <View style={styles.actionPanel}>
+                  <ActionBtn
+                    label={scanning ? "Scanning…" : "Scan"}
+                    onPress={beginScan}
+                    disabled={scanning}
+                  />
+                  <ActionBtn
+                    label="Select band"
+                    onPress={() => setTab("hop")}
+                  />
+                  <ActionBtn label="Clear" onPress={clearScan} />
+                </View>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <NetRow
+                net={item}
+                selected={targetId === item.id}
+                connected={connected?.id === item.id}
+                onSelect={() => selectNet(item)}
+                onConnect={() => connectNet(item)}
+              />
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>No networks cached.</Text>
+                <Text style={styles.emptyTextMuted}>
+                  Use Scan to populate nearby networks.
+                </Text>
+              </View>
+            }
+          />
+        )}
+
+        {tab === "hop" && (
+          <FlatList
+            data={["LTE", "5G", "WIFI", "SAT", "UHF", "VHF"] as Band[]}
+            keyExtractor={(b) => b}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listPad}
+            ListHeaderComponent={
+              <View style={styles.sectionHead}>
+                <Text style={styles.sectionTitle}>Band hopping</Text>
+                <Text style={styles.sectionHint}>
+                  preference guides scan + route selection
+                </Text>
+
+                <View style={styles.pillsRow}>
+                  <Pill
+                    label={`Auto-hop: ${autoHop ? "ON" : "OFF"}`}
+                    onPress={toggleAutoHop}
+                    active={autoHop}
+                  />
+                  <Pill
+                    label={`Stealth: ${stealth ? "ON" : "OFF"}`}
+                    onPress={toggleStealth}
+                    active={stealth}
+                  />
+                </View>
+
+                <View style={styles.actionPanel}>
+                  <ActionBtn label="Hop now" onPress={hopNow} />
+                  <ActionBtn
+                    label={`Auto: ${autoHop ? "ON" : "OFF"}`}
+                    onPress={toggleAutoHop}
+                  />
+                  <ActionBtn
+                    label={`Stealth: ${stealth ? "ON" : "OFF"}`}
+                    onPress={toggleStealth}
+                  />
+                </View>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <BandRow
+                band={item}
+                active={preferredBand === item}
+                onPress={() => {
+                  setPreferredBand(item);
+                  pushLog("LINK", `Band: preferred=${item}`);
+                }}
+              />
+            )}
+            ListFooterComponent={
+              <View style={styles.footerNote}>
+                <Text style={styles.footerText}>
+                  Notes: stealth reduces probe aggressiveness and hop rate.
+                </Text>
+                <Text style={styles.footerText}>
+                  Auto-hop picks bands with better “RF quiet” heuristics.
+                </Text>
+              </View>
+            }
+          />
+        )}
+
+        {tab === "hack" && (
+          <FlatList
+            data={filteredResults}
+            keyExtractor={(n) => n.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.listPad}
+            ListHeaderComponent={
+              <View style={styles.sectionHead}>
+                <Text style={styles.sectionTitle}>Hack console</Text>
+                <Text style={styles.sectionHint}>
+                  pick a target, probe, then attempt access
+                </Text>
+
+                <View style={styles.hackCard}>
+                  <Text style={styles.hackLabel}>Target</Text>
+                  <Text style={styles.hackValue}>
+                    {target
+                      ? summarizeNet(target)
+                      : connected
+                        ? summarizeNet(connected)
+                        : "none"}
+                  </Text>
+
+                  <Text style={[styles.hackLabel, { marginTop: 10 }]}>
+                    Passphrase hint
+                  </Text>
+                  <TextInput
+                    value={passphrase}
+                    onChangeText={setPassphrase}
+                    placeholder="optional: leaked phrase / operator note"
+                    placeholderTextColor={"rgba(255,255,255,0.35)"}
+                    style={styles.input}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+
+                  <View style={styles.hackButtons}>
+                    <MiniBtn
+                      label={hackBusy ? "Probing…" : "Probe"}
+                      onPress={() => {
+                        void runProbe();
+                      }}
+                      disabled={hackBusy}
+                    />
+                    <MiniBtn
+                      label={hackBusy ? "Working…" : "Hack"}
+                      onPress={() => {
+                        void runHack();
+                      }}
+                      disabled={hackBusy}
+                    />
+                    <MiniBtn
+                      label={connected ? "Detach" : "Link"}
+                      onPress={() => {
+                        if (connected) disconnect();
+                        else if (target) connectNet(target);
+                        else pushLog("WARN", "Link: select a target first");
+                      }}
+                    />
+                  </View>
+                </View>
+
+                <Text style={[styles.sectionTitle, { marginTop: 12 }]}>
+                  Nearby targets
+                </Text>
+                <Text style={styles.sectionHint}>
+                  (tap to set as hack target)
+                </Text>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <NetRow
+                net={item}
+                selected={targetId === item.id}
+                connected={connected?.id === item.id}
+                onSelect={() => {
+                  setTargetId(item.id);
+                  pushLog("SCAN", `Target set → ${summarizeNet(item)}`);
+                }}
+                onConnect={() => connectNet(item)}
+              />
+            )}
+            ListEmptyComponent={
+              <View style={styles.empty}>
+                <Text style={styles.emptyText}>No targets.</Text>
+                <Text style={styles.emptyTextMuted}>
+                  Scan to populate nearby networks.
+                </Text>
+              </View>
+            }
+          />
+        )}
+
+        {tab === "log" && (
+          <FlatList
+            ref={logListRef}
+            data={logItems}
+            keyExtractor={(i) => i.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.consoleContainer}
+            ListHeaderComponent={
+              <View style={[styles.sectionHead, { marginBottom: 8 }]}>
+                <View style={styles.actionPanel}>
+                  <ActionBtn
+                    label="Mark"
+                    onPress={() => pushLog("SYS", "Marker: ---")}
+                  />
+                  <ActionBtn
+                    label="Purge"
+                    onPress={() => {
+                      const cleared = [
+                        {
+                          id: uid("log"),
+                          at: Date.now(),
+                          level: "SYS" as const,
+                          text: "NET: log cleared",
+                        },
+                      ];
+                      setLogItems(cleared);
+                      engineClearLog();
+                      engineSetNetwork({ logs: cleared });
+                    }}
+                  />
+                  <ActionBtn label="Scan" onPress={() => setTab("scan")} />
+                </View>
+              </View>
+            }
+            renderItem={({ item }) => (
+              <View style={styles.logRow}>
+                <Text style={styles.logTime}>{fmtTime(item.at)}</Text>
+                <Text style={styles.logLevel}>{item.level}</Text>
+                <Text style={styles.logText}>{item.text}</Text>
+              </View>
+            )}
+            onContentSizeChange={() => {
+              logListRef.current?.scrollToEnd({ animated: false });
+            }}
+          />
+        )}
+      </View>
+    </View>
   );
 }
 

@@ -1,14 +1,11 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import React from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 export default function SCREENNAME() {
   return (
-    <PhoneFrame>
-      <View style={styles.center}>
-        <Text style={styles.text}>LABEL</Text>
-      </View>
-    </PhoneFrame>
+    <View style={styles.center}>
+      <Text style={styles.text}>LABEL</Text>
+    </View>
   );
 }
 

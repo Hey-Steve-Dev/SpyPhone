@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import type { DimensionValue } from "react-native";
@@ -117,179 +116,175 @@ export default function AudioScannerScreen() {
   }, [dbLevel]);
 
   return (
-    <PhoneFrame>
-      <View style={styles.wrap}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>ECHOSCAN</Text>
-            <Text style={styles.headerSub}>Passive Acoustic Monitor</Text>
-          </View>
-
-          <Pressable
-            onPress={toggleAudioScanner}
-            style={({ pressed }) => [
-              styles.statusPill,
-              listening ? styles.statusPillLive : styles.statusPillIdle,
-              pressed && styles.statusPillPressed,
-            ]}
-          >
-            <Animated.View
-              style={[
-                styles.statusDot,
-                listening ? styles.statusDotLive : styles.statusDotIdle,
-                listening && {
-                  transform: [{ scale: pulseScale }],
-                  opacity: pulseOpacity,
-                },
-              ]}
-            />
-            <Text style={styles.statusText}>
-              {listening ? "LISTENING" : "OFF"}
-            </Text>
-          </Pressable>
+    <View style={styles.wrap}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>ECHOSCAN</Text>
+          <Text style={styles.headerSub}>Passive Acoustic Monitor</Text>
         </View>
 
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+        <Pressable
+          onPress={toggleAudioScanner}
+          style={({ pressed }) => [
+            styles.statusPill,
+            listening ? styles.statusPillLive : styles.statusPillIdle,
+            pressed && styles.statusPillPressed,
+          ]}
         >
-          <View style={styles.screenCard}>
-            <View style={styles.cardTopRow}>
-              <Text style={styles.cardLabel}>LIVE INPUT</Text>
-              <Text style={styles.cardMeta}>
-                {listening ? `NOISE FLOOR ${dbLevel} dB` : "SCANNER OFF"}
-              </Text>
-            </View>
+          <Animated.View
+            style={[
+              styles.statusDot,
+              listening ? styles.statusDotLive : styles.statusDotIdle,
+              listening && {
+                transform: [{ scale: pulseScale }],
+                opacity: pulseOpacity,
+              },
+            ]}
+          />
+          <Text style={styles.statusText}>
+            {listening ? "LISTENING" : "OFF"}
+          </Text>
+        </Pressable>
+      </View>
 
-            <View style={styles.wavePanel}>
-              <View style={styles.waveGrid} />
-
-              <View style={styles.barsRow}>
-                {bars.map((v, i) => (
-                  <View key={i} style={styles.barTrack}>
-                    <View
-                      style={[
-                        styles.barFill,
-                        !listening && styles.barFillIdle,
-                        {
-                          height: `${Math.max(8, v * 100)}%`,
-                        },
-                      ]}
-                    />
-                  </View>
-                ))}
-              </View>
-
-              <View style={styles.waveFooter}>
-                <Text style={styles.axisText}>0s</Text>
-                <Text style={styles.axisText}>+2s</Text>
-                <Text style={styles.axisText}>+4s</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.dualRow}>
-            <View style={styles.infoCard}>
-              <Text style={styles.infoLabel}>GAIN</Text>
-              <Text style={styles.infoValue}>{sensitivity}</Text>
-
-              <View style={styles.segmentRow}>
-                {(["LOW", "MED", "HIGH"] as const).map((level) => {
-                  const active = sensitivity === level;
-                  return (
-                    <Pressable
-                      key={level}
-                      onPress={() => setSensitivity(level)}
-                      style={[
-                        styles.segmentBtn,
-                        active && styles.segmentBtnActive,
-                      ]}
-                    >
-                      <Text
-                        style={[
-                          styles.segmentText,
-                          active && styles.segmentTextActive,
-                        ]}
-                      >
-                        {level}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-            </View>
-
-            <View style={styles.infoCard}>
-              <Text style={styles.infoLabel}>SIGNAL</Text>
-              <Text style={styles.infoValue}>
-                {listening ? `${dbLevel} dB` : "—"}
-              </Text>
-
-              <View style={styles.meterTrack}>
-                <View
-                  style={[
-                    styles.meterFill,
-                    !listening && styles.meterFillIdle,
-                    { width: meterFill },
-                  ]}
-                />
-              </View>
-
-              <View style={styles.meterLabels}>
-                <Text style={styles.meterText}>LOW</Text>
-                <Text style={styles.meterText}>MID</Text>
-                <Text style={styles.meterText}>HOT</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.lockCard}>
-            <View style={styles.cardTopRow}>
-              <Text style={styles.cardLabel}>SOURCE LOCK</Text>
-              <Text style={styles.cardMeta}>
-                {listening ? "PASSIVE MODE" : "STANDBY"}
-              </Text>
-            </View>
-
-            <View style={styles.lockGrid}>
-              <View style={styles.lockCell}>
-                <Text style={styles.lockKey}>Direction</Text>
-                <Text style={styles.lockVal}>
-                  {listening ? "UNRESOLVED" : "—"}
-                </Text>
-              </View>
-              <View style={styles.lockCell}>
-                <Text style={styles.lockKey}>Range</Text>
-                <Text style={styles.lockVal}>{listening ? "~ 12 m" : "—"}</Text>
-              </View>
-              <View style={styles.lockCell}>
-                <Text style={styles.lockKey}>Pattern</Text>
-                <Text style={styles.lockVal}>
-                  {listening ? "INTERMITTENT" : "—"}
-                </Text>
-              </View>
-              <View style={styles.lockCell}>
-                <Text style={styles.lockKey}>Type</Text>
-                <Text style={styles.lockVal}>
-                  {listening ? "MOVEMENT" : "—"}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.hintCard}>
-            <Text style={styles.hintText}>
-              {listening
-                ? "Scanner is active. Increase gain to detect faint movement through walls."
-                : "Scanner is off. Tap the top status pill to begin listening."}
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.screenCard}>
+          <View style={styles.cardTopRow}>
+            <Text style={styles.cardLabel}>LIVE INPUT</Text>
+            <Text style={styles.cardMeta}>
+              {listening ? `NOISE FLOOR ${dbLevel} dB` : "SCANNER OFF"}
             </Text>
           </View>
 
-          <View style={{ height: HOME_BAR_SPACE + 12 }} />
-        </ScrollView>
-      </View>
-    </PhoneFrame>
+          <View style={styles.wavePanel}>
+            <View style={styles.waveGrid} />
+
+            <View style={styles.barsRow}>
+              {bars.map((v, i) => (
+                <View key={i} style={styles.barTrack}>
+                  <View
+                    style={[
+                      styles.barFill,
+                      !listening && styles.barFillIdle,
+                      {
+                        height: `${Math.max(8, v * 100)}%`,
+                      },
+                    ]}
+                  />
+                </View>
+              ))}
+            </View>
+
+            <View style={styles.waveFooter}>
+              <Text style={styles.axisText}>0s</Text>
+              <Text style={styles.axisText}>+2s</Text>
+              <Text style={styles.axisText}>+4s</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.dualRow}>
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>GAIN</Text>
+            <Text style={styles.infoValue}>{sensitivity}</Text>
+
+            <View style={styles.segmentRow}>
+              {(["LOW", "MED", "HIGH"] as const).map((level) => {
+                const active = sensitivity === level;
+                return (
+                  <Pressable
+                    key={level}
+                    onPress={() => setSensitivity(level)}
+                    style={[
+                      styles.segmentBtn,
+                      active && styles.segmentBtnActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.segmentText,
+                        active && styles.segmentTextActive,
+                      ]}
+                    >
+                      {level}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          <View style={styles.infoCard}>
+            <Text style={styles.infoLabel}>SIGNAL</Text>
+            <Text style={styles.infoValue}>
+              {listening ? `${dbLevel} dB` : "—"}
+            </Text>
+
+            <View style={styles.meterTrack}>
+              <View
+                style={[
+                  styles.meterFill,
+                  !listening && styles.meterFillIdle,
+                  { width: meterFill },
+                ]}
+              />
+            </View>
+
+            <View style={styles.meterLabels}>
+              <Text style={styles.meterText}>LOW</Text>
+              <Text style={styles.meterText}>MID</Text>
+              <Text style={styles.meterText}>HOT</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.lockCard}>
+          <View style={styles.cardTopRow}>
+            <Text style={styles.cardLabel}>SOURCE LOCK</Text>
+            <Text style={styles.cardMeta}>
+              {listening ? "PASSIVE MODE" : "STANDBY"}
+            </Text>
+          </View>
+
+          <View style={styles.lockGrid}>
+            <View style={styles.lockCell}>
+              <Text style={styles.lockKey}>Direction</Text>
+              <Text style={styles.lockVal}>
+                {listening ? "UNRESOLVED" : "—"}
+              </Text>
+            </View>
+            <View style={styles.lockCell}>
+              <Text style={styles.lockKey}>Range</Text>
+              <Text style={styles.lockVal}>{listening ? "~ 12 m" : "—"}</Text>
+            </View>
+            <View style={styles.lockCell}>
+              <Text style={styles.lockKey}>Pattern</Text>
+              <Text style={styles.lockVal}>
+                {listening ? "INTERMITTENT" : "—"}
+              </Text>
+            </View>
+            <View style={styles.lockCell}>
+              <Text style={styles.lockKey}>Type</Text>
+              <Text style={styles.lockVal}>{listening ? "MOVEMENT" : "—"}</Text>
+            </View>
+          </View>
+        </View>
+
+        <View style={styles.hintCard}>
+          <Text style={styles.hintText}>
+            {listening
+              ? "Scanner is active. Increase gain to detect faint movement through walls."
+              : "Scanner is off. Tap the top status pill to begin listening."}
+          </Text>
+        </View>
+
+        <View style={{ height: HOME_BAR_SPACE + 12 }} />
+      </ScrollView>
+    </View>
   );
 }
 

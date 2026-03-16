@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { runCommandEngine } from "@/lib/commandEngine";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useRef, useState } from "react";
@@ -221,211 +220,209 @@ export default function TerminalScreen() {
   }
 
   return (
-    <PhoneFrame>
-      <View style={styles.wrap}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.headerTitle}>TERMINAL</Text>
-            <Text style={styles.headerSub}>LOCAL SHELL</Text>
-          </View>
-        </View>
-
-        <View style={styles.screen}>
-          <ScrollView
-            ref={scrollRef}
-            style={styles.scroll}
-            contentContainerStyle={styles.scrollContent}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {lines.map((l) => (
-              <Text
-                key={l.id}
-                style={[
-                  styles.line,
-                  l.kind === "cmd" ? styles.lineCmd : styles.lineOut,
-                ]}
-                selectable
-              >
-                {l.text}
-              </Text>
-            ))}
-          </ScrollView>
-
-          <View style={styles.inputDock}>
-            <Pressable
-              onPress={focusInput}
-              style={({ pressed }) => [
-                styles.termInput,
-                pressed && styles.termInputPressed,
-                terminalLocked && styles.termInputDisabled,
-              ]}
-            >
-              <Text style={styles.prompt}>{PROMPT}</Text>
-
-              <TextInput
-                ref={inputRef}
-                value={input}
-                onChangeText={setInput}
-                selection={selection}
-                onSelectionChange={(e) => {
-                  setSelection(e.nativeEvent.selection);
-                }}
-                onFocus={() => setInputFocused(true)}
-                onBlur={() => setInputFocused(false)}
-                autoCapitalize="none"
-                autoCorrect={false}
-                spellCheck={false}
-                contextMenuHidden={false}
-                placeholder="type command..."
-                placeholderTextColor="rgba(255,255,255,0.35)"
-                style={styles.inputCmd}
-                onSubmitEditing={() => {
-                  void runCommand(input);
-                }}
-                returnKeyType="go"
-                editable={!terminalLocked}
-                showSoftInputOnFocus={!IS_NATIVE_DEVICE}
-                caretHidden={false}
-                selectionColor="#00e0ff"
-                cursorColor="#00e0ff"
-                blurOnSubmit={false}
-              />
-
-              <Pressable
-                onPress={() => {
-                  void runCommand(input);
-                }}
-                disabled={terminalLocked}
-                style={({ pressed }) => [
-                  styles.inputRunBtn,
-                  terminalLocked && styles.inputRunBtnDisabled,
-                  pressed && styles.inputRunBtnPressed,
-                ]}
-              >
-                <Text style={styles.inputRunBtnTxt}>↻</Text>
-              </Pressable>
-            </Pressable>
-
-            {showCustomKeyboard && (
-              <View style={styles.keyboardWrap}>
-                <View style={styles.keyboardModeRow}>
-                  <Pressable
-                    onPress={() => {
-                      setKeyboardMode("alpha");
-                      setShift(false);
-                    }}
-                    style={({ pressed }) => [
-                      styles.modeKey,
-                      keyboardMode === "alpha" && styles.modeKeyActive,
-                      pressed && styles.keyPressed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.modeKeyText,
-                        keyboardMode === "alpha" && styles.modeKeyTextActive,
-                      ]}
-                    >
-                      ABC
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => {
-                      setKeyboardMode("symbols");
-                      setShift(false);
-                    }}
-                    style={({ pressed }) => [
-                      styles.modeKey,
-                      keyboardMode === "symbols" && styles.modeKeyActive,
-                      pressed && styles.keyPressed,
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        styles.modeKeyText,
-                        keyboardMode === "symbols" && styles.modeKeyTextActive,
-                      ]}
-                    >
-                      #+=
-                    </Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => moveCursor(-1)}
-                    style={({ pressed }) => [
-                      styles.modeKey,
-                      styles.utilityKey,
-                      pressed && styles.keyPressed,
-                    ]}
-                  >
-                    <Text style={styles.modeKeyText}>◀</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => moveCursor(1)}
-                    style={({ pressed }) => [
-                      styles.modeKey,
-                      styles.utilityKey,
-                      pressed && styles.keyPressed,
-                    ]}
-                  >
-                    <Text style={styles.modeKeyText}>▶</Text>
-                  </Pressable>
-                </View>
-
-                <View style={styles.keyboardRows}>
-                  {activeRows.map((row, rowIndex) =>
-                    renderKeyboardRow(row, rowIndex),
-                  )}
-                </View>
-
-                <View style={styles.keyboardBottomRow}>
-                  <Pressable
-                    onPress={() => {
-                      if (keyboardMode === "alpha") {
-                        setShift((prev) => !prev);
-                      }
-                    }}
-                    style={({ pressed }) => [
-                      styles.key,
-                      styles.shiftKey,
-                      shift && keyboardMode === "alpha" && styles.shiftActive,
-                      pressed && styles.keyPressed,
-                    ]}
-                  >
-                    <Text style={styles.keyText}>⇧</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={() => insertAtCursor(" ")}
-                    style={({ pressed }) => [
-                      styles.key,
-                      styles.spaceKey,
-                      pressed && styles.keyPressed,
-                    ]}
-                  >
-                    <Text style={styles.keyText}>space</Text>
-                  </Pressable>
-
-                  <Pressable
-                    onPress={backspaceAtCursor}
-                    style={({ pressed }) => [
-                      styles.key,
-                      styles.deleteKey,
-                      pressed && styles.keyPressed,
-                    ]}
-                  >
-                    <Text style={styles.keyText}>⌫</Text>
-                  </Pressable>
-                </View>
-              </View>
-            )}
-          </View>
+    <View style={styles.wrap}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.headerTitle}>TERMINAL</Text>
+          <Text style={styles.headerSub}>LOCAL SHELL</Text>
         </View>
       </View>
-    </PhoneFrame>
+
+      <View style={styles.screen}>
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {lines.map((l) => (
+            <Text
+              key={l.id}
+              style={[
+                styles.line,
+                l.kind === "cmd" ? styles.lineCmd : styles.lineOut,
+              ]}
+              selectable
+            >
+              {l.text}
+            </Text>
+          ))}
+        </ScrollView>
+
+        <View style={styles.inputDock}>
+          <Pressable
+            onPress={focusInput}
+            style={({ pressed }) => [
+              styles.termInput,
+              pressed && styles.termInputPressed,
+              terminalLocked && styles.termInputDisabled,
+            ]}
+          >
+            <Text style={styles.prompt}>{PROMPT}</Text>
+
+            <TextInput
+              ref={inputRef}
+              value={input}
+              onChangeText={setInput}
+              selection={selection}
+              onSelectionChange={(e) => {
+                setSelection(e.nativeEvent.selection);
+              }}
+              onFocus={() => setInputFocused(true)}
+              onBlur={() => setInputFocused(false)}
+              autoCapitalize="none"
+              autoCorrect={false}
+              spellCheck={false}
+              contextMenuHidden={false}
+              placeholder="type command..."
+              placeholderTextColor="rgba(255,255,255,0.35)"
+              style={styles.inputCmd}
+              onSubmitEditing={() => {
+                void runCommand(input);
+              }}
+              returnKeyType="go"
+              editable={!terminalLocked}
+              showSoftInputOnFocus={!IS_NATIVE_DEVICE}
+              caretHidden={false}
+              selectionColor="#00e0ff"
+              cursorColor="#00e0ff"
+              blurOnSubmit={false}
+            />
+
+            <Pressable
+              onPress={() => {
+                void runCommand(input);
+              }}
+              disabled={terminalLocked}
+              style={({ pressed }) => [
+                styles.inputRunBtn,
+                terminalLocked && styles.inputRunBtnDisabled,
+                pressed && styles.inputRunBtnPressed,
+              ]}
+            >
+              <Text style={styles.inputRunBtnTxt}>↻</Text>
+            </Pressable>
+          </Pressable>
+
+          {showCustomKeyboard && (
+            <View style={styles.keyboardWrap}>
+              <View style={styles.keyboardModeRow}>
+                <Pressable
+                  onPress={() => {
+                    setKeyboardMode("alpha");
+                    setShift(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.modeKey,
+                    keyboardMode === "alpha" && styles.modeKeyActive,
+                    pressed && styles.keyPressed,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modeKeyText,
+                      keyboardMode === "alpha" && styles.modeKeyTextActive,
+                    ]}
+                  >
+                    ABC
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => {
+                    setKeyboardMode("symbols");
+                    setShift(false);
+                  }}
+                  style={({ pressed }) => [
+                    styles.modeKey,
+                    keyboardMode === "symbols" && styles.modeKeyActive,
+                    pressed && styles.keyPressed,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.modeKeyText,
+                      keyboardMode === "symbols" && styles.modeKeyTextActive,
+                    ]}
+                  >
+                    #+=
+                  </Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => moveCursor(-1)}
+                  style={({ pressed }) => [
+                    styles.modeKey,
+                    styles.utilityKey,
+                    pressed && styles.keyPressed,
+                  ]}
+                >
+                  <Text style={styles.modeKeyText}>◀</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => moveCursor(1)}
+                  style={({ pressed }) => [
+                    styles.modeKey,
+                    styles.utilityKey,
+                    pressed && styles.keyPressed,
+                  ]}
+                >
+                  <Text style={styles.modeKeyText}>▶</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.keyboardRows}>
+                {activeRows.map((row, rowIndex) =>
+                  renderKeyboardRow(row, rowIndex),
+                )}
+              </View>
+
+              <View style={styles.keyboardBottomRow}>
+                <Pressable
+                  onPress={() => {
+                    if (keyboardMode === "alpha") {
+                      setShift((prev) => !prev);
+                    }
+                  }}
+                  style={({ pressed }) => [
+                    styles.key,
+                    styles.shiftKey,
+                    shift && keyboardMode === "alpha" && styles.shiftActive,
+                    pressed && styles.keyPressed,
+                  ]}
+                >
+                  <Text style={styles.keyText}>⇧</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={() => insertAtCursor(" ")}
+                  style={({ pressed }) => [
+                    styles.key,
+                    styles.spaceKey,
+                    pressed && styles.keyPressed,
+                  ]}
+                >
+                  <Text style={styles.keyText}>space</Text>
+                </Pressable>
+
+                <Pressable
+                  onPress={backspaceAtCursor}
+                  style={({ pressed }) => [
+                    styles.key,
+                    styles.deleteKey,
+                    pressed && styles.keyPressed,
+                  ]}
+                >
+                  <Text style={styles.keyText}>⌫</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
+        </View>
+      </View>
+    </View>
   );
 }
 

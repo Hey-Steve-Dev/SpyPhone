@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import React from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
@@ -141,34 +140,32 @@ const VAULT: VaultItem[] = [
 
 export default function VaultScreen() {
   return (
-    <PhoneFrame>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.header}>VAULT</Text>
-        <Text style={styles.sub}>
-          Stored tools and command snippets. Use in Terminal when needed.
-        </Text>
+    <ScrollView
+      style={styles.scroll}
+      contentContainerStyle={styles.content}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.header}>VAULT</Text>
+      <Text style={styles.sub}>
+        Stored tools and command snippets. Use in Terminal when needed.
+      </Text>
 
-        {VAULT.map((item) => (
-          <View key={item.id} style={styles.card}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.desc}>{item.desc}</Text>
+      {VAULT.map((item) => (
+        <View key={item.id} style={styles.card}>
+          <Text style={styles.title}>{item.title}</Text>
+          <Text style={styles.desc}>{item.desc}</Text>
 
-            <View style={styles.codeBlock}>
-              <Text style={styles.code}>{item.code}</Text>
-            </View>
-
-            <View style={styles.runBlock}>
-              <Text style={styles.runLabel}>RUN:</Text>
-              <Text style={styles.run}>{item.run}</Text>
-            </View>
+          <View style={styles.codeBlock}>
+            <Text style={styles.code}>{item.code}</Text>
           </View>
-        ))}
-      </ScrollView>
-    </PhoneFrame>
+
+          <View style={styles.runBlock}>
+            <Text style={styles.runLabel}>RUN:</Text>
+            <Text style={styles.run}>{item.run}</Text>
+          </View>
+        </View>
+      ))}
+    </ScrollView>
   );
 }
 

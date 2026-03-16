@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore, type GameLogItem } from "@/store/useGameStore";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -76,61 +75,59 @@ export default function LogScreen() {
   );
 
   return (
-    <PhoneFrame>
-      <View style={styles.wrap}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Activity Log</Text>
-            <Text style={styles.sub}>
-              Unified event history from the game store
-            </Text>
-          </View>
-
-          <Pressable onPress={clearLog} style={styles.clearBtn}>
-            <Text style={styles.clearTxt}>Clear</Text>
-          </Pressable>
+    <View style={styles.wrap}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Activity Log</Text>
+          <Text style={styles.sub}>
+            Unified event history from the game store
+          </Text>
         </View>
 
-        <View style={styles.filterRow}>
-          {FILTERS.map((f) => {
-            const active = f.key === filter;
-            return (
-              <Pressable
-                key={f.key}
-                onPress={() => setFilter(f.key)}
-                style={[styles.filterBtn, active && styles.filterBtnActive]}
-              >
-                <Text
-                  style={[styles.filterTxt, active && styles.filterTxtActive]}
-                >
-                  {f.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-
-        <View style={styles.panel}>
-          <FlatList
-            ref={listRef}
-            data={filtered}
-            keyExtractor={(item) => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.content}
-            style={styles.list}
-            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            onContentSizeChange={() => {
-              listRef.current?.scrollToEnd({ animated: false });
-            }}
-            ListEmptyComponent={
-              <Text style={styles.empty}>No log activity yet.</Text>
-            }
-          />
-        </View>
+        <Pressable onPress={clearLog} style={styles.clearBtn}>
+          <Text style={styles.clearTxt}>Clear</Text>
+        </Pressable>
       </View>
-    </PhoneFrame>
+
+      <View style={styles.filterRow}>
+        {FILTERS.map((f) => {
+          const active = f.key === filter;
+          return (
+            <Pressable
+              key={f.key}
+              onPress={() => setFilter(f.key)}
+              style={[styles.filterBtn, active && styles.filterBtnActive]}
+            >
+              <Text
+                style={[styles.filterTxt, active && styles.filterTxtActive]}
+              >
+                {f.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <View style={styles.panel}>
+        <FlatList
+          ref={listRef}
+          data={filtered}
+          keyExtractor={(item) => item.id}
+          renderItem={renderItem}
+          contentContainerStyle={styles.content}
+          style={styles.list}
+          ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => {
+            listRef.current?.scrollToEnd({ animated: false });
+          }}
+          ListEmptyComponent={
+            <Text style={styles.empty}>No log activity yet.</Text>
+          }
+        />
+      </View>
+    </View>
   );
 }
 

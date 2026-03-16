@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -30,45 +29,43 @@ export default function OpsScreen() {
 
   const danger = trace >= 70;
   return (
-    <PhoneFrame>
-      <View style={styles.wrap}>
-        <Text style={styles.title}>Ops HUD</Text>
-        <Text style={styles.sub}>Operational status monitor</Text>
+    <View style={styles.wrap}>
+      <Text style={styles.title}>Ops HUD</Text>
+      <Text style={styles.sub}>Operational status monitor</Text>
 
-        <View style={[styles.card, danger && styles.cardDanger]}>
-          <View style={styles.row}>
-            <Text style={styles.k}>TRACE</Text>
-            <Text style={[styles.v, { color: traceColor }]}>{trace}%</Text>
-          </View>
-          <Text style={styles.hint}>Status: {traceLabel}</Text>
-
-          <View style={styles.div} />
-
-          <View style={styles.row}>
-            <Text style={styles.k}>WINDOW</Text>
-            <Text style={styles.v}>{formatTime(secondsLeft)}</Text>
-          </View>
-          <Text style={styles.hint}>
-            {timerRunning ? "Countdown active" : "Timer paused"}
-            {danger && (
-              <View style={styles.alertStrip}>
-                <Text style={styles.alertStripText}>
-                  OPSEC RISK — minimize errors
-                </Text>
-              </View>
-            )}
-          </Text>
+      <View style={[styles.card, danger && styles.cardDanger]}>
+        <View style={styles.row}>
+          <Text style={styles.k}>TRACE</Text>
+          <Text style={[styles.v, { color: traceColor }]}>{trace}%</Text>
         </View>
+        <Text style={styles.hint}>Status: {traceLabel}</Text>
 
-        <View style={styles.note}>
-          <Text style={styles.noteT}>Note</Text>
-          <Text style={styles.noteB}>
-            Keep exposure low. Mission mistakes elevate trace. When trace hits
-            100%, you’re compromised.
-          </Text>
+        <View style={styles.div} />
+
+        <View style={styles.row}>
+          <Text style={styles.k}>WINDOW</Text>
+          <Text style={styles.v}>{formatTime(secondsLeft)}</Text>
         </View>
+        <Text style={styles.hint}>
+          {timerRunning ? "Countdown active" : "Timer paused"}
+          {danger && (
+            <View style={styles.alertStrip}>
+              <Text style={styles.alertStripText}>
+                OPSEC RISK — minimize errors
+              </Text>
+            </View>
+          )}
+        </Text>
       </View>
-    </PhoneFrame>
+
+      <View style={styles.note}>
+        <Text style={styles.noteT}>Note</Text>
+        <Text style={styles.noteB}>
+          Keep exposure low. Mission mistakes elevate trace. When trace hits
+          100%, you’re compromised.
+        </Text>
+      </View>
+    </View>
   );
 }
 

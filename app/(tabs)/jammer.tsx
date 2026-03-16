@@ -1,4 +1,3 @@
-import PhoneFrame from "@/components/PhoneFrame";
 import { useGameStore } from "@/store/useGameStore";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -198,250 +197,240 @@ export default function JammerScreen() {
   );
 
   return (
-    <PhoneFrame>
-      <View style={styles.wrap}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>Jammer</Text>
-            <Text style={styles.sub}>
-              Status: <Text style={styles.subStrong}>{statusText}</Text>
-            </Text>
-          </View>
-
-          <View style={styles.tabs}>
-            <Pressable
-              onPress={() => setTab("log")}
-              style={[styles.tabBtn, tab === "log" && styles.tabBtnActive]}
-            >
-              <Text
-                style={[styles.tabTxt, tab === "log" && styles.tabTxtActive]}
-              >
-                Log
-              </Text>
-            </Pressable>
-
-            <Pressable
-              onPress={() => setTab("settings")}
-              style={[styles.tabBtn, tab === "settings" && styles.tabBtnActive]}
-            >
-              <Text
-                style={[
-                  styles.tabTxt,
-                  tab === "settings" && styles.tabTxtActive,
-                ]}
-              >
-                Settings
-              </Text>
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Visual bar / telemetry */}
-        <View style={styles.telemetry}>
-          <View style={styles.teleRow}>
-            <View style={styles.teleCol}>
-              <Text style={styles.teleLabel}>THREAT</Text>
-              <Text style={styles.teleValue}>{threat}%</Text>
-            </View>
-
-            <View style={styles.teleCol}>
-              <Text style={styles.teleLabel}>BAND</Text>
-              <Text style={styles.teleValue}>{jammer.band}</Text>
-            </View>
-
-            <View style={styles.teleCol}>
-              <Text style={styles.teleLabel}>PWR</Text>
-              <Text style={styles.teleValue}>{jammer.strength}%</Text>
-            </View>
-
-            <Pressable
-              onPress={() => setJam(!commsJammed)}
-              style={[
-                styles.pill,
-                commsJammed ? styles.pillOn : styles.pillOff,
-              ]}
-            >
-              <Text style={styles.pillTxt}>
-                {commsJammed ? "MASK ON" : "MASK OFF"}
-              </Text>
-            </Pressable>
-          </View>
-
-          <View style={styles.barTrack}>
-            <View style={[styles.barFill, { width: `${threat}%` }]} />
-          </View>
-
-          <Text style={styles.teleHint}>
-            Lower is better. Mask reduces visibility but blocks outbound comms.
+    <View style={styles.wrap}>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.title}>Jammer</Text>
+          <Text style={styles.sub}>
+            Status: <Text style={styles.subStrong}>{statusText}</Text>
           </Text>
         </View>
 
-        <View style={styles.panel}>
-          {tab === "log" ? (
-            <FlatList
-              ref={logRef}
-              data={log.slice(-200)}
-              keyExtractor={(l) => l.id}
-              renderItem={renderLogItem}
-              style={styles.logList}
-              contentContainerStyle={styles.logContent}
-              ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              onContentSizeChange={() => {
-                if (tab === "log")
-                  logRef.current?.scrollToEnd({ animated: false });
-              }}
-            />
-          ) : (
-            <ScrollView
-              style={{ flex: 1 }}
-              contentContainerStyle={[styles.settings, { paddingBottom: 40 }]}
-              showsVerticalScrollIndicator={false}
+        <View style={styles.tabs}>
+          <Pressable
+            onPress={() => setTab("log")}
+            style={[styles.tabBtn, tab === "log" && styles.tabBtnActive]}
+          >
+            <Text style={[styles.tabTxt, tab === "log" && styles.tabTxtActive]}>
+              Log
+            </Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setTab("settings")}
+            style={[styles.tabBtn, tab === "settings" && styles.tabBtnActive]}
+          >
+            <Text
+              style={[styles.tabTxt, tab === "settings" && styles.tabTxtActive]}
             >
-              {/* Band selection */}
-              <Text style={styles.sectionTitle}>Band Profile</Text>
-              <Text style={styles.sectionDesc}>{bandDesc}</Text>
-
-              <View style={styles.bandRow}>
-                {BANDS.map((b) => {
-                  const active = b.key === jammer.band;
-                  return (
-                    <Pressable
-                      key={b.key}
-                      onPress={() => selectBand(b.key)}
-                      style={[styles.bandBtn, active && styles.bandBtnActive]}
-                    >
-                      <Text
-                        style={[styles.bandTxt, active && styles.bandTxtActive]}
-                      >
-                        {b.label}
-                      </Text>
-                    </Pressable>
-                  );
-                })}
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* Power / sweep / burst controls */}
-              <View style={styles.settingRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.settingTitle}>Power</Text>
-                  <Text style={styles.settingDesc}>
-                    Higher power reduces dropouts but increases signature.
-                  </Text>
-                </View>
-                <Pressable onPress={cycleStrength} style={styles.actionBtn}>
-                  <Text style={styles.actionTxt}>+10%</Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.settingRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.settingTitle}>Sweep</Text>
-                  <Text style={styles.settingDesc}>
-                    Narrow is subtle. Wide is brute force.
-                  </Text>
-                </View>
-                <Pressable onPress={toggleSweep} style={styles.actionBtn}>
-                  <Text style={styles.actionTxt}>
-                    {jammer.sweep === "narrow" ? "NARROW" : "WIDE"}
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.settingRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.settingTitle}>Burst Rate</Text>
-                  <Text style={styles.settingDesc}>
-                    Controls pulse cadence. High is loud.
-                  </Text>
-                </View>
-                <Pressable onPress={cycleBurst} style={styles.actionBtn}>
-                  <Text style={styles.actionTxt}>
-                    {jammer.burst.toUpperCase()}
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* Behavior toggles */}
-              <View style={styles.settingRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.settingTitle}>Stealth Shaping</Text>
-                  <Text style={styles.settingDesc}>
-                    Smooths emissions to avoid detection spikes.
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={toggleStealth}
-                  style={[
-                    styles.pill,
-                    jammer.stealth ? styles.pillOnSoft : styles.pillOff,
-                  ]}
-                >
-                  <Text style={styles.pillTxt}>
-                    {jammer.stealth ? "ON" : "OFF"}
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.settingRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.settingTitle}>Auto-mask</Text>
-                  <Text style={styles.settingDesc}>
-                    Engage mask if link activity looks suspicious.
-                  </Text>
-                </View>
-                <Pressable
-                  onPress={toggleAutoMask}
-                  style={[
-                    styles.pill,
-                    jammer.autoMask ? styles.pillOnSoft : styles.pillOff,
-                  ]}
-                >
-                  <Text style={styles.pillTxt}>
-                    {jammer.autoMask ? "ARMED" : "OFF"}
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* Link control */}
-              <View style={styles.settingRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.settingTitle}>Secure Link</Text>
-                  <Text style={styles.settingDesc}>
-                    Reconnect encrypted channel when mask is off.
-                  </Text>
-                </View>
-
-                <Pressable
-                  onPress={reconnect}
-                  style={[
-                    styles.actionBtn,
-                    commsJammed && styles.actionBtnDisabled,
-                  ]}
-                  disabled={commsJammed}
-                >
-                  <Text style={styles.actionTxt}>
-                    {commsJammed ? "BLOCKED" : "RECONNECT"}
-                  </Text>
-                </Pressable>
-              </View>
-
-              <Text style={styles.note}>
-                Note: Settings don’t confirm outcomes — they change your RF
-                posture. Mission engine will treat these as task conditions.
-              </Text>
-            </ScrollView>
-          )}
+              Settings
+            </Text>
+          </Pressable>
         </View>
       </View>
-    </PhoneFrame>
+
+      {/* Visual bar / telemetry */}
+      <View style={styles.telemetry}>
+        <View style={styles.teleRow}>
+          <View style={styles.teleCol}>
+            <Text style={styles.teleLabel}>THREAT</Text>
+            <Text style={styles.teleValue}>{threat}%</Text>
+          </View>
+
+          <View style={styles.teleCol}>
+            <Text style={styles.teleLabel}>BAND</Text>
+            <Text style={styles.teleValue}>{jammer.band}</Text>
+          </View>
+
+          <View style={styles.teleCol}>
+            <Text style={styles.teleLabel}>PWR</Text>
+            <Text style={styles.teleValue}>{jammer.strength}%</Text>
+          </View>
+
+          <Pressable
+            onPress={() => setJam(!commsJammed)}
+            style={[styles.pill, commsJammed ? styles.pillOn : styles.pillOff]}
+          >
+            <Text style={styles.pillTxt}>
+              {commsJammed ? "MASK ON" : "MASK OFF"}
+            </Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.barTrack}>
+          <View style={[styles.barFill, { width: `${threat}%` }]} />
+        </View>
+
+        <Text style={styles.teleHint}>
+          Lower is better. Mask reduces visibility but blocks outbound comms.
+        </Text>
+      </View>
+
+      <View style={styles.panel}>
+        {tab === "log" ? (
+          <FlatList
+            ref={logRef}
+            data={log.slice(-200)}
+            keyExtractor={(l) => l.id}
+            renderItem={renderLogItem}
+            style={styles.logList}
+            contentContainerStyle={styles.logContent}
+            ItemSeparatorComponent={() => <View style={{ height: 8 }} />}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            onContentSizeChange={() => {
+              if (tab === "log")
+                logRef.current?.scrollToEnd({ animated: false });
+            }}
+          />
+        ) : (
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={[styles.settings, { paddingBottom: 40 }]}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Band selection */}
+            <Text style={styles.sectionTitle}>Band Profile</Text>
+            <Text style={styles.sectionDesc}>{bandDesc}</Text>
+
+            <View style={styles.bandRow}>
+              {BANDS.map((b) => {
+                const active = b.key === jammer.band;
+                return (
+                  <Pressable
+                    key={b.key}
+                    onPress={() => selectBand(b.key)}
+                    style={[styles.bandBtn, active && styles.bandBtnActive]}
+                  >
+                    <Text
+                      style={[styles.bandTxt, active && styles.bandTxtActive]}
+                    >
+                      {b.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Power / sweep / burst controls */}
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingTitle}>Power</Text>
+                <Text style={styles.settingDesc}>
+                  Higher power reduces dropouts but increases signature.
+                </Text>
+              </View>
+              <Pressable onPress={cycleStrength} style={styles.actionBtn}>
+                <Text style={styles.actionTxt}>+10%</Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingTitle}>Sweep</Text>
+                <Text style={styles.settingDesc}>
+                  Narrow is subtle. Wide is brute force.
+                </Text>
+              </View>
+              <Pressable onPress={toggleSweep} style={styles.actionBtn}>
+                <Text style={styles.actionTxt}>
+                  {jammer.sweep === "narrow" ? "NARROW" : "WIDE"}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingTitle}>Burst Rate</Text>
+                <Text style={styles.settingDesc}>
+                  Controls pulse cadence. High is loud.
+                </Text>
+              </View>
+              <Pressable onPress={cycleBurst} style={styles.actionBtn}>
+                <Text style={styles.actionTxt}>
+                  {jammer.burst.toUpperCase()}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Behavior toggles */}
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingTitle}>Stealth Shaping</Text>
+                <Text style={styles.settingDesc}>
+                  Smooths emissions to avoid detection spikes.
+                </Text>
+              </View>
+              <Pressable
+                onPress={toggleStealth}
+                style={[
+                  styles.pill,
+                  jammer.stealth ? styles.pillOnSoft : styles.pillOff,
+                ]}
+              >
+                <Text style={styles.pillTxt}>
+                  {jammer.stealth ? "ON" : "OFF"}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingTitle}>Auto-mask</Text>
+                <Text style={styles.settingDesc}>
+                  Engage mask if link activity looks suspicious.
+                </Text>
+              </View>
+              <Pressable
+                onPress={toggleAutoMask}
+                style={[
+                  styles.pill,
+                  jammer.autoMask ? styles.pillOnSoft : styles.pillOff,
+                ]}
+              >
+                <Text style={styles.pillTxt}>
+                  {jammer.autoMask ? "ARMED" : "OFF"}
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={styles.divider} />
+
+            {/* Link control */}
+            <View style={styles.settingRow}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.settingTitle}>Secure Link</Text>
+                <Text style={styles.settingDesc}>
+                  Reconnect encrypted channel when mask is off.
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={reconnect}
+                style={[
+                  styles.actionBtn,
+                  commsJammed && styles.actionBtnDisabled,
+                ]}
+                disabled={commsJammed}
+              >
+                <Text style={styles.actionTxt}>
+                  {commsJammed ? "BLOCKED" : "RECONNECT"}
+                </Text>
+              </Pressable>
+            </View>
+
+            <Text style={styles.note}>
+              Note: Settings don’t confirm outcomes — they change your RF
+              posture. Mission engine will treat these as task conditions.
+            </Text>
+          </ScrollView>
+        )}
+      </View>
+    </View>
   );
 }
 

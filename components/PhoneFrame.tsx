@@ -1,4 +1,3 @@
-import BannerComms from "@/components/BannerComms";
 import HomeGestureBar from "@/components/HomeGestureBar";
 import StatusBarFake from "@/components/StatusBarFake";
 import BiometricOverlay from "@/constants/BiometricOverlay";
@@ -57,11 +56,11 @@ export default function PhoneFrame({
       return;
     }
 
+    let mounted = true;
     let levelSub: Battery.Subscription | null = null;
     let stateSub: Battery.Subscription | null = null;
-    let mounted = true;
 
-    async function syncBattery() {
+    const syncBattery = async () => {
       try {
         const [level, state] = await Promise.all([
           Battery.getBatteryLevelAsync(),
@@ -89,9 +88,9 @@ export default function PhoneFrame({
       } catch (error) {
         console.log("Battery read failed:", error);
       }
-    }
+    };
 
-    syncBattery();
+    void syncBattery();
 
     return () => {
       mounted = false;
@@ -100,10 +99,9 @@ export default function PhoneFrame({
     };
   }, [isWeb, setBatteryLevel, setIsCharging]);
 
-  const Inner = (
+  const inner = (
     <>
       <StatusBarFake />
-      <BannerComms />
 
       <View style={styles.content}>
         <View style={styles.body}>{children}</View>
@@ -123,7 +121,7 @@ export default function PhoneFrame({
     return (
       <SafeAreaView style={styles.nativeScreen} edges={["bottom"]}>
         <View style={styles.nativeFrame}>
-          {Inner}
+          {inner}
           <BiometricOverlay />
           <GoDarkOverlay />
           <EndGameOverlay visible={endGameWipeActive} />
@@ -140,7 +138,7 @@ export default function PhoneFrame({
             <View style={styles.screenHousing}>
               <View style={styles.topBezel} />
               <View style={styles.screenWeb}>
-                {Inner}
+                {inner}
                 <BiometricOverlay />
                 <GoDarkOverlay />
                 <EndGameOverlay visible={endGameWipeActive} />
