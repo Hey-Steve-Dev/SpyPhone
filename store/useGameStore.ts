@@ -1993,32 +1993,13 @@ export const useGameStore = create<GameState>((set, get) => ({
     set({ selectedCamId: id });
     get().pushLog("camera", `Selected ${cam?.label ?? `CAM ${id}`}.`);
 
-    if (id === 12) {
-      const seq = get().camera12Sequence;
-
-      if (seq.mode === "armed") {
-        get().startCamera12Sequence();
-      }
-
-      if (
-        s.cameraObjectiveActive &&
-        !s.cameraObjectiveResolved &&
-        s.targetCameraId === 12
-      ) {
-        void get().dispatchMissionEvent({
-          type: "CAMERA_VIEWED",
-          cameraId: 12,
-        });
-      }
-    }
-
     if (
       s.cameraObjectiveActive &&
       !s.cameraObjectiveResolved &&
       s.targetCameraId === id &&
       cam?.hasTarget
     ) {
-      get().resolveCameraObjective();
+      get().pushLog("camera", `Viewing objective camera ${id}.`);
     }
   },
 
@@ -2106,29 +2087,38 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       get().pushLog(
         "camera",
-        `${s.cameras[id]?.label ?? `CAM ${id}`} target detected.`,
+        `${s.cameras[id]?.label ?? `CAM ${id}`} targeted.`,
       );
 
       const nextSequence =
         id === 12
-          ? {
-              mode: "armed" as Camera12SequenceMode,
-              startedAt: null,
-              completedAt: null,
-            }
+          ? s.camera12Sequence.mode === "playing" ||
+            s.camera12Sequence.mode === "complete"
+            ? s.camera12Sequence
+            : {
+                mode: "armed" as Camera12SequenceMode,
+                startedAt: null,
+                completedAt: null,
+              }
           : s.camera12Sequence;
 
       return {
-        hallwayOneOccupied: id === 12 ? true : s.hallwayOneOccupied,
+        selectedCamId: id,
+        hallwayOneOccupied: s.hallwayOneOccupied,
         camera12Sequence: nextSequence,
         cameras: {
           ...s.cameras,
           [id]: {
             ...s.cameras[id],
-            state: "occupied",
-            alert: true,
+            state:
+              id === 12 && s.hallwayOneOccupied
+                ? "occupied"
+                : s.cameras[id].state === "offline"
+                  ? "empty"
+                  : s.cameras[id].state,
+            alert: id === 12 ? s.hallwayOneOccupied : s.cameras[id].alert,
             hasTarget: true,
-            lastSeenAt: Date.now(),
+            lastSeenAt: s.cameras[id].lastSeenAt,
           },
         },
         targetCameraId: id,

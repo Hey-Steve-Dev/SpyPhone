@@ -65,7 +65,6 @@ function FeaturedCameraView({ width }: { width: number }) {
 
   const isCam12Selected = activeCamId === 12 && !isCamOffline;
   const isCam12Playing = isCam12Selected && camera12Sequence.mode === "playing";
-
   const isStandingLoopCam13 = activeCamId === 13 && !isCamOffline;
 
   const getCam12ElapsedMs = () => {
@@ -85,6 +84,30 @@ function FeaturedCameraView({ width }: { width: number }) {
 
     const elapsed = getCam12ElapsedMs();
     return Math.max(0, Math.min(elapsed * CAM12_PLAYBACK_RATE, raw - 40));
+  };
+
+  const resetCam12ToFirstFrame = async () => {
+    if (Platform.OS === "web") {
+      const el = cam12WebRef.current;
+      if (!el) return;
+
+      try {
+        el.pause();
+        el.currentTime = 0;
+        el.playbackRate = CAM12_PLAYBACK_RATE;
+      } catch {}
+
+      return;
+    }
+
+    const player = cam12NativeRef.current;
+    if (!player || !cam12NativeLoaded) return;
+
+    try {
+      await player.setPositionAsync(0);
+      await player.pauseAsync();
+      await player.setRateAsync(CAM12_PLAYBACK_RATE, true);
+    } catch {}
   };
 
   const pauseCam12 = async () => {
@@ -171,7 +194,7 @@ function FeaturedCameraView({ width }: { width: number }) {
       return;
     }
 
-    void pauseCam12();
+    void resetCam12ToFirstFrame();
   }, [
     isCam12Selected,
     camera12Sequence.mode,
@@ -327,46 +350,58 @@ function FeaturedCameraView({ width }: { width: number }) {
 
       <View style={styles.featuredFrame}>
         {activeCamId === 12 && !isCamOffline ? (
-          camera12Sequence.mode === "playing" ? (
-            Platform.OS === "web" ? (
-              <View style={styles.featuredWebWrap}>
-                {/* @ts-ignore */}
-                <video
-                  ref={(node) => {
-                    cam12WebRef.current = node;
-                  }}
-                  src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-left-to-right.mp4"
-                  muted
-                  playsInline
-                  preload="auto"
-                  autoPlay={false}
-                  onLoadedData={() => {
-                    const el = cam12WebRef.current;
-                    if (!el) return;
+          Platform.OS === "web" ? (
+            <View style={styles.featuredWebWrap}>
+              {/* @ts-ignore */}
+              <video
+                ref={(node) => {
+                  cam12WebRef.current = node;
+                }}
+                src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-left-to-right.mp4"
+                muted
+                playsInline
+                preload="auto"
+                autoPlay={false}
+                onLoadedData={() => {
+                  const el = cam12WebRef.current;
+                  if (!el) return;
 
-                    const durationMs = Number.isFinite(el.duration)
-                      ? el.duration * 1000
-                      : 0;
+                  const durationMs = Number.isFinite(el.duration)
+                    ? el.duration * 1000
+                    : 0;
 
-                    if (durationMs > 0) {
-                      cam12DurationMsRef.current = durationMs;
-                    }
+                  if (durationMs > 0) {
+                    cam12DurationMsRef.current = durationMs;
+                  }
 
-                    void syncCam12Playback();
-                  }}
-                  onEnded={() => {
-                    endCam12Playback();
-                  }}
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    display: "block",
-                    backgroundColor: "#000",
-                  }}
-                />
+                  if (camera12Sequence.mode !== "playing") {
+                    try {
+                      el.currentTime = 0;
+                      el.pause();
+                      el.playbackRate = CAM12_PLAYBACK_RATE;
+                    } catch {}
+                    return;
+                  }
+
+                  void syncCam12Playback();
+                }}
+                onEnded={() => {
+                  endCam12Playback();
+                }}
+                style={{
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                  display: "block",
+                  backgroundColor: "#000",
+                }}
+              />
+              <View pointerEvents="none" style={styles.featuredOverlay}>
+                <Text style={styles.featuredOverlayText}>{camLabel}</Text>
               </View>
-            ) : (
+            </View>
+          ) : (
+            <View style={styles.featuredMediaWrap}>
               <Video
                 ref={cam12NativeRef}
                 source={require("../../assets/cams/hallway1/guard-left-to-right.mp4")}
@@ -382,6 +417,21 @@ function FeaturedCameraView({ width }: { width: number }) {
                     cam12DurationMsRef.current = status.durationMillis;
                   }
 
+                  if (camera12Sequence.mode !== "playing") {
+                    const player = cam12NativeRef.current;
+                    if (!player) return;
+
+                    void (async () => {
+                      try {
+                        await player.setPositionAsync(0);
+                        await player.pauseAsync();
+                        await player.setRateAsync(CAM12_PLAYBACK_RATE, true);
+                      } catch {}
+                    })();
+
+                    return;
+                  }
+
                   void syncCam12Playback();
                 }}
                 onPlaybackStatusUpdate={(status) => {
@@ -391,10 +441,6 @@ function FeaturedCameraView({ width }: { width: number }) {
                   }
                 }}
               />
-            )
-          ) : (
-            <View style={styles.featuredStaticFeed}>
-              <SmallCameraFeed />
               <View pointerEvents="none" style={styles.featuredOverlay}>
                 <Text style={styles.featuredOverlayText}>{camLabel}</Text>
               </View>
@@ -622,6 +668,13 @@ const styles = StyleSheet.create({
   featuredWebWrap: {
     width: "100%",
     height: "100%",
+    backgroundColor: "#000",
+  },
+
+  featuredMediaWrap: {
+    width: "100%",
+    height: "100%",
+    position: "relative",
     backgroundColor: "#000",
   },
 

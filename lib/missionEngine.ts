@@ -758,6 +758,7 @@ export function handleMissionEvent(
             ],
           },
           { type: "start_camera_objective", targetId: 12 },
+          { type: "trigger_camera_target", cameraId: 12 },
           { type: "set_hallway_occupied", on: false },
         ],
       };
