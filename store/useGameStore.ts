@@ -221,6 +221,31 @@ function rand(min: number, max: number) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
+function missionStepForPhase(phase: MissionState["phase"]): number {
+  switch (phase) {
+    case "terminal_brief_pwd":
+      return 0;
+    case "terminal_brief_search":
+      return 1;
+    case "complete":
+    case "lesson_2_intro":
+      return 2;
+    default:
+      return 0;
+  }
+}
+
+function withMissionPhase(
+  mission: MissionState,
+  phase: MissionState["phase"],
+): MissionState {
+  return {
+    ...mission,
+    phase,
+    step: missionStepForPhase(phase),
+  };
+}
+
 const CAMERA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
 function makeInitialBanner(): Banner {
@@ -1516,16 +1541,32 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     for (const effect of effects) {
       switch (effect.type) {
+        case "set_terminal_host": {
+          get().setTerminalHost(effect.hostId);
+          break;
+        }
+
+        case "set_camera_network_online": {
+          get().setCameraNetworkOnline(effect.on);
+          break;
+        }
         case "handler_message": {
-          const typingMs = typingMsFor(effect.text);
-          await get().pushHandlerMessageDelayed(effect.text, typingMs, 250);
+          await get().pushHandlerMessageDelayed(
+            effect.text,
+            effect.typingMs ?? typingMsFor(effect.text),
+            effect.afterMs ?? 250,
+          );
+
           break;
         }
 
         case "handler_sequence": {
           for (const item of effect.items) {
-            const typingMs = typingMsFor(item.text);
-            await get().pushHandlerMessageDelayed(item.text, typingMs, 250);
+            await get().pushHandlerMessageDelayed(
+              item.text,
+              item.typingMs ?? typingMsFor(item.text),
+              item.afterMs ?? 250,
+            );
           }
           break;
         }
@@ -1634,6 +1675,10 @@ export const useGameStore = create<GameState>((set, get) => ({
 
         case "set_mission_state": {
           set({ mission: effect.state });
+          get().pushLog(
+            "mission",
+            `Mission state loaded: ${effect.state.phase} (step ${effect.state.step}).`,
+          );
           break;
         }
 
@@ -1722,12 +1767,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   mission: makeInitialMissionState(),
   setMissionStep: (phase) =>
     set((s) => {
-      get().pushLog("mission", `Mission phase set to ${phase}.`);
+      const nextMission = withMissionPhase(s.mission, phase);
+      get().pushLog(
+        "mission",
+        `Mission phase set to ${phase} (step ${nextMission.step}).`,
+      );
       return {
-        mission: {
-          ...s.mission,
-          phase,
-        },
+        mission: nextMission,
       };
     }),
 
@@ -2000,6 +2046,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       cam?.hasTarget
     ) {
       get().pushLog("camera", `Viewing objective camera ${id}.`);
+      void get().dispatchMissionEvent({ type: "CAMERA_VIEWED", cameraId: id });
     }
   },
 

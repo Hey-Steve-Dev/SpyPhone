@@ -19,7 +19,8 @@ export type MissionPhase =
   | "terminal_intro"
   | "terminal_brief_pwd"
   | "terminal_brief_search"
-  | "complete";
+  | "complete"
+  | "lesson_2_intro";
 
 export type MissionState = {
   missionId: "bootcamp_01";
@@ -82,6 +83,10 @@ export type MissionEffect =
       cwd: string;
     }
   | {
+      type: "set_terminal_host";
+      hostId: string;
+    }
+  | {
       type: "reset_terminal";
     }
   | {
@@ -108,6 +113,10 @@ export type MissionEffect =
     }
   | {
       type: "set_hallway_occupied";
+      on: boolean;
+    }
+  | {
+      type: "set_camera_network_online";
       on: boolean;
     }
   | {
@@ -193,6 +202,9 @@ export type MissionEventResult = {
 
 const CAMERA_TUNNEL_DEVICE_ID = "camera_access_point";
 const LAPTOP_TUNNEL_DEVICE_ID = "security_laptop";
+const LESSON_2_DEV_COMMAND = "root el 2";
+const DEFAULT_TERMINAL_CWD = "/home/jcarter";
+const DEFAULT_TERMINAL_HOST = "local_jcarter";
 
 function generateElevatorCode(): string {
   return Math.floor(1000 + Math.random() * 9000).toString();
@@ -401,6 +413,7 @@ function phaseToStep(phase: MissionPhase): number {
     case "terminal_brief_search":
       return 1;
     case "complete":
+    case "lesson_2_intro":
       return 2;
     default:
       return 0;
@@ -444,6 +457,12 @@ function handlerForTerminalPhase(phase: MissionPhase): string[] {
         "Search through the system and find the code.",
       ];
 
+    case "lesson_2_intro":
+      return [
+        "Lesson 2 checkpoint loaded.",
+        "Terminal remains available for development.",
+      ];
+
     case "complete":
       return [];
 
@@ -474,8 +493,67 @@ function makeSuccessfulMoveEffects(): MissionEffect[] {
   ];
 }
 
+function isLesson2DevJump(input: string) {
+  return normLower(input) === LESSON_2_DEV_COMMAND;
+}
+
+function makeLesson2CheckpointState(state: MissionState): MissionState {
+  return {
+    ...state,
+    phase: "lesson_2_intro",
+    step: phaseToStep("lesson_2_intro"),
+  };
+}
+
+function makeLesson2CheckpointEffects(
+  nextState: MissionState,
+): MissionEffect[] {
+  return [
+    { type: "set_mission_state", state: nextState },
+    { type: "clear_reply_chips" },
+    { type: "clear_tunnel_targets" },
+
+    { type: "set_camera_network_online", on: true },
+    { type: "stop_camera_sim" },
+    { type: "resolve_camera_objective" },
+    { type: "set_hallway_occupied", on: false },
+    { type: "clear_camera_target", cameraId: 12 },
+
+    { type: "reset_terminal" },
+    { type: "set_terminal_host", hostId: DEFAULT_TERMINAL_HOST },
+    { type: "set_terminal_cwd", cwd: DEFAULT_TERMINAL_CWD },
+    { type: "set_terminal_locked", on: false },
+
+    {
+      type: "append_terminal_output",
+      lines: [
+        "DEV: lesson 2 checkpoint loaded.",
+        `DEV: host=${DEFAULT_TERMINAL_HOST}`,
+        `DEV: cwd=${DEFAULT_TERMINAL_CWD}`,
+      ],
+    },
+    {
+      type: "banner",
+      title: "DEV CHECKPOINT",
+      message: "Lesson 2 loaded.",
+      ms: 1800,
+    },
+    {
+      type: "handler_sequence",
+      items: [
+        opsLine("Checkpoint accepted.", 900, 500),
+        opsLine("Lesson 2 environment loaded.", 900, 600),
+      ],
+    },
+  ];
+}
+
 export function missionIntro(state: MissionState): string[] {
-  if (state.phase.startsWith("terminal_") || state.phase === "complete") {
+  if (
+    state.phase.startsWith("terminal_") ||
+    state.phase === "complete" ||
+    state.phase === "lesson_2_intro"
+  ) {
     return handlerForTerminalPhase(state.phase);
   }
 
@@ -1154,10 +1232,26 @@ export function handleMissionEvent(
   }
 
   if (event.type === "TERMINAL_COMMAND") {
+    if (isLesson2DevJump(event.input)) {
+      const nextState = makeLesson2CheckpointState(state);
+
+      return {
+        nextState,
+        effects: makeLesson2CheckpointEffects(nextState),
+        commandResult: {
+          handled: true,
+          ok: true,
+          advanced: true,
+          gated: false,
+        },
+      };
+    }
+
     const inTerminalMission =
       state.phase === "terminal_intro" ||
       state.phase.startsWith("terminal_") ||
-      state.phase === "complete";
+      state.phase === "complete" ||
+      state.phase === "lesson_2_intro";
 
     if (!inTerminalMission) {
       return {
@@ -1177,7 +1271,7 @@ export function handleMissionEvent(
       event.mode ?? "easy",
       state,
       safeCtx.jammerEnabled,
-      event.cwd ?? "/home/jcarter",
+      event.cwd ?? DEFAULT_TERMINAL_CWD,
     );
 
     if (!result.handled) {
@@ -1299,11 +1393,11 @@ function resolveCd(cwd: string, argRaw: string): string | null {
   const arg = norm(argRaw);
 
   if (!arg) return cwd;
-  if (arg === "~") return "/home/jcarter";
-  if (arg === "/home/jcarter") return "/home/jcarter";
+  if (arg === "~") return DEFAULT_TERMINAL_CWD;
+  if (arg === DEFAULT_TERMINAL_CWD) return DEFAULT_TERMINAL_CWD;
   if (arg === "..") {
-    if (cwd === "/home/jcarter") return "/home/jcarter";
-    return cwd.split("/").slice(0, -1).join("/") || "/home/jcarter";
+    if (cwd === DEFAULT_TERMINAL_CWD) return DEFAULT_TERMINAL_CWD;
+    return cwd.split("/").slice(0, -1).join("/") || DEFAULT_TERMINAL_CWD;
   }
 
   if (arg.startsWith("/")) {
@@ -1312,6 +1406,106 @@ function resolveCd(cwd: string, argRaw: string): string | null {
 
   const next = `${cwd}/${arg}`;
   return listForCwd(next) ? next : null;
+}
+
+function runSearchShell(
+  raw: string,
+  mode: Mode,
+  state: MissionState,
+  cwd: string,
+): TerminalCommandResult {
+  if (matches(raw, "pwd", mode)) {
+    return {
+      handled: true,
+      ok: true,
+      advanced: false,
+      terminalOut: [cwd],
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
+  if (matches(raw, "ls", mode, ["ls -la", "ls -l", "ls -a"])) {
+    const listing = listForCwd(cwd);
+    return {
+      handled: true,
+      ok: !!listing,
+      advanced: false,
+      terminalOut: listing ?? ["ls: cannot access directory"],
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
+  if (
+    normLower(raw).startsWith("cd ") ||
+    normLower(raw) === "cd" ||
+    normLower(raw) === "cd .."
+  ) {
+    const arg =
+      normLower(raw) === "cd" ? "~" : raw.slice(raw.indexOf("cd") + 2).trim();
+    const nextCwd = resolveCd(cwd, arg);
+
+    if (!nextCwd) {
+      return {
+        handled: true,
+        ok: false,
+        advanced: false,
+        terminalOut: [`cd: no such file or directory: ${arg}`],
+        handlerOut: [],
+        nextState: state,
+      };
+    }
+
+    return {
+      handled: true,
+      ok: true,
+      advanced: false,
+      terminalOut: [],
+      handlerOut: [],
+      nextState: state,
+      effects: [{ type: "set_terminal_cwd", cwd: nextCwd }],
+    };
+  }
+
+  if (
+    matches(raw, "cat useful_info.txt", mode, ["cat ./useful_info.txt"]) ||
+    matches(raw, "cat elevator_override.txt", mode, [
+      "cat ./elevator_override.txt",
+    ])
+  ) {
+    const fileName = raw.split(" ").slice(1).join(" ").replace("./", "");
+    const fileOut = canReadFile(state, cwd, fileName);
+
+    if (!fileOut) {
+      return {
+        handled: true,
+        ok: false,
+        advanced: false,
+        terminalOut: [`cat: ${fileName}: No such file or directory`],
+        handlerOut: [],
+        nextState: state,
+      };
+    }
+
+    return {
+      handled: true,
+      ok: true,
+      advanced: false,
+      terminalOut: fileOut,
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
+  return {
+    handled: true,
+    ok: false,
+    advanced: false,
+    terminalOut: enemyUnknown(raw),
+    handlerOut: [],
+    nextState: state,
+  };
 }
 
 export function runMissionCommand(
@@ -1323,8 +1517,24 @@ export function runMissionCommand(
 ): TerminalCommandResult {
   const raw = norm(input);
 
+  if (isLesson2DevJump(raw)) {
+    const nextState = makeLesson2CheckpointState(state);
+
+    return {
+      handled: true,
+      ok: true,
+      advanced: true,
+      terminalOut: ["DEV: loading lesson 2 checkpoint..."],
+      handlerOut: ["Lesson 2 checkpoint loaded."],
+      nextState,
+      effects: makeLesson2CheckpointEffects(nextState),
+    };
+  }
+
   const phase =
-    state.phase.startsWith("terminal_") || state.phase === "complete"
+    state.phase.startsWith("terminal_") ||
+    state.phase === "complete" ||
+    state.phase === "lesson_2_intro"
       ? state.phase
       : terminalPhaseFromStep(state.step);
 
@@ -1350,110 +1560,8 @@ export function runMissionCommand(
     };
   }
 
-  if (phase === "terminal_brief_search") {
-    if (matches(raw, "pwd", mode)) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: [cwd],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (matches(raw, "ls", mode, ["ls -la", "ls -l", "ls -a"])) {
-      const listing = listForCwd(cwd);
-      return {
-        handled: true,
-        ok: !!listing,
-        advanced: false,
-        terminalOut: listing ?? ["ls: cannot access directory"],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    if (
-      normLower(raw).startsWith("cd ") ||
-      normLower(raw) === "cd" ||
-      normLower(raw) === "cd .."
-    ) {
-      const arg =
-        normLower(raw) === "cd" ? "~" : raw.slice(raw.indexOf("cd") + 2).trim();
-      const nextCwd = resolveCd(cwd, arg);
-
-      if (!nextCwd) {
-        return {
-          handled: true,
-          ok: false,
-          advanced: false,
-          terminalOut: [`cd: no such file or directory: ${arg}`],
-          handlerOut: [],
-          nextState: state,
-        };
-      }
-
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: [],
-        handlerOut: [],
-        nextState: state,
-        effects: [{ type: "set_terminal_cwd", cwd: nextCwd }],
-      };
-    }
-
-    if (
-      matches(raw, "cat useful_info.txt", mode, ["cat ./useful_info.txt"]) ||
-      matches(raw, "cat elevator_override.txt", mode, [
-        "cat ./elevator_override.txt",
-      ])
-    ) {
-      const fileName = raw.split(" ").slice(1).join(" ").replace("./", "");
-      const fileOut = canReadFile(state, cwd, fileName);
-
-      if (!fileOut) {
-        return {
-          handled: true,
-          ok: false,
-          advanced: false,
-          terminalOut: [`cat: ${fileName}: No such file or directory`],
-          handlerOut: [],
-          nextState: state,
-        };
-      }
-
-      if (fileName === "elevator_override.txt") {
-        return {
-          handled: true,
-          ok: true,
-          advanced: false,
-          terminalOut: fileOut,
-          handlerOut: [],
-          nextState: state,
-        };
-      }
-
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: fileOut,
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    return {
-      handled: true,
-      ok: false,
-      advanced: false,
-      terminalOut: enemyUnknown(raw),
-      handlerOut: [],
-      nextState: state,
-    };
+  if (phase === "terminal_brief_search" || phase === "lesson_2_intro") {
+    return runSearchShell(raw, mode, state, cwd);
   }
 
   return { handled: false };
