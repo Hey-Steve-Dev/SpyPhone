@@ -484,6 +484,12 @@ type GameState = {
   trace: number;
   secondsLeft: number;
   timerRunning: boolean;
+
+  batteryLevel: number;
+  isCharging: boolean;
+  setBatteryLevel: (level: number) => void;
+  setIsCharging: (isCharging: boolean) => void;
+
   hallwayOneOccupied: boolean;
   setHallwayOneOccupied: (occupied: boolean) => void;
 
@@ -699,6 +705,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   trace: 16,
   secondsLeft: 1500,
   timerRunning: true,
+
+  batteryLevel: 1,
+  isCharging: false,
+  setBatteryLevel: (level) => set({ batteryLevel: clamp(level, 0, 1) }),
+  setIsCharging: (isCharging) => set({ isCharging }),
+
   hallwayOneOccupied: false,
   setHallwayOneOccupied: (occupied) => {
     const prev = get().hallwayOneOccupied;
@@ -823,6 +835,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const heartbeatWasOn = state.heartbeatOn;
     const soundEnabled = state.soundEnabled;
     const masks = state.masks;
+    const batteryLevel = state.batteryLevel;
+    const isCharging = state.isCharging;
 
     get().stopCameraSim();
     get().clearGuardWaitTimer();
@@ -844,6 +858,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       trace: 16,
       secondsLeft: 150,
       timerRunning: true,
+
+      batteryLevel,
+      isCharging,
+
       hallwayOneOccupied: false,
 
       booted: true,

@@ -5,6 +5,7 @@ import BiometricOverlay from "@/constants/BiometricOverlay";
 import EndGameOverlay from "@/constants/endGameOverlay";
 import GoDarkOverlay from "@/constants/goDarkOverlay";
 import { useGameStore } from "@/store/useGameStore";
+import * as Battery from "expo-battery";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect } from "react";
 import { Platform, StyleSheet, View } from "react-native";
@@ -29,6 +30,8 @@ export default function PhoneFrame({
   const bannerPush = useGameStore((s) => s.bannerPush);
   const startHeartbeat = useGameStore((s) => s.startHeartbeat);
   const endGameWipeActive = useGameStore((s) => s.endGameWipe.active);
+  const setBatteryLevel = useGameStore((s) => s.setBatteryLevel);
+  const setIsCharging = useGameStore((s) => s.setIsCharging);
 
   const ENFORCE_TERMINAL_LOCK = false;
 
@@ -46,6 +49,56 @@ export default function PhoneFrame({
   useEffect(() => {
     startHeartbeat();
   }, [startHeartbeat]);
+
+  useEffect(() => {
+    if (isWeb) {
+      setBatteryLevel(1);
+      setIsCharging(false);
+      return;
+    }
+
+    let levelSub: Battery.Subscription | null = null;
+    let stateSub: Battery.Subscription | null = null;
+    let mounted = true;
+
+    async function syncBattery() {
+      try {
+        const [level, state] = await Promise.all([
+          Battery.getBatteryLevelAsync(),
+          Battery.getBatteryStateAsync(),
+        ]);
+
+        if (!mounted) return;
+
+        setBatteryLevel(typeof level === "number" ? level : 1);
+        setIsCharging(
+          state === Battery.BatteryState.CHARGING ||
+            state === Battery.BatteryState.FULL,
+        );
+
+        levelSub = Battery.addBatteryLevelListener(({ batteryLevel }) => {
+          setBatteryLevel(typeof batteryLevel === "number" ? batteryLevel : 1);
+        });
+
+        stateSub = Battery.addBatteryStateListener(({ batteryState }) => {
+          setIsCharging(
+            batteryState === Battery.BatteryState.CHARGING ||
+              batteryState === Battery.BatteryState.FULL,
+          );
+        });
+      } catch (error) {
+        console.log("Battery read failed:", error);
+      }
+    }
+
+    syncBattery();
+
+    return () => {
+      mounted = false;
+      levelSub?.remove();
+      stateSub?.remove();
+    };
+  }, [isWeb, setBatteryLevel, setIsCharging]);
 
   const Inner = (
     <>

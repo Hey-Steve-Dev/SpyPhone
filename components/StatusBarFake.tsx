@@ -14,6 +14,10 @@ export default function StatusBarFake() {
 
   const soundEnabled = useGameStore((s) => s.soundEnabled);
   const toggleSoundEnabled = useGameStore((s) => s.toggleSoundEnabled);
+  const batteryLevel = useGameStore((s) => s.batteryLevel);
+  const isCharging = useGameStore((s) => s.isCharging);
+
+  const batteryPercent = Math.round((batteryLevel ?? 1) * 100);
 
   const onHome = useMemo(() => {
     return (
@@ -99,11 +103,14 @@ export default function StatusBarFake() {
               WEB
             </Text>
           ) : null}
+
           <Text style={styles.icon} numberOfLines={1}>
             ▃▆█
           </Text>
+
           <Text style={styles.icon} numberOfLines={1}>
-            🔋 86%
+            {isCharging ? "⚡ " : ""}
+            🔋 {batteryPercent}%
           </Text>
         </View>
       </View>
