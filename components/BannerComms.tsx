@@ -1,7 +1,13 @@
 import { useGameStore } from "@/store/useGameStore";
 import { usePathname, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  GestureResponderEvent,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 const STATUS_BAR_HEIGHT = 34;
 const STATUS_BAR_GAP = 40;
@@ -21,8 +27,6 @@ export default function BannerComms() {
 
   const [dots, setDots] = useState("…");
   const [dismissedKey, setDismissedKey] = useState<string | null>(null);
-  const [touchStartY, setTouchStartY] = useState<number | null>(null);
-
   const [visibleBanner, setVisibleBanner] = useState<BannerState>({
     on: false,
     title: "",
@@ -30,6 +34,9 @@ export default function BannerComms() {
   });
 
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartY = useRef<number | null>(null);
+  const touchStartX = useRef<number | null>(null);
+  const didDismissOnGesture = useRef(false);
 
   const isMessagesRoute =
     pathname === "/messages" ||
@@ -99,6 +106,38 @@ export default function BannerComms() {
     return () => clearInterval(id);
   }, [isTyping]);
 
+  const resetTouchTracking = () => {
+    touchStartY.current = null;
+    touchStartX.current = null;
+    didDismissOnGesture.current = false;
+  };
+
+  const handleTouchStart = (e: GestureResponderEvent) => {
+    touchStartY.current = e.nativeEvent.pageY;
+    touchStartX.current = e.nativeEvent.pageX;
+    didDismissOnGesture.current = false;
+  };
+
+  const handleTouchMove = (e: GestureResponderEvent) => {
+    if (touchStartY.current == null || touchStartX.current == null) return;
+    if (didDismissOnGesture.current) return;
+
+    const deltaY = e.nativeEvent.pageY - touchStartY.current;
+    const deltaX = e.nativeEvent.pageX - touchStartX.current;
+
+    const isSwipeUp = deltaY <= -SWIPE_DISMISS_THRESHOLD;
+    const isMostlyVertical = Math.abs(deltaY) > Math.abs(deltaX);
+
+    if (isSwipeUp && isMostlyVertical) {
+      didDismissOnGesture.current = true;
+      setDismissedKey(visibleBannerKey);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    resetTouchTracking();
+  };
+
   if (
     !visibleBanner.on ||
     isMessagesRoute ||
@@ -120,16 +159,14 @@ export default function BannerComms() {
   return (
     <View pointerEvents="box-none" style={styles.wrap}>
       <Pressable
-        onPress={() => router.push("/messages")}
-        onTouchStart={(e) => setTouchStartY(e.nativeEvent.pageY)}
-        onTouchEnd={(e) => {
-          if (touchStartY == null) return;
-          const deltaY = e.nativeEvent.pageY - touchStartY;
-          if (deltaY <= -SWIPE_DISMISS_THRESHOLD) {
-            setDismissedKey(visibleBannerKey);
-          }
-          setTouchStartY(null);
+        onPress={() => {
+          if (didDismissOnGesture.current) return;
+          router.push("/messages");
         }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
         style={styles.pressable}
       >
         <View style={styles.banner}>
