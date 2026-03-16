@@ -16,6 +16,26 @@ const GRID_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 const CAM12_PLAYBACK_RATE = 0.65;
 const CAM13_PLAYBACK_RATE = 0.55;
 
+const CCTV_FONT = Platform.select({
+  ios: "Menlo",
+  android: "monospace",
+  default: "monospace",
+});
+
+function pad2(n: number) {
+  return String(n).padStart(2, "0");
+}
+
+function formatDateStamp(date: Date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+}
+
+function formatTimeStamp(date: Date) {
+  return `${pad2(date.getHours())}:${pad2(date.getMinutes())}:${pad2(
+    date.getSeconds(),
+  )}`;
+}
+
 function SmallCameraFeed({
   offline = false,
   label = "OFFLINE",
@@ -32,6 +52,54 @@ function SmallCameraFeed({
       ) : (
         <View style={styles.feedBase} />
       )}
+    </View>
+  );
+}
+
+function CameraOverlay({
+  camLabel,
+  live = true,
+  compact = false,
+}: {
+  camLabel: string;
+  live?: boolean;
+  compact?: boolean;
+}) {
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
+
+  if (compact) {
+    return (
+      <View pointerEvents="none" style={styles.overlay}>
+        <Text style={styles.overlayText}>{camLabel}</Text>
+      </View>
+    );
+  }
+
+  return (
+    <View pointerEvents="none" style={styles.featuredOverlayWrap}>
+      <View style={styles.featuredOverlayTopRow}>
+        <Text style={styles.featuredOverlayLedText}>{camLabel}</Text>
+        <Text style={styles.featuredOverlayLedText}>
+          {live ? "REC ● LIVE" : "REC"}
+        </Text>
+      </View>
+
+      <View style={styles.featuredOverlayBottomRow}>
+        <Text style={styles.featuredOverlayLedText}>
+          {formatDateStamp(now)}
+        </Text>
+        <Text style={styles.featuredOverlayLedText}>
+          {formatTimeStamp(now)}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -396,9 +464,7 @@ function FeaturedCameraView({ width }: { width: number }) {
                   backgroundColor: "#000",
                 }}
               />
-              <View pointerEvents="none" style={styles.featuredOverlay}>
-                <Text style={styles.featuredOverlayText}>{camLabel}</Text>
-              </View>
+              <CameraOverlay camLabel={camLabel} live />
             </View>
           ) : (
             <View style={styles.featuredMediaWrap}>
@@ -441,9 +507,7 @@ function FeaturedCameraView({ width }: { width: number }) {
                   }
                 }}
               />
-              <View pointerEvents="none" style={styles.featuredOverlay}>
-                <Text style={styles.featuredOverlayText}>{camLabel}</Text>
-              </View>
+              <CameraOverlay camLabel={camLabel} live />
             </View>
           )
         ) : isStandingLoopCam13 ? (
@@ -468,25 +532,27 @@ function FeaturedCameraView({ width }: { width: number }) {
                   backgroundColor: "#000",
                 }}
               />
+              <CameraOverlay camLabel={camLabel} live />
             </View>
           ) : (
-            <Video
-              ref={cam13NativeRef}
-              source={require("../../assets/cams/hallway1/guard-standing.mp4")}
-              style={styles.featuredMedia}
-              resizeMode={ResizeMode.CONTAIN}
-              shouldPlay
-              isLooping={false}
-              isMuted
-              onPlaybackStatusUpdate={handleCam13StatusUpdate}
-            />
+            <View style={styles.featuredMediaWrap}>
+              <Video
+                ref={cam13NativeRef}
+                source={require("../../assets/cams/hallway1/guard-standing.mp4")}
+                style={styles.featuredMedia}
+                resizeMode={ResizeMode.CONTAIN}
+                shouldPlay
+                isLooping={false}
+                isMuted
+                onPlaybackStatusUpdate={handleCam13StatusUpdate}
+              />
+              <CameraOverlay camLabel={camLabel} live />
+            </View>
           )
         ) : (
           <View style={styles.featuredStaticFeed}>
             <SmallCameraFeed />
-            <View pointerEvents="none" style={styles.featuredOverlay}>
-              <Text style={styles.featuredOverlayText}>{camLabel}</Text>
-            </View>
+            <CameraOverlay camLabel={camLabel} live />
           </View>
         )}
       </View>
@@ -595,11 +661,11 @@ export default function CamerasScreen() {
                 >
                   <SmallCameraFeed offline={isOffline} />
 
-                  <View pointerEvents="none" style={styles.overlay}>
-                    <Text style={styles.overlayText}>
-                      {cam?.label ?? `CAM ${id}`}
-                    </Text>
-                  </View>
+                  <CameraOverlay
+                    camLabel={cam?.label ?? `CAM ${id}`}
+                    compact
+                    live
+                  />
                 </Pressable>
               );
             })}
@@ -669,6 +735,7 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     backgroundColor: "#000",
+    position: "relative",
   },
 
   featuredMediaWrap: {
@@ -691,21 +758,39 @@ const styles = StyleSheet.create({
     backgroundColor: "#000",
   },
 
-  featuredOverlay: {
+  featuredOverlayWrap: {
     position: "absolute",
-    left: 10,
-    top: 10,
-    right: 10,
+    left: 8,
+    right: 8,
+    top: 8,
+    bottom: 8,
+    justifyContent: "space-between",
+  },
+
+  featuredOverlayTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
 
-  featuredOverlayText: {
-    color: "rgba(255,255,255,0.9)",
+  featuredOverlayBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  featuredOverlayLedText: {
+    color: "#6cff6c",
     fontSize: 12,
+    fontFamily: CCTV_FONT,
     fontWeight: "700",
-    letterSpacing: 0.7,
+    letterSpacing: 0.8,
+    textShadowColor: "rgba(108,255,108,0.35)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 4,
+    backgroundColor: "rgba(0,0,0,0.18)",
+    paddingHorizontal: 4,
+    paddingVertical: 1,
   },
 
   grid: {
@@ -796,9 +881,17 @@ const styles = StyleSheet.create({
   },
 
   overlayText: {
-    color: "rgba(255,255,255,0.85)",
+    color: "#6cff6c",
     fontSize: 10,
-    letterSpacing: 0.6,
+    fontFamily: CCTV_FONT,
+    fontWeight: "700",
+    letterSpacing: 0.7,
+    textShadowColor: "rgba(108,255,108,0.32)",
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 3,
+    backgroundColor: "rgba(0,0,0,0.18)",
+    paddingHorizontal: 3,
+    paddingVertical: 1,
   },
 
   standby: {
