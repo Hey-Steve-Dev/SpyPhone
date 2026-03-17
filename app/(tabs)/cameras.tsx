@@ -572,11 +572,12 @@ export default function CamerasScreen() {
   const startCameraSim = useGameStore((s) => s.startCameraSim);
   const stopCameraSim = useGameStore((s) => s.stopCameraSim);
   const missionPhase = useGameStore((s) => s.mission.phase);
-  const dispatchMissionEvent = useGameStore((s) => s.dispatchMissionEvent);
+  const cameraObjectiveActive = useGameStore((s) => s.cameraObjectiveActive);
+  const targetCameraId = useGameStore((s) => s.targetCameraId);
 
   const tiles = useMemo(() => GRID_IDS, []);
   const [innerWidth, setInnerWidth] = useState(0);
-  const hasDispatchedViewRef = useRef(false);
+  const retriggeredCameraWatchRef = useRef(false);
 
   useEffect(() => {
     if (!cameraNetworkOnline || !isFocused) {
@@ -589,31 +590,38 @@ export default function CamerasScreen() {
   }, [cameraNetworkOnline, isFocused, startCameraSim, stopCameraSim]);
 
   useEffect(() => {
-    const shouldDispatch =
+    if (!isFocused) return;
+    if (!cameraNetworkOnline) return;
+
+    setSelectedCam(selectedCamId ?? 12);
+  }, [isFocused, cameraNetworkOnline, selectedCamId, setSelectedCam]);
+
+  useEffect(() => {
+    const shouldRetriggerCam12 =
       isFocused &&
       cameraNetworkOnline &&
       missionPhase === "camera_watch" &&
-      selectedCamId === 12;
+      cameraObjectiveActive &&
+      targetCameraId === 12 &&
+      (selectedCamId ?? 12) === 12;
 
-    if (!shouldDispatch) {
-      hasDispatchedViewRef.current = false;
+    if (!shouldRetriggerCam12) {
+      retriggeredCameraWatchRef.current = false;
       return;
     }
 
-    if (hasDispatchedViewRef.current) return;
+    if (retriggeredCameraWatchRef.current) return;
+    retriggeredCameraWatchRef.current = true;
 
-    hasDispatchedViewRef.current = true;
-
-    void dispatchMissionEvent({
-      type: "CAMERA_VIEWED",
-      cameraId: 12,
-    });
+    setSelectedCam(12);
   }, [
     isFocused,
     cameraNetworkOnline,
     missionPhase,
+    cameraObjectiveActive,
+    targetCameraId,
     selectedCamId,
-    dispatchMissionEvent,
+    setSelectedCam,
   ]);
 
   const handleWrapLayout = (event: LayoutChangeEvent) => {
