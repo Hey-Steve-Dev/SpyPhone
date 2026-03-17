@@ -38,8 +38,6 @@ export default function MessagesScreen() {
   const thread = useGameStore((s) => s.thread);
   const clearUnreadMessages = useGameStore((s) => s.clearUnreadMessages);
   const replyChips = useGameStore((s) => s.replyChips);
-  const inputEnabled = useGameStore((s) => s.messagesInputEnabled);
-  const sendEnabled = useGameStore((s) => s.messagesSendEnabled);
   const messagesTyping = useGameStore((s) => s.messagesTyping);
   const submitMessageText = useGameStore((s) => s.submitMessageText);
   const handleMessageReplyAction = useGameStore(
@@ -58,6 +56,10 @@ export default function MessagesScreen() {
   const pendingTypingHandoffRef = useRef(false);
   const didMountRef = useRef(false);
   const liveKeyCounterRef = useRef(0);
+
+  const manualTextDisabled = true;
+  const inputEnabled = false;
+  const sendEnabled = false;
 
   const nextLiveUiKey = useCallback(() => {
     liveKeyCounterRef.current += 1;
@@ -190,7 +192,9 @@ export default function MessagesScreen() {
   }, [thread.length, replyChips.length, liveBubble]);
 
   function handleSend(raw?: string) {
-    if (!inputEnabled || !sendEnabled || messagesTyping) return;
+    if (manualTextDisabled || !inputEnabled || !sendEnabled || messagesTyping) {
+      return;
+    }
 
     const text = (raw ?? input).trim();
     if (!text) return;
@@ -349,37 +353,20 @@ export default function MessagesScreen() {
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder={
-            inputEnabled ? "Send burst..." : "Messaging unavailable..."
-          }
+          placeholder="Awaiting quick reply selection..."
           placeholderTextColor="rgba(255,255,255,0.35)"
-          style={[
-            styles.input,
-            !inputEnabled ? styles.inputDisabled : undefined,
-          ]}
+          style={[styles.input, styles.inputDisabled]}
           onSubmitEditing={() => handleSend()}
           returnKeyType="send"
-          editable={inputEnabled && !messagesTyping}
+          editable={false}
         />
 
         <Pressable
           onPress={() => handleSend()}
-          style={[
-            styles.sendBtn,
-            !inputEnabled || !sendEnabled || messagesTyping
-              ? styles.sendBtnDisabled
-              : undefined,
-          ]}
-          disabled={!inputEnabled || !sendEnabled || messagesTyping}
+          style={[styles.sendBtn, styles.sendBtnDisabled]}
+          disabled
         >
-          <Text
-            style={[
-              styles.sendBtnText,
-              !inputEnabled || !sendEnabled || messagesTyping
-                ? styles.sendBtnTextDisabled
-                : undefined,
-            ]}
-          >
+          <Text style={[styles.sendBtnText, styles.sendBtnTextDisabled]}>
             SEND
           </Text>
         </Pressable>
