@@ -8,6 +8,7 @@ import {
   makeLesson2CheckpointEffects,
   makeLesson2CheckpointState,
 } from "@/lib/lesson2";
+
 export { runMissionCommand } from "@/lib/terminalFs";
 
 export type Mode = "easy" | "strict";
@@ -212,29 +213,16 @@ export type MissionEventResult = {
   };
 };
 
-function handlerForTerminalPhase(phase: MissionPhase): string[] {
-  switch (phase) {
-    case "lesson_2_intro":
-      return [
-        "Lesson 2 checkpoint loaded.",
-        "Terminal remains available for development.",
-      ];
-
-    case "complete":
-      return [];
-
-    default:
-      return ["Stand by."];
-  }
-}
-
 export function makeInitialMissionState(): MissionState {
   return makeInitialLesson1State();
 }
 
 export function missionIntro(state: MissionState): string[] {
   if (state.phase === "lesson_2_intro") {
-    return handlerForTerminalPhase(state.phase);
+    return [
+      "Lesson 2 checkpoint loaded.",
+      "Terminal remains available for development.",
+    ];
   }
 
   return missionIntroLesson1(state) ?? ["Stand by."];

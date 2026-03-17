@@ -5,7 +5,9 @@ import type {
   MissionEventResult,
   MissionPhase,
   MissionState,
+  Mode,
   ReplyChip,
+  TerminalCommandResult,
 } from "@/lib/missionEngine";
 import { runMissionCommand } from "@/lib/terminalFs";
 
@@ -333,6 +335,110 @@ function reviewAdvanceEffects(
   return {
     nextState,
     effects: [{ type: "clear_reply_chips" }],
+  };
+}
+
+function makeTerminalEffects(
+  result: Extract<TerminalCommandResult, { handled: true }>,
+): MissionEffect[] {
+  return [
+    ...(result.effects ?? []),
+    ...(result.terminalOut.length
+      ? [
+          {
+            type: "append_terminal_output",
+            lines: result.terminalOut,
+          } as MissionEffect,
+        ]
+      : []),
+    ...(result.handlerOut?.length
+      ? [
+          {
+            type: "handler_sequence",
+            items: opsSequence(result.handlerOut),
+          } as MissionEffect,
+        ]
+      : []),
+  ];
+}
+
+function terminalShowsPwdResult(
+  result: Extract<TerminalCommandResult, { handled: true }>,
+  cwd: string,
+) {
+  return result.ok && result.terminalOut.includes(cwd);
+}
+
+function terminalShowsElevatorCode(
+  result: Extract<TerminalCommandResult, { handled: true }>,
+  state: MissionState,
+) {
+  return (
+    result.ok &&
+    result.terminalOut.some((line) => line.includes(state.elevatorCode))
+  );
+}
+
+export function handleLesson1TerminalCommand(
+  state: MissionState,
+  input: string,
+  mode: Mode,
+  cwd: string,
+): MissionEventResult {
+  const result = runMissionCommand(input, mode, state, cwd);
+
+  if (!result.handled) {
+    return {
+      nextState: state,
+      effects: [],
+      commandResult: {
+        handled: false,
+        ok: false,
+        advanced: false,
+        gated: false,
+      },
+    };
+  }
+
+  if (state.phase === "terminal_brief_pwd") {
+    const advanced = terminalShowsPwdResult(result, cwd);
+
+    return {
+      nextState: state,
+      effects: makeTerminalEffects(result),
+      commandResult: {
+        handled: true,
+        ok: result.ok,
+        advanced,
+        gated: !!result.gated,
+      },
+    };
+  }
+
+  if (state.phase === "terminal_brief_search") {
+    const advanced = terminalShowsElevatorCode(result, state);
+
+    return {
+      nextState: state,
+      effects: makeTerminalEffects(result),
+      commandResult: {
+        handled: true,
+        ok: result.ok,
+        advanced,
+        gated: !!result.gated,
+      },
+    };
+  }
+
+  return {
+    nextState: result.nextState,
+    effects: makeTerminalEffects(result),
+    commandResult: {
+      handled: true,
+      ok: result.ok,
+      advanced: result.advanced,
+      gated: !!result.gated,
+    },
   };
 }
 
@@ -1156,54 +1262,12 @@ export function handleLesson1Event(
       };
     }
 
-    const result = runMissionCommand(
+    return handleLesson1TerminalCommand(
+      state,
       event.input,
       event.mode ?? "easy",
-      state,
       event.cwd ?? DEFAULT_TERMINAL_CWD,
     );
-
-    if (!result.handled) {
-      return {
-        nextState: state,
-        effects: [],
-        commandResult: {
-          handled: false,
-          ok: false,
-          advanced: false,
-          gated: false,
-        },
-      };
-    }
-
-    return {
-      nextState: result.nextState,
-      effects: [
-        ...(result.effects ?? []),
-        ...(result.terminalOut.length
-          ? [
-              {
-                type: "append_terminal_output",
-                lines: result.terminalOut,
-              } as MissionEffect,
-            ]
-          : []),
-        ...(result.handlerOut?.length
-          ? [
-              {
-                type: "handler_sequence",
-                items: opsSequence(result.handlerOut),
-              } as MissionEffect,
-            ]
-          : []),
-      ],
-      commandResult: {
-        handled: true,
-        ok: result.ok,
-        advanced: result.advanced,
-        gated: !!result.gated,
-      },
-    };
   }
 
   return {

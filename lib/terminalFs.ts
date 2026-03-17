@@ -1,12 +1,10 @@
 import type {
   MissionEffect,
-  MissionPhase,
   MissionState,
   Mode,
   TerminalCommandResult,
 } from "@/lib/missionEngine";
 
-const LESSON_2_DEV_COMMAND = "root el 2";
 const DEFAULT_TERMINAL_CWD = "/home/jcarter";
 
 type FsDirectoryMap = Record<string, string[]>;
@@ -37,19 +35,6 @@ function matches(
 
 function enemyUnknown(cmd: string) {
   return cmd ? [`bash: ${cmd}: command not found`] : [];
-}
-
-function terminalPhaseFromStep(step: number): MissionPhase {
-  switch (step) {
-    case 0:
-      return "terminal_brief_pwd";
-    case 1:
-      return "terminal_brief_search";
-    case 2:
-      return "complete";
-    default:
-      return "terminal_brief_pwd";
-  }
 }
 
 const DIRECTORY_INDEX: FsDirectoryMap = {
@@ -776,12 +761,34 @@ function isExeFile(path: string): boolean {
   return path.toLowerCase().endsWith(".exe");
 }
 
+function isTerminalMissionPhase(phase: MissionState["phase"]) {
+  return (
+    phase === "laptop_access_confirm" ||
+    phase === "terminal_intro" ||
+    phase === "terminal_brief_pwd" ||
+    phase === "terminal_brief_search" ||
+    phase === "complete" ||
+    phase === "lesson_2_intro"
+  );
+}
+
 function runSearchShell(
   raw: string,
   mode: Mode,
   state: MissionState,
   cwd: string,
 ): TerminalCommandResult {
+  if (!raw) {
+    return {
+      handled: true,
+      ok: true,
+      advanced: false,
+      terminalOut: [],
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
   if (matches(raw, "pwd", mode)) {
     return {
       handled: true,
@@ -999,39 +1006,15 @@ function runSearchShell(
   };
 }
 
-export function isLesson2DevJump(input: string) {
-  return normLower(input) === LESSON_2_DEV_COMMAND;
-}
-
 export function runMissionCommand(
   input: string,
   mode: Mode,
   state: MissionState,
   cwd: string,
 ): TerminalCommandResult {
-  const raw = norm(input);
-
-  let phase: MissionPhase;
-
-  if (state.phase === "laptop_access_confirm") {
-    phase = "terminal_brief_pwd";
-  } else if (
-    state.phase.startsWith("terminal_") ||
-    state.phase === "complete" ||
-    state.phase === "lesson_2_intro"
-  ) {
-    phase = state.phase;
-  } else {
-    phase = terminalPhaseFromStep(state.step);
+  if (!isTerminalMissionPhase(state.phase)) {
+    return { handled: false };
   }
 
-  if (phase === "terminal_brief_pwd") {
-    return runSearchShell(raw, mode, state, cwd);
-  }
-
-  if (phase === "terminal_brief_search" || phase === "lesson_2_intro") {
-    return runSearchShell(raw, mode, state, cwd);
-  }
-
-  return { handled: false };
+  return runSearchShell(norm(input), mode, state, cwd || DEFAULT_TERMINAL_CWD);
 }
