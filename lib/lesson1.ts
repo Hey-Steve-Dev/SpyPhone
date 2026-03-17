@@ -448,6 +448,7 @@ export function makeInitialLesson1State(): MissionState {
     phase: "boot_intro",
     step: 0,
     elevatorCode: generateElevatorCode(),
+    tracePercent: 0,
   };
 }
 

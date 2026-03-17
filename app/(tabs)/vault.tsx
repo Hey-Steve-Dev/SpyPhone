@@ -96,8 +96,8 @@ const VAULT: VaultItem[] = [
   },
   {
     id: "log-erase",
-    title: "Log Eraser",
-    desc: "Remove forensic traces.",
+    title: "Trace Log Eraser",
+    desc: "Remove forensic traces from system logs.",
     code: "log.erase --secure --depth 5",
     run: "run log.erase",
   },

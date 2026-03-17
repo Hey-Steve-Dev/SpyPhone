@@ -4,9 +4,11 @@ import {
   missionIntroLesson1,
 } from "@/lib/lesson1";
 import {
+  handleLesson2Event,
   isLesson2DevJump,
   makeLesson2CheckpointEffects,
   makeLesson2CheckpointState,
+  missionIntroLesson2,
 } from "@/lib/lesson2";
 
 export { runMissionCommand } from "@/lib/terminalFs";
@@ -33,13 +35,18 @@ export type MissionPhase =
   | "terminal_brief_pwd"
   | "terminal_brief_search"
   | "complete"
-  | "lesson_2_intro";
+  | "lesson_2_intro"
+  | "lesson_2_vault_prompt"
+  | "lesson_2_vault_help"
+  | "lesson_2_vault_done"
+  | "lesson_2_ready_prompt";
 
 export type MissionState = {
   missionId: "bootcamp_01";
   phase: MissionPhase;
   step: number;
   elevatorCode: string;
+  tracePercent: number;
 };
 
 export type ReplyChip = {
@@ -218,12 +225,8 @@ export function makeInitialMissionState(): MissionState {
 }
 
 export function missionIntro(state: MissionState): string[] {
-  if (state.phase === "lesson_2_intro") {
-    return [
-      "Lesson 2 checkpoint loaded.",
-      "Terminal remains available for development.",
-    ];
-  }
+  const lesson2Intro = missionIntroLesson2(state);
+  if (lesson2Intro) return lesson2Intro;
 
   return missionIntroLesson1(state) ?? ["Stand by."];
 }
@@ -246,6 +249,11 @@ export function handleMissionEvent(
         gated: false,
       },
     };
+  }
+
+  const lesson2Result = handleLesson2Event(state, event);
+  if (lesson2Result) {
+    return lesson2Result;
   }
 
   const lesson1Result = handleLesson1Event(state, event, ctx);
