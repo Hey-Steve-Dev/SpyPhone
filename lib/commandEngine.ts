@@ -265,6 +265,20 @@ export const TERMINAL_HOSTS: Record<string, TerminalHost> = {
       home: dir({
         agent: dir({
           phone: dir({
+            "mission_brief.txt": file(
+              "MISSION BRIEF",
+              "",
+              "We need to complete this misson and leave no trail behind",
+              "",
+              "OBJECTIVES:",
+              "- Gain access to internal systems",
+              "- Avoid detection",
+              "- Follow OPS instructions",
+              "",
+
+              "Your phone will auto delete if caught",
+            ),
+
             apps: dir({
               "messages.app": file("Launch Messages"),
               "network.app": file("Launch Network"),

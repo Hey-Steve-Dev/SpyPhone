@@ -738,30 +738,11 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   hallwayOneOccupied: false,
   setHallwayOneOccupied: (occupied) => {
-    const prev = get().hallwayOneOccupied;
-
     set({ hallwayOneOccupied: occupied });
-
-    if (occupied && !prev) {
-      const seq = get().camera12Sequence;
-      if (seq.mode === "idle") {
-        get().armCamera12Sequence();
-      }
-      if (seq.mode === "armed" || seq.mode === "idle") {
-        get().startCamera12Sequence();
-      }
-    }
-
-    if (!occupied && prev) {
-      const seq = get().camera12Sequence;
-      if (seq.mode === "playing") {
-        get().completeCamera12Sequence();
-      }
-    }
 
     get().pushLog(
       "camera",
-      `Hallway occupancy manually set to ${occupied ? "occupied" : "clear"}.`,
+      `Hallway occupancy set to ${occupied ? "occupied" : "clear"}.`,
     );
   },
 
@@ -784,6 +765,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   startCamera12Sequence: () =>
     set((s) => {
       if (s.camera12Sequence.mode === "playing") return s;
+      if (s.camera12Sequence.mode === "complete") return s;
 
       const startedAt = Date.now();
       get().pushLog("camera", "CAM 12 sequence started.");
@@ -797,20 +779,34 @@ export const useGameStore = create<GameState>((set, get) => ({
       };
     }),
 
-  completeCamera12Sequence: () =>
-    set((s) => {
-      if (s.camera12Sequence.mode === "complete") return s;
+  completeCamera12Sequence: () => {
+    const s = get();
+    if (s.camera12Sequence.mode === "complete") return;
 
-      get().pushLog("camera", "CAM 12 sequence completed.");
+    const completedAt = Date.now();
 
-      return {
-        camera12Sequence: {
-          mode: "complete",
-          startedAt: s.camera12Sequence.startedAt,
-          completedAt: Date.now(),
-        },
-      };
-    }),
+    set({
+      camera12Sequence: {
+        mode: "complete",
+        startedAt: s.camera12Sequence.startedAt,
+        completedAt,
+      },
+    });
+
+    get().pushLog("camera", "CAM 12 sequence completed.");
+
+    if (s.mission.phase === "camera_watch") {
+      get().clearGuardWaitTimer();
+
+      setTimeout(() => {
+        const latest = get();
+        if (latest.mission.phase !== "camera_watch") return;
+        if (latest.camera12Sequence.mode !== "complete") return;
+
+        void latest.dispatchMissionEvent({ type: "SCANNER_CHATTER_HEARD" });
+      }, 850);
+    }
+  },
 
   resetCamera12Sequence: () =>
     set(() => {
@@ -2008,13 +2004,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         cameras: nextCameras,
         hallwayOneOccupied: on ? s.hallwayOneOccupied : false,
         camera12Sequence: on
-          ? s.camera12Sequence.mode === "idle"
-            ? {
-                mode: "armed",
-                startedAt: null,
-                completedAt: null,
-              }
-            : s.camera12Sequence
+          ? s.camera12Sequence
           : makeInitialCamera12Sequence(),
         targetCameraId: on ? s.targetCameraId : null,
         cameraObjectiveActive: on ? s.cameraObjectiveActive : false,
@@ -2047,6 +2037,18 @@ export const useGameStore = create<GameState>((set, get) => ({
     ) {
       get().pushLog("camera", `Viewing objective camera ${id}.`);
       void get().dispatchMissionEvent({ type: "CAMERA_VIEWED", cameraId: id });
+
+      if (
+        id === 12 &&
+        s.mission.phase === "camera_watch" &&
+        s.camera12Sequence.mode !== "playing" &&
+        s.camera12Sequence.mode !== "complete"
+      ) {
+        if (s.camera12Sequence.mode === "idle") {
+          get().armCamera12Sequence();
+        }
+        get().startCamera12Sequence();
+      }
     }
   },
 
@@ -2074,38 +2076,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         );
       }
 
-      let nextSequence = s.camera12Sequence;
-
-      if (id === 12) {
-        if (state === "occupied" || state === "motion") {
-          if (nextSequence.mode === "idle") {
-            nextSequence = {
-              mode: "armed",
-              startedAt: null,
-              completedAt: null,
-            };
-          }
-        } else if (
-          state === "empty" &&
-          (nextSequence.mode === "playing" || nextSequence.mode === "complete")
-        ) {
-          nextSequence =
-            nextSequence.mode === "playing"
-              ? {
-                  mode: "complete",
-                  startedAt: nextSequence.startedAt,
-                  completedAt: Date.now(),
-                }
-              : nextSequence;
-        }
-      }
-
       return {
-        hallwayOneOccupied:
-          id === 12
-            ? state === "occupied" || state === "motion"
-            : s.hallwayOneOccupied,
-        camera12Sequence: nextSequence,
         cameras: {
           ...s.cameras,
           [id]: {
@@ -2137,22 +2108,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         `${s.cameras[id]?.label ?? `CAM ${id}`} targeted.`,
       );
 
-      const nextSequence =
-        id === 12
-          ? s.camera12Sequence.mode === "playing" ||
-            s.camera12Sequence.mode === "complete"
-            ? s.camera12Sequence
-            : {
-                mode: "armed" as Camera12SequenceMode,
-                startedAt: null,
-                completedAt: null,
-              }
-          : s.camera12Sequence;
-
       return {
-        selectedCamId: id,
-        hallwayOneOccupied: s.hallwayOneOccupied,
-        camera12Sequence: nextSequence,
         cameras: {
           ...s.cameras,
           [id]: {
@@ -2169,6 +2125,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           },
         },
         targetCameraId: id,
+        selectedCamId: id,
       };
     }),
 
@@ -2185,7 +2142,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         id === 12 ? makeInitialCamera12Sequence() : s.camera12Sequence;
 
       return {
-        hallwayOneOccupied: id === 12 ? false : s.hallwayOneOccupied,
         camera12Sequence: nextSequence,
         cameras: {
           ...s.cameras,
@@ -2218,13 +2174,13 @@ export const useGameStore = create<GameState>((set, get) => ({
       hallwayOneOccupied: false,
       camera12Sequence:
         targetId === 12
-          ? get().camera12Sequence
+          ? {
+              mode: "armed",
+              startedAt: null,
+              completedAt: null,
+            }
           : makeInitialCamera12Sequence(),
     });
-
-    if (targetId === 12 && get().camera12Sequence.mode === "armed") {
-      get().pushLog("camera", "CAM 12 sequence ready.");
-    }
 
     get().pushLog("mission", `Camera objective started on CAM ${targetId}.`);
   },
@@ -2245,13 +2201,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     set((s) => ({
       cameras: makeInitialCameras(s.cameraNetworkOnline),
       camera12Sequence: s.cameraNetworkOnline
-        ? s.camera12Sequence.mode === "idle"
-          ? {
-              mode: "armed",
-              startedAt: null,
-              completedAt: null,
-            }
-          : s.camera12Sequence
+        ? s.camera12Sequence
         : makeInitialCamera12Sequence(),
       selectedCamId: 12,
       targetCameraId: null,

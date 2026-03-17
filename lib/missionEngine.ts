@@ -1,3 +1,11 @@
+import {
+  isLesson2DevJump,
+  makeLesson2CheckpointEffects,
+  makeLesson2CheckpointState,
+} from "@/lib/lesson2";
+import { runMissionCommand } from "@/lib/terminalFs";
+export { runMissionCommand } from "@/lib/terminalFs";
+
 export type Mode = "easy" | "strict";
 
 export type MissionPhase =
@@ -202,20 +210,11 @@ export type MissionEventResult = {
 
 const CAMERA_TUNNEL_DEVICE_ID = "camera_access_point";
 const LAPTOP_TUNNEL_DEVICE_ID = "security_laptop";
-const LESSON_2_DEV_COMMAND = "root el 2";
 const DEFAULT_TERMINAL_CWD = "/home/jcarter";
 const DEFAULT_TERMINAL_HOST = "local_jcarter";
 
 function generateElevatorCode(): string {
   return Math.floor(1000 + Math.random() * 9000).toString();
-}
-
-function norm(s: string) {
-  return s.trim().replace(/\s+/g, " ");
-}
-
-function normLower(s: string) {
-  return norm(s).toLowerCase();
 }
 
 function opsLine(text: string, typingMs = 1400, afterMs = 900) {
@@ -226,25 +225,6 @@ function opsSequence(lines: string[]) {
   return lines.map((text, index) =>
     opsLine(text, 1300 + index * 150, 950 + Math.min(index, 2) * 150),
   );
-}
-
-function matches(
-  inputRaw: string,
-  exact: string,
-  mode: Mode,
-  easyAlso: string[] = [],
-) {
-  const raw = norm(inputRaw);
-  if (mode === "strict") return raw === exact;
-
-  const inL = normLower(inputRaw);
-  if (normLower(exact) === inL) return true;
-
-  return easyAlso.map(normLower).includes(inL);
-}
-
-function enemyUnknown(cmd: string) {
-  return cmd ? [`bash: ${cmd}: command not found`] : [];
 }
 
 function reviewSetIndexForPhase(phase: MissionPhase): number {
@@ -308,24 +288,21 @@ function reviewLinesForPhase(phase: MissionPhase): string[] {
   switch (phase) {
     case "review_messages":
       return [
-        "Comms is burst traffic only. Short, fast, and not always reliable.",
+        "Coms is burst traffic, so it's limited.",
         "Use the response chips when you can.",
-        "If you start typing chatter into comms, your trace goes up.",
-        "If trace gets too high, we're blown.",
+        "Keep chatter to a minimum.",
       ];
 
     case "review_network":
       return [
         "Tunnel gets you into devices when you're close enough.",
-        "You will use Tunnel a lot.",
-        "Once you're in, Terminal is where you do the real work inside the device.",
+        "It grants you Terminal access on the device.",
       ];
 
     case "review_terminal":
       return [
         "Terminal is where you'll spend most of this run.",
         "You'll inspect systems, move through files, and act on what you find.",
-        "Type clean. Slow is better than wrong.",
       ];
 
     case "review_ops":
@@ -370,7 +347,7 @@ function reviewAdvanceEffects(
               1500,
               1000,
             ),
-            opsLine("Open Tunnel and access it.", 1400, 900),
+            opsLine("Open your Tunnel app, scan and access it.", 1400, 900),
             opsLine("We need eyes inside the building.", 1450, 1200),
           ],
         },
@@ -428,19 +405,6 @@ function withPhase(state: MissionState, phase: MissionPhase): MissionState {
   };
 }
 
-function terminalPhaseFromStep(step: number): MissionPhase {
-  switch (step) {
-    case 0:
-      return "terminal_brief_pwd";
-    case 1:
-      return "terminal_brief_search";
-    case 2:
-      return "complete";
-    default:
-      return "terminal_brief_pwd";
-  }
-}
-
 function handlerForTerminalPhase(phase: MissionPhase): string[] {
   switch (phase) {
     case "terminal_brief_pwd":
@@ -452,8 +416,8 @@ function handlerForTerminalPhase(phase: MissionPhase): string[] {
       return [
         "Good. You're going to need to look around in there for an elevator passcode.",
         "Type `ls` to list files and folders.",
-        "Type `cat` to read a file.",
-        "Type `cd` to move into a folder.",
+        "Type `cat` + file name, to read a file.",
+        "Type `cd` + folder name to move into a folder.",
         "Search through the system and find the code.",
       ];
 
@@ -493,59 +457,14 @@ function makeSuccessfulMoveEffects(): MissionEffect[] {
   ];
 }
 
-function isLesson2DevJump(input: string) {
-  return normLower(input) === LESSON_2_DEV_COMMAND;
-}
-
-function makeLesson2CheckpointState(state: MissionState): MissionState {
-  return {
-    ...state,
-    phase: "lesson_2_intro",
-    step: phaseToStep("lesson_2_intro"),
-  };
-}
-
-function makeLesson2CheckpointEffects(
-  nextState: MissionState,
-): MissionEffect[] {
-  return [
-    { type: "set_mission_state", state: nextState },
-    { type: "clear_reply_chips" },
-    { type: "clear_tunnel_targets" },
-
-    { type: "set_camera_network_online", on: true },
-    { type: "stop_camera_sim" },
-    { type: "resolve_camera_objective" },
-    { type: "set_hallway_occupied", on: false },
-    { type: "clear_camera_target", cameraId: 12 },
-
-    { type: "reset_terminal" },
-    { type: "set_terminal_host", hostId: DEFAULT_TERMINAL_HOST },
-    { type: "set_terminal_cwd", cwd: DEFAULT_TERMINAL_CWD },
-    { type: "set_terminal_locked", on: false },
-
-    {
-      type: "append_terminal_output",
-      lines: [
-        "DEV: lesson 2 checkpoint loaded.",
-        `DEV: host=${DEFAULT_TERMINAL_HOST}`,
-        `DEV: cwd=${DEFAULT_TERMINAL_CWD}`,
-      ],
-    },
-    {
-      type: "banner",
-      title: "DEV CHECKPOINT",
-      message: "Lesson 2 loaded.",
-      ms: 1800,
-    },
-    {
-      type: "handler_sequence",
-      items: [
-        opsLine("Checkpoint accepted.", 900, 500),
-        opsLine("Lesson 2 environment loaded.", 900, 600),
-      ],
-    },
-  ];
+function isTerminalAvailablePhase(phase: MissionPhase) {
+  return (
+    phase === "laptop_access_confirm" ||
+    phase === "terminal_intro" ||
+    phase.startsWith("terminal_") ||
+    phase === "complete" ||
+    phase === "lesson_2_intro"
+  );
 }
 
 export function missionIntro(state: MissionState): string[] {
@@ -575,7 +494,7 @@ export function missionIntro(state: MissionState): string[] {
       return [
         "We need to find an elevator passcode down here before we can move.",
         "There should be an access point for the cameras in the room next to you.",
-        "Open Tunnel and access it.",
+        "Open your Tunnel app do a scan, you should be able to access it from there.",
         "We need eyes inside the building.",
       ];
 
@@ -584,7 +503,7 @@ export function missionIntro(state: MissionState): string[] {
 
     case "camera_watch":
       return [
-        "OK. Good.",
+        "Copy that.",
         "I'm hearing chatter on the band. One of the guards is on patrol.",
         "Go to Camera 12 and wait for him to pass.",
       ];
@@ -597,14 +516,14 @@ export function missionIntro(state: MissionState): string[] {
 
     case "laptop_objective":
       return [
-        "Good. Stay quiet.",
-        "We need access to the laptop in that room.",
-        "Run a scan and tunnel into it.",
+        "Copy. Stay quiet.",
+        "There should be a laptop in there.",
+        "Open your Tunnel app and scan for the laptop.",
         "Signal when you're connected.",
       ];
 
     case "laptop_access_confirm":
-      return ["Signal when you're connected."];
+      return ["Ok, you're in the shell now.", "Open Terminal and type `pwd`."];
 
     case "terminal_intro":
       return ["Good.", "Open Terminal."];
@@ -717,11 +636,7 @@ export function handleMissionEvent(
             {
               type: "handler_sequence",
               items: [
-                opsLine(
-                  "OK. I will give you the important updates now.",
-                  1450,
-                  1100,
-                ),
+                opsLine("Ok, here's the rundown.", 1450, 1100),
                 ...opsSequence(reviewLinesForPhase(nextState.phase)),
               ],
             },
@@ -837,7 +752,11 @@ export function handleMissionEvent(
           },
           { type: "start_camera_objective", targetId: 12 },
           { type: "trigger_camera_target", cameraId: 12 },
-          { type: "set_hallway_occupied", on: false },
+          { type: "set_hallway_occupied", on: true },
+          {
+            type: "set_reply_chips",
+            chips: [{ id: "move_now", label: "Moving", action: "moving_now" }],
+          },
         ],
       };
     }
@@ -882,7 +801,7 @@ export function handleMissionEvent(
             items: [
               opsLine("Good. Stay quiet.", 1350, 900),
               opsLine("We need access to the laptop in that room.", 1450, 950),
-              opsLine("Run a scan and tunnel into it.", 1400, 950),
+              opsLine("Run open your Tunnel app and scan for it.", 1400, 950),
               opsLine("Signal when you're connected.", 1400, 1100),
             ],
           },
@@ -931,6 +850,8 @@ export function handleMissionEvent(
               },
             ],
           },
+          { type: "set_terminal_host", hostId: DEFAULT_TERMINAL_HOST },
+          { type: "set_terminal_cwd", cwd: DEFAULT_TERMINAL_CWD },
           { type: "set_terminal_locked", on: false },
         ],
       };
@@ -979,6 +900,7 @@ export function handleMissionEvent(
       return {
         nextState: state,
         effects: [
+          { type: "clear_reply_chips" },
           ...(event.label
             ? [{ type: "player_message", text: event.label } as MissionEffect]
             : []),
@@ -991,6 +913,66 @@ export function handleMissionEvent(
                 900,
               ),
               opsLine("Look for anything personal or useful.", 1400, 1000),
+            ],
+          },
+          {
+            type: "set_reply_chips",
+            chips: [
+              {
+                id: "terminal_found_code_after_hint_1",
+                label: "I found the code",
+                action: "terminal_found_code",
+              },
+              {
+                id: "terminal_need_help_again",
+                label: "Still not finding it",
+                action: "terminal_need_help_again",
+              },
+            ],
+          },
+        ],
+      };
+    }
+
+    if (
+      state.phase === "terminal_brief_search" &&
+      event.action === "terminal_need_help_again"
+    ) {
+      return {
+        nextState: state,
+        effects: [
+          { type: "clear_reply_chips" },
+          ...(event.label
+            ? [{ type: "player_message", text: event.label } as MissionEffect]
+            : []),
+          {
+            type: "handler_sequence",
+            items: [
+              opsLine(
+                "Folders look like this `my_notes`. Files looke like this. file.txt.",
+                1450,
+                900,
+              ),
+              opsLine(
+                "Make sure your using cd on Folders, and cat on files.",
+                1500,
+                950,
+              ),
+              opsLine(
+                "Remember when you open a file, you have to type ls to see what's inside.",
+                1400,
+                1000,
+              ),
+            ],
+          },
+          {
+            type: "set_reply_chips",
+            chips: [
+              {
+                id: "terminal_found_code_after_hint_2",
+                label: "I found the code",
+                action: "terminal_found_code",
+              },
             ],
           },
         ],
@@ -1089,6 +1071,17 @@ export function handleMissionEvent(
       return {
         nextState,
         effects: [
+          { type: "clear_tunnel_targets" },
+          { type: "set_terminal_host", hostId: DEFAULT_TERMINAL_HOST },
+          { type: "set_terminal_cwd", cwd: DEFAULT_TERMINAL_CWD },
+          { type: "set_terminal_locked", on: false },
+          {
+            type: "append_terminal_output",
+            lines: [
+              `Connected to ${DEFAULT_TERMINAL_HOST}`,
+              DEFAULT_TERMINAL_CWD,
+            ],
+          },
           {
             type: "set_reply_chips",
             chips: [
@@ -1124,41 +1117,32 @@ export function handleMissionEvent(
       };
     }
 
-    if (safeCtx.hallwayOccupied) {
+    return {
+      nextState: state,
+      effects: [
+        { type: "trigger_camera_target", cameraId: 12 },
+        { type: "start_camera_sim" },
+        { type: "start_guard_wait_window", timeoutMs: 25000 },
+      ],
+    };
+  }
+
+  if (event.type === "SCANNER_CHATTER_HEARD") {
+    if (state.phase !== "camera_watch") {
       return {
         nextState: state,
         effects: [],
       };
     }
 
-    return {
-      nextState: state,
-      effects: [
-        { type: "set_hallway_occupied", on: true },
-        { type: "trigger_camera_target", cameraId: 12 },
-        { type: "start_camera_sim" },
-        { type: "start_guard_wait_window", timeoutMs: 25000 },
-        {
-          type: "set_reply_chips",
-          chips: [{ id: "move_now", label: "Moving", action: "moving_now" }],
-        },
-      ],
-    };
-  }
-
-  if (event.type === "SCANNER_CHATTER_HEARD") {
     const nextState = withPhase(state, "move_prompt");
 
     return {
       nextState,
       effects: [
         { type: "set_hallway_occupied", on: false },
-        {
-          type: "handler_sequence",
-          items: [
-            opsLine("There it is. East entrance traffic. Move.", 1550, 1300),
-          ],
-        },
+        { type: "stop_camera_sim" },
+        { type: "clear_camera_target", cameraId: 12 },
       ],
     };
   }
@@ -1171,26 +1155,18 @@ export function handleMissionEvent(
       };
     }
 
-    const nextState = withPhase(state, "post_move_confirm");
+    const nextState = withPhase(state, "move_prompt");
 
     return {
       nextState,
       effects: [
-        { type: "clear_reply_chips" },
+        { type: "set_hallway_occupied", on: false },
+        { type: "stop_camera_sim" },
+        { type: "clear_camera_target", cameraId: 12 },
         {
           type: "handler_sequence",
-          items: [
-            opsLine(
-              "OK, he must be past now, move it, we're wasting time.",
-              1550,
-              900,
-            ),
-          ],
+          items: [opsLine("OK, he must be past now. Move.", 1550, 900)],
         },
-        { type: "set_hallway_occupied", on: false },
-        { type: "clear_camera_target", cameraId: 12 },
-        { type: "player_message", text: "Moving" },
-        ...makeSuccessfulMoveEffects(),
       ],
     };
   }
@@ -1253,11 +1229,7 @@ export function handleMissionEvent(
       };
     }
 
-    const inTerminalMission =
-      state.phase === "terminal_intro" ||
-      state.phase.startsWith("terminal_") ||
-      state.phase === "complete" ||
-      state.phase === "lesson_2_intro";
+    const inTerminalMission = isTerminalAvailablePhase(state.phase);
 
     if (!inTerminalMission) {
       return {
@@ -1276,7 +1248,6 @@ export function handleMissionEvent(
       event.input,
       event.mode ?? "easy",
       state,
-      safeCtx.jammerEnabled,
       event.cwd ?? DEFAULT_TERMINAL_CWD,
     );
 
@@ -1327,248 +1298,4 @@ export function handleMissionEvent(
     nextState: state,
     effects: [],
   };
-}
-
-function listForCwd(cwd: string): string[] | null {
-  switch (cwd) {
-    case "/home/jcarter":
-      return ["Desktop", "Documents", "Downloads", "Pictures", "saved_notes"];
-    case "/home/jcarter/saved_notes":
-      return ["useful_info.txt", "network"];
-    case "/home/jcarter/saved_notes/network":
-      return ["maintenance"];
-    case "/home/jcarter/saved_notes/network/maintenance":
-      return ["info"];
-    case "/home/jcarter/saved_notes/network/maintenance/info":
-      return ["elevators"];
-    case "/home/jcarter/saved_notes/network/maintenance/info/elevators":
-      return ["weekly_passcodes"];
-    case "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes":
-      return ["2026_week_09", "2026_week_10", "current_week", "archive"];
-    case "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/current_week":
-      return [
-        "elevator_override.txt",
-        "service_notes.txt",
-        "rotation_schedule.txt",
-      ];
-    default:
-      return null;
-  }
-}
-
-function canReadFile(
-  state: MissionState,
-  cwd: string,
-  fileName: string,
-): string[] | null {
-  if (cwd === "/home/jcarter/saved_notes" && fileName === "useful_info.txt") {
-    return [
-      "Personal Quick Notes",
-      "",
-      "Printer PIN: 7712",
-      "Locker combo: 2041",
-      "",
-      "Elevator maintenance override codes are rotated weekly.",
-      "Maintenance portal path:",
-      "network/maintenance/info/elevators/weekly_passcodes",
-      "",
-      "Use the current week folder to get the active code.",
-    ];
-  }
-
-  if (
-    cwd ===
-      "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/current_week" &&
-    fileName === "elevator_override.txt"
-  ) {
-    return [
-      "Elevator Maintenance Override",
-      "Week 11",
-      "",
-      `Override Code: ${state.elevatorCode}`,
-      "",
-      "Note:",
-      "Code resets automatically every Monday at 04:00.",
-    ];
-  }
-
-  return null;
-}
-
-function resolveCd(cwd: string, argRaw: string): string | null {
-  const arg = norm(argRaw);
-
-  if (!arg) return cwd;
-  if (arg === "~") return DEFAULT_TERMINAL_CWD;
-  if (arg === DEFAULT_TERMINAL_CWD) return DEFAULT_TERMINAL_CWD;
-  if (arg === "..") {
-    if (cwd === DEFAULT_TERMINAL_CWD) return DEFAULT_TERMINAL_CWD;
-    return cwd.split("/").slice(0, -1).join("/") || DEFAULT_TERMINAL_CWD;
-  }
-
-  if (arg.startsWith("/")) {
-    return listForCwd(arg) ? arg : null;
-  }
-
-  const next = `${cwd}/${arg}`;
-  return listForCwd(next) ? next : null;
-}
-
-function runSearchShell(
-  raw: string,
-  mode: Mode,
-  state: MissionState,
-  cwd: string,
-): TerminalCommandResult {
-  if (matches(raw, "pwd", mode)) {
-    return {
-      handled: true,
-      ok: true,
-      advanced: false,
-      terminalOut: [cwd],
-      handlerOut: [],
-      nextState: state,
-    };
-  }
-
-  if (matches(raw, "ls", mode, ["ls -la", "ls -l", "ls -a"])) {
-    const listing = listForCwd(cwd);
-    return {
-      handled: true,
-      ok: !!listing,
-      advanced: false,
-      terminalOut: listing ?? ["ls: cannot access directory"],
-      handlerOut: [],
-      nextState: state,
-    };
-  }
-
-  if (
-    normLower(raw).startsWith("cd ") ||
-    normLower(raw) === "cd" ||
-    normLower(raw) === "cd .."
-  ) {
-    const arg =
-      normLower(raw) === "cd" ? "~" : raw.slice(raw.indexOf("cd") + 2).trim();
-    const nextCwd = resolveCd(cwd, arg);
-
-    if (!nextCwd) {
-      return {
-        handled: true,
-        ok: false,
-        advanced: false,
-        terminalOut: [`cd: no such file or directory: ${arg}`],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    return {
-      handled: true,
-      ok: true,
-      advanced: false,
-      terminalOut: [],
-      handlerOut: [],
-      nextState: state,
-      effects: [{ type: "set_terminal_cwd", cwd: nextCwd }],
-    };
-  }
-
-  if (
-    matches(raw, "cat useful_info.txt", mode, ["cat ./useful_info.txt"]) ||
-    matches(raw, "cat elevator_override.txt", mode, [
-      "cat ./elevator_override.txt",
-    ])
-  ) {
-    const fileName = raw.split(" ").slice(1).join(" ").replace("./", "");
-    const fileOut = canReadFile(state, cwd, fileName);
-
-    if (!fileOut) {
-      return {
-        handled: true,
-        ok: false,
-        advanced: false,
-        terminalOut: [`cat: ${fileName}: No such file or directory`],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    return {
-      handled: true,
-      ok: true,
-      advanced: false,
-      terminalOut: fileOut,
-      handlerOut: [],
-      nextState: state,
-    };
-  }
-
-  return {
-    handled: true,
-    ok: false,
-    advanced: false,
-    terminalOut: enemyUnknown(raw),
-    handlerOut: [],
-    nextState: state,
-  };
-}
-
-export function runMissionCommand(
-  input: string,
-  mode: Mode,
-  state: MissionState,
-  _jammerEnabled: boolean,
-  cwd: string,
-): TerminalCommandResult {
-  const raw = norm(input);
-
-  if (isLesson2DevJump(raw)) {
-    const nextState = makeLesson2CheckpointState(state);
-
-    return {
-      handled: true,
-      ok: true,
-      advanced: true,
-      terminalOut: ["DEV: loading lesson 2 checkpoint..."],
-      handlerOut: ["Lesson 2 checkpoint loaded."],
-      nextState,
-      effects: makeLesson2CheckpointEffects(nextState),
-    };
-  }
-
-  const phase =
-    state.phase.startsWith("terminal_") ||
-    state.phase === "complete" ||
-    state.phase === "lesson_2_intro"
-      ? state.phase
-      : terminalPhaseFromStep(state.step);
-
-  if (phase === "terminal_brief_pwd") {
-    if (matches(raw, "pwd", mode)) {
-      return {
-        handled: true,
-        ok: true,
-        advanced: false,
-        terminalOut: [cwd],
-        handlerOut: [],
-        nextState: state,
-      };
-    }
-
-    return {
-      handled: true,
-      ok: false,
-      advanced: false,
-      terminalOut: enemyUnknown(raw),
-      handlerOut: [],
-      nextState: state,
-    };
-  }
-
-  if (phase === "terminal_brief_search" || phase === "lesson_2_intro") {
-    return runSearchShell(raw, mode, state, cwd);
-  }
-
-  return { handled: false };
 }
