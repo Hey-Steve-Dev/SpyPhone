@@ -16,7 +16,10 @@ type Lesson2Phase =
   | "lesson_2_vault_prompt"
   | "lesson_2_vault_help"
   | "lesson_2_vault_done"
-  | "lesson_2_ready_prompt";
+  | "lesson_2_ready_prompt"
+  | "lesson_2_move_prompt"
+  | "lesson_2_move_ready"
+  | "lesson_2_post_move_confirm";
 
 function normalize(input: string) {
   return input.trim().replace(/\s+/g, " ").toLowerCase();
@@ -24,17 +27,6 @@ function normalize(input: string) {
 
 function opsLine(text: string, typingMs = 1400, afterMs = 900) {
   return { text, typingMs, afterMs };
-}
-
-function withLesson2Phase(
-  state: MissionState,
-  phase: Lesson2Phase,
-): MissionState {
-  return {
-    ...state,
-    phase,
-    step: lesson2PhaseToStep(phase),
-  };
 }
 
 function lesson2PhaseToStep(phase: Lesson2Phase): number {
@@ -49,9 +41,26 @@ function lesson2PhaseToStep(phase: Lesson2Phase): number {
       return 3;
     case "lesson_2_ready_prompt":
       return 4;
+    case "lesson_2_move_prompt":
+      return 5;
+    case "lesson_2_move_ready":
+      return 6;
+    case "lesson_2_post_move_confirm":
+      return 7;
     default:
       return 0;
   }
+}
+
+function withLesson2Phase(
+  state: MissionState,
+  phase: Lesson2Phase,
+): MissionState {
+  return {
+    ...state,
+    phase,
+    step: lesson2PhaseToStep(phase),
+  };
 }
 
 function lesson2ReplyChipsForVault(): ReplyChip[] {
@@ -61,13 +70,30 @@ function lesson2ReplyChipsForVault(): ReplyChip[] {
   ];
 }
 
+function lesson2MoveChip(): ReplyChip[] {
+  return [{ id: "lesson2_moving", label: "Moving", action: "lesson2_moving" }];
+}
+
+function lesson2PostMoveChip(): ReplyChip[] {
+  return [
+    {
+      id: "lesson2_post_move_in",
+      label: "I'm in",
+      action: "lesson2_post_move_in",
+    },
+  ];
+}
+
 function isLesson2Phase(phase: MissionState["phase"]): phase is Lesson2Phase {
   return (
     phase === "lesson_2_intro" ||
     phase === "lesson_2_vault_prompt" ||
     phase === "lesson_2_vault_help" ||
     phase === "lesson_2_vault_done" ||
-    phase === "lesson_2_ready_prompt"
+    phase === "lesson_2_ready_prompt" ||
+    phase === "lesson_2_move_prompt" ||
+    phase === "lesson_2_move_ready" ||
+    phase === "lesson_2_post_move_confirm"
   );
 }
 
@@ -81,6 +107,7 @@ export function makeLesson2CheckpointState(state: MissionState): MissionState {
     phase: "lesson_2_vault_prompt",
     step: lesson2PhaseToStep("lesson_2_vault_prompt"),
     tracePercent: 0,
+    camera12Checked: false,
   };
 }
 
@@ -110,6 +137,7 @@ export function makeLesson2CheckpointEffects(
         `DEV: host=${DEFAULT_TERMINAL_HOST}`,
         `DEV: cwd=${DEFAULT_TERMINAL_CWD}`,
         "DEV: tracePercent=0",
+        "DEV: camera12Checked=false",
       ],
     },
     {
@@ -185,6 +213,16 @@ export function missionIntroLesson2(state: MissionState): string[] | null {
     case "lesson_2_ready_prompt":
       return ["Stand by for the next step."];
 
+    case "lesson_2_move_prompt":
+    case "lesson_2_move_ready":
+      return [
+        "Ok, we need to make a move out the door to your left 4 doors down.",
+        "Check camera 12 again before you move.",
+      ];
+
+    case "lesson_2_post_move_confirm":
+      return ["Signal when you're in."];
+
     default:
       return ["Stand by."];
   }
@@ -250,7 +288,14 @@ export function handleLesson2Event(
       event.action === "lesson2_done"
     ) {
       const cleaned = state.tracePercent === 0;
-      const nextState = withLesson2Phase(state, "lesson_2_ready_prompt");
+      const nextState = withLesson2Phase(
+        {
+          ...state,
+          tracePercent: cleaned ? state.tracePercent : 10,
+          camera12Checked: false,
+        },
+        "lesson_2_move_prompt",
+      );
 
       return {
         nextState,
@@ -261,25 +306,113 @@ export function handleLesson2Event(
             : []),
           {
             type: "handler_sequence",
-            items: cleaned
-              ? [
-                  opsLine("Copy.", 1200, 700),
-                  opsLine("Good. Keep moving.", 1200, 800),
-                ]
-              : [
-                  opsLine("Copy.", 1200, 700),
-                  opsLine(
-                    "That needs to happen before we leave any system.",
-                    1300,
-                    850,
-                  ),
-                  opsLine(
-                    "You left trace behind. It's up 10 percent now.",
-                    1300,
-                    850,
-                  ),
-                ],
+            items: [
+              opsLine(
+                "Ok, we need to make a move out the door to your left 4 doors down.",
+                1400,
+                900,
+              ),
+              opsLine("Check camera 12 again before you move.", 1300, 850),
+            ],
           },
+          {
+            type: "set_reply_chips",
+            chips: lesson2MoveChip(),
+          },
+          { type: "clear_camera_target", cameraId: 12 },
+        ],
+      };
+    }
+
+    if (
+      (state.phase === "lesson_2_move_prompt" ||
+        state.phase === "lesson_2_move_ready") &&
+      event.action === "lesson2_moving"
+    ) {
+      const checked =
+        state.phase === "lesson_2_move_ready" || state.camera12Checked;
+
+      if (!checked) {
+        return {
+          nextState: state,
+          effects: [
+            { type: "clear_reply_chips" },
+            ...(event.label
+              ? [{ type: "player_message", text: event.label } as MissionEffect]
+              : []),
+            {
+              type: "trigger_end_game_wipe",
+              durationMs: 1000,
+            },
+          ],
+        };
+      }
+
+      const nextState = withLesson2Phase(
+        {
+          ...state,
+          camera12Checked: false,
+        },
+        "lesson_2_post_move_confirm",
+      );
+
+      return {
+        nextState,
+        effects: [
+          { type: "clear_reply_chips" },
+          ...(event.label
+            ? [{ type: "player_message", text: event.label } as MissionEffect]
+            : []),
+          { type: "stop_camera_sim" },
+          { type: "resolve_camera_objective" },
+          { type: "set_hallway_occupied", on: false },
+          { type: "clear_camera_target", cameraId: 12 },
+          {
+            type: "trigger_go_dark",
+            durationMs: 8000,
+            message: "STANDBY",
+          },
+          {
+            type: "set_reply_chips",
+            chips: lesson2PostMoveChip(),
+          },
+        ],
+      };
+    }
+
+    if (
+      state.phase === "lesson_2_post_move_confirm" &&
+      event.action === "lesson2_post_move_in"
+    ) {
+      return {
+        nextState: state,
+        effects: [
+          { type: "clear_reply_chips" },
+          ...(event.label
+            ? [{ type: "player_message", text: event.label } as MissionEffect]
+            : []),
+        ],
+      };
+    }
+  }
+
+  if (event.type === "CAMERA_VIEWED") {
+    if (
+      (state.phase === "lesson_2_move_prompt" ||
+        state.phase === "lesson_2_move_ready") &&
+      event.cameraId === 12
+    ) {
+      return {
+        nextState: withLesson2Phase(
+          {
+            ...state,
+            camera12Checked: true,
+          },
+          "lesson_2_move_ready",
+        ),
+        effects: [
+          { type: "trigger_camera_target", cameraId: 12 },
+          { type: "stop_camera_sim" },
         ],
       };
     }

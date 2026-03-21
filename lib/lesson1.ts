@@ -449,6 +449,7 @@ export function makeInitialLesson1State(): MissionState {
     step: 0,
     elevatorCode: generateElevatorCode(),
     tracePercent: 0,
+    camera12Checked: false,
   };
 }
 

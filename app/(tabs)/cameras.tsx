@@ -567,6 +567,7 @@ export default function CamerasScreen() {
   const cameras = useGameStore((s) => s.cameras);
   const selectedCamId = useGameStore((s) => s.selectedCamId);
   const setSelectedCam = useGameStore((s) => s.setSelectedCam);
+  const sendMissionEvent = useGameStore((s) => s.sendMissionEvent);
   const standbyMode = useGameStore((s) => s.standbyMode);
   const standbyMessage = useGameStore((s) => s.standbyMessage);
   const startCameraSim = useGameStore((s) => s.startCameraSim);
@@ -578,6 +579,7 @@ export default function CamerasScreen() {
   const tiles = useMemo(() => GRID_IDS, []);
   const [innerWidth, setInnerWidth] = useState(0);
   const retriggeredCameraWatchRef = useRef(false);
+  const lesson2Cam12ViewedRef = useRef(false);
 
   useEffect(() => {
     if (!cameraNetworkOnline || !isFocused) {
@@ -593,8 +595,35 @@ export default function CamerasScreen() {
     if (!isFocused) return;
     if (!cameraNetworkOnline) return;
 
-    setSelectedCam(selectedCamId ?? 12);
+    const activeId = selectedCamId ?? 12;
+    setSelectedCam(activeId);
   }, [isFocused, cameraNetworkOnline, selectedCamId, setSelectedCam]);
+
+  useEffect(() => {
+    const activeId = selectedCamId ?? 12;
+    const shouldAutoCountCam12View =
+      isFocused &&
+      cameraNetworkOnline &&
+      (missionPhase === "lesson_2_move_prompt" ||
+        missionPhase === "lesson_2_move_ready") &&
+      activeId === 12;
+
+    if (!shouldAutoCountCam12View) {
+      lesson2Cam12ViewedRef.current = false;
+      return;
+    }
+
+    if (lesson2Cam12ViewedRef.current) return;
+    lesson2Cam12ViewedRef.current = true;
+
+    sendMissionEvent({ type: "CAMERA_VIEWED", cameraId: 12 });
+  }, [
+    isFocused,
+    cameraNetworkOnline,
+    missionPhase,
+    selectedCamId,
+    sendMissionEvent,
+  ]);
 
   useEffect(() => {
     const shouldRetriggerCam12 =
@@ -656,7 +685,16 @@ export default function CamerasScreen() {
               return (
                 <Pressable
                   key={id}
-                  onPress={() => setSelectedCam(id)}
+                  onPress={() => {
+                    setSelectedCam(id);
+                    sendMissionEvent({ type: "CAMERA_VIEWED", cameraId: id });
+
+                    if (id === 12) {
+                      lesson2Cam12ViewedRef.current = true;
+                    } else {
+                      lesson2Cam12ViewedRef.current = false;
+                    }
+                  }}
                   style={[
                     styles.tile,
                     {

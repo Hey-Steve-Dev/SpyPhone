@@ -517,6 +517,7 @@ type GameState = {
 
   hallwayOneOccupied: boolean;
   setHallwayOneOccupied: (occupied: boolean) => void;
+  sendMissionEvent: (event: MissionEvent) => void;
 
   camera12Sequence: Camera12SequenceState;
   armCamera12Sequence: () => void;
@@ -744,6 +745,10 @@ export const useGameStore = create<GameState>((set, get) => ({
       "camera",
       `Hallway occupancy set to ${occupied ? "occupied" : "clear"}.`,
     );
+  },
+
+  sendMissionEvent: (event) => {
+    void get().dispatchMissionEvent(event);
   },
 
   armCamera12Sequence: () =>
@@ -1546,13 +1551,13 @@ export const useGameStore = create<GameState>((set, get) => ({
           get().setCameraNetworkOnline(effect.on);
           break;
         }
+
         case "handler_message": {
           await get().pushHandlerMessageDelayed(
             effect.text,
             effect.typingMs ?? typingMsFor(effect.text),
             effect.afterMs ?? 250,
           );
-
           break;
         }
 

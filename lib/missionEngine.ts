@@ -39,6 +39,9 @@ export type MissionPhase =
   | "lesson_2_vault_prompt"
   | "lesson_2_vault_help"
   | "lesson_2_vault_done"
+  | "lesson_2_move_prompt"
+  | "lesson_2_move_ready"
+  | "lesson_2_post_move_confirm"
   | "lesson_2_ready_prompt";
 
 export type MissionState = {
@@ -47,6 +50,7 @@ export type MissionState = {
   step: number;
   elevatorCode: string;
   tracePercent: number;
+  camera12Checked: boolean;
 };
 
 export type ReplyChip = {
