@@ -434,6 +434,16 @@ function makeInitialCameras(online = false): Record<number, CameraFeed> {
 function makeTunnelDeviceCatalog(): NearbyDevice[] {
   return [
     {
+      id: "admin_assistant_pc",
+      name: "ADMIN-ASST-01",
+      kind: "workstation",
+      poweredOn: true,
+      signalStrength: "STRONG",
+      supportsShell: true,
+      supportsAuxOps: true,
+      tunnelOutcome: "success",
+    },
+    {
       id: "camera_access_point",
       name: "SEC-CAM-BRIDGE",
       kind: "camera relay",
@@ -2735,42 +2745,52 @@ export const useGameStore = create<GameState>((set, get) => ({
         activeRemoteHostId: device.id,
         shellReadyFromTunnel: true,
       });
+
       get().pushLog(
         "tunnel",
         `Tunnel established to ${device.name}. Secure shell enabled.`,
       );
 
-      const isCameraBridge = device.id === "camera_access_point";
-      if (isCameraBridge) {
+      if (device.id === "camera_access_point") {
         get().setCameraNetworkOnline(true);
         get().bannerPush("CAMERAS", "Camera feeds online.", 1800);
 
-        if (
-          mission.phase === "network_objective" ||
-          mission.phase === "camera_access_confirm"
-        ) {
-          await get().dispatchMissionEvent({
-            type: "TUNNEL_LINKED",
-            deviceId: device.id,
-            deviceName: device.name,
-          });
-        }
-
-        return;
-      }
-
-      const isLaptopTarget = device.id === "security_laptop";
-      if (isLaptopTarget) {
-        get().setTerminalHost("local_jcarter");
-      }
-
-      if (isLaptopTarget && mission.phase === "laptop_objective") {
         await get().dispatchMissionEvent({
           type: "TUNNEL_LINKED",
           deviceId: device.id,
           deviceName: device.name,
         });
+
+        return;
       }
+
+      if (device.id === "security_laptop") {
+        get().setTerminalHost("local_jcarter");
+
+        await get().dispatchMissionEvent({
+          type: "TUNNEL_LINKED",
+          deviceId: device.id,
+          deviceName: device.name,
+        });
+
+        return;
+      }
+
+      if (device.id === "admin_assistant_pc") {
+        await get().dispatchMissionEvent({
+          type: "TUNNEL_LINKED",
+          deviceId: device.id,
+          deviceName: device.name,
+        });
+
+        return;
+      }
+
+      await get().dispatchMissionEvent({
+        type: "TUNNEL_LINKED",
+        deviceId: device.id,
+        deviceName: device.name,
+      });
 
       return;
     }

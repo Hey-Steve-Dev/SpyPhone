@@ -256,6 +256,134 @@ export const TERMINAL_HOSTS: Record<string, TerminalHost> = {
     }),
   },
 
+  admin_assistant_pc: {
+    id: "admin_assistant_pc",
+    name: "Admin Assistant Workstation",
+    user: "mporter",
+    home: "/home/mporter",
+    fs: dir({
+      home: dir({
+        mporter: dir({
+          Desktop: dir({
+            "welcome.txt": file(
+              "Admin workstation",
+              "",
+              "Temporary desktop items.",
+            ),
+            "calendar_shortcuts.txt": file(
+              "Quick Links",
+              "",
+              "Executive calendar mirror",
+              "Travel coordination board",
+              "Office move checklist",
+            ),
+          }),
+
+          Documents: dir({
+            hr_exports: dir({
+              intake: dir({
+                archive: dir({
+                  executive: dir({
+                    "personnel_profile.doc": file(
+                      "Personnel Profile",
+                      "",
+                      "Target Name: [REDACTED]",
+                      "Department: Executive Operations",
+                      "Office Number: _____",
+                      "",
+                      "Assistant Notes:",
+                      "Profile incomplete. See archived support docs.",
+                    ),
+                    "executive_summary.doc": file(
+                      "Executive Summary",
+                      "",
+                      "This packet was assembled from HR and support systems.",
+                      "Some office assignments were omitted during migration.",
+                    ),
+                  }),
+                }),
+              }),
+            }),
+
+            admin: dir({
+              "handoff_notes.txt": file(
+                "Handoff Notes",
+                "",
+                "Executive office assignments were updated recently.",
+                "Some records were left incomplete during migration.",
+              ),
+              "visitor_schedule.doc": file(
+                "Visitor Schedule",
+                "",
+                "Placeholder visitor entries.",
+                "Nothing directly useful yet.",
+              ),
+            }),
+
+            personnel: dir({
+              archived: dir({
+                "assistant_roster.doc": file(
+                  "Assistant Roster",
+                  "",
+                  "Names omitted in exported copy.",
+                  "Cross-reference with relocation materials if needed.",
+                ),
+              }),
+            }),
+          }),
+
+          Downloads: dir({
+            packets: dir({
+              "relocation_memo.doc": file(
+                "Relocation Memo",
+                "",
+                "Placeholder clue file.",
+                "Office data moved during records transition.",
+              ),
+              "temp_extract.txt": file(
+                "Temporary extract",
+                "",
+                "Pending sort into archive folders.",
+              ),
+            }),
+          }),
+
+          harvest: dir({
+            personnel: dir({
+              intake: dir({
+                archive: dir({
+                  executive: dir({
+                    "personnel_profile.doc": file(
+                      "Personnel Profile",
+                      "",
+                      "Target Name: [REDACTED]",
+                      "Department: Executive Operations",
+                      "Office Number: _____",
+                      "",
+                      "Assistant Notes:",
+                      "Profile incomplete. See archived support docs.",
+                    ),
+                    "assistant_summary.txt": file(
+                      "Assistant Summary",
+                      "",
+                      "Personnel packet assembled from HR and executive support records.",
+                    ),
+                    "contacts.doc": file(
+                      "Executive Contacts",
+                      "",
+                      "Assistant-facing export copy.",
+                      "Several location fields omitted from this view.",
+                    ),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    }),
+  },
+
   phone_shell: {
     id: "phone_shell",
     name: "Agent Phone",
@@ -275,7 +403,6 @@ export const TERMINAL_HOSTS: Record<string, TerminalHost> = {
               "- Avoid detection",
               "- Follow OPS instructions",
               "",
-
               "Your phone will auto delete if caught",
             ),
 

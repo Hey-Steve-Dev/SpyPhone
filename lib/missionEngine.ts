@@ -42,7 +42,15 @@ export type MissionPhase =
   | "lesson_2_move_prompt"
   | "lesson_2_move_ready"
   | "lesson_2_post_move_confirm"
-  | "lesson_2_ready_prompt";
+  | "lesson_2_ready_prompt"
+  | "lesson_2_harvest_prompt"
+  | "lesson_2_harvest_help"
+  | "lesson_2_harvest_done"
+  | "lesson_2_review_prompt"
+  | "lesson_2_office_missing"
+  | "lesson_2_search_intro"
+  | "lesson_2_search_help"
+  | "lesson_2_search_active";
 
 export type MissionState = {
   missionId: "bootcamp_01";
