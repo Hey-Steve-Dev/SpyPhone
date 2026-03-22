@@ -66,7 +66,7 @@ type MaskProfile = {
   description: string;
 };
 
-type JammerBand = "VHF" | "UHF" | "LTE" | "SAT" | "WIFI";
+type JammerBand = "CB" | "VHF" | "LTE" | "SAT" | "WIFI" | "5G";
 type JammerSweep = "narrow" | "wide";
 type JammerBurst = "low" | "med" | "high";
 
@@ -80,7 +80,7 @@ type JammerConfig = {
   autoMask: boolean;
 };
 
-type NetworkBand = "VHF" | "UHF" | "LTE" | "SAT" | "WIFI" | "5G";
+type NetworkBand = "CB" | "VHF" | "LTE" | "SAT" | "WIFI" | "5G";
 
 type NetworkConnectedMeta = {
   ssid: string;
@@ -914,7 +914,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       jammer: {
         enabled: false,
-        band: "UHF",
+        band: "CB",
         strength: 62,
         sweep: "narrow",
         burst: "med",
@@ -1135,7 +1135,7 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   jammer: {
     enabled: false,
-    band: "UHF",
+    band: "CB",
     strength: 62,
     sweep: "narrow",
     burst: "med",
@@ -1915,20 +1915,25 @@ export const useGameStore = create<GameState>((set, get) => ({
     );
     get().bannerPush("SECURE COMMS", "Securing connection…", 700);
 
-    const band = j.band ?? "UHF";
+    const band = j.band ?? "CB";
     const strength = j.strength ?? 62;
 
     const bandDelayMs =
-      band === "SAT" ? 450 : band === "LTE" || band === "WIFI" ? -80 : 0;
+      band === "SAT"
+        ? 450
+        : band === "LTE" || band === "WIFI" || band === "5G"
+          ? -80
+          : 0;
 
     const delayMs = 450 + Math.floor(Math.random() * 300) + bandDelayMs;
 
     let failProb = 0.08;
     if (band === "SAT") failProb += 0.06;
     if (band === "LTE") failProb -= 0.02;
+    if (band === "5G") failProb -= 0.02;
     if (band === "WIFI") failProb -= 0.01;
     if (band === "VHF") failProb += 0.02;
-    if (band === "UHF") failProb += 0.01;
+    if (band === "CB") failProb += 0.01;
     if (strength >= 85) failProb += 0.03;
     if (strength <= 35) failProb += 0.02;
     if (j.stealth) failProb -= 0.01;
