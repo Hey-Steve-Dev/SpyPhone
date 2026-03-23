@@ -1,3 +1,7 @@
+import {
+  makeLesson2CheckpointEffects,
+  makeLesson2CheckpointState,
+} from "@/lib/lesson2";
 import type {
   MissionContext,
   MissionEffect,
@@ -454,7 +458,7 @@ export function makeInitialLesson1State(): MissionState {
 }
 
 export function isLesson1Phase(phase: MissionPhase): phase is Lesson1Phase {
-  return phase !== "lesson_2_intro";
+  return !String(phase).startsWith("lesson_2_");
 }
 
 export function isLesson1TerminalPhase(phase: MissionPhase) {
@@ -1020,15 +1024,15 @@ export function handleLesson1Event(
       state.phase === "terminal_brief_search" &&
       event.action === "terminal_found_code"
     ) {
-      const nextState = withLesson1Phase(state, "complete");
+      const nextState = makeLesson2CheckpointState(state);
 
       return {
         nextState,
         effects: [
-          { type: "clear_reply_chips" },
           ...(event.label
             ? [{ type: "player_message", text: event.label } as MissionEffect]
             : []),
+          ...makeLesson2CheckpointEffects(nextState),
         ],
       };
     }

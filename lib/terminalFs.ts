@@ -207,6 +207,20 @@ const DIRECTORY_INDEX: FsDirectoryMap = {
 
   "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/archive":
     ["2025_week_52", "2025_week_51", "2025_week_50"],
+
+  "/home/mporter": ["harvest"],
+
+  "/home/mporter/harvest": ["personnel"],
+
+  "/home/mporter/harvest/personnel": ["intake"],
+
+  "/home/mporter/harvest/personnel/intake": ["archive"],
+
+  "/home/mporter/harvest/personnel/intake/archive": ["executive"],
+
+  "/home/mporter/harvest/personnel/intake/archive/executive": [
+    "personnel_profile.doc",
+  ],
 };
 
 function buildFileMap(state: MissionState): FsFileMap {
@@ -626,6 +640,90 @@ function buildFileMap(state: MissionState): FsFileMap {
         "Note:",
         "Code resets automatically every Monday at 04:00.",
       ],
+
+    "/home/mporter/harvest/personnel/intake/archive/executive/personnel_profile.doc":
+      [
+        "EMPLOYEE RECORD — INTERNAL USE ONLY",
+        "",
+        "Employee ID: 09-44271-HK",
+        "Name: Harker, Elias V.",
+        "Department: Advanced Systems & Data Engineering",
+        "Job Title: Senior Research Scientist",
+        "Employment Status: Full-Time (Exempt)",
+        "Hire Date: 03/14/[REDACTED]",
+        "Work Location: Facility 3B — Lab Wing C",
+        "Manager: [REDACTED]",
+        "Pay Grade: L7 — Senior Specialist Tier",
+        "",
+        "POSITION SUMMARY",
+        "Employee is responsible for internal software development related to data processing and optimization.",
+        "Specific project details are restricted.",
+        "",
+        "CURRENT ASSIGNMENT",
+        "Project Reference: HC-Prime",
+        "Classification: Restricted Internal Development",
+        "Role: Lead Developer / Systems Architect",
+        "Note: Project scope appears to extend beyond initial documentation.",
+        "",
+        "PERFORMANCE SUMMARY",
+        "Strengths:",
+        "- Advanced technical proficiency",
+        "- Independent execution",
+        "- Consistent output delivery",
+        "",
+        "Areas for Improvement:",
+        "- Documentation below standard",
+        "- Limited team collaboration",
+        "- Delayed administrative responses",
+        "",
+        "ATTENDANCE & WORK PATTERNS",
+        "- Frequent after-hours activity",
+        "- Extended work sessions",
+        "- Occasional missed check-ins",
+        "",
+        "SYSTEM USAGE SUMMARY",
+        "System Utilization: Above Average",
+        "Data Output Volume: Elevated",
+        "Archival Activity: Minimal",
+        "Remote Sync Activity: Inconsistent",
+        "Note: Project progress exceeds expected reporting visibility.",
+        "",
+        "COMPLIANCE & TRAINING",
+        "Secure Storage Protocols — Completed",
+        "Data Handling Compliance — Past Due",
+        "Internal Documentation Standards — Incomplete",
+        "",
+        "ACCESS & EQUIPMENT",
+        "Access Level: Tier 3",
+        "Lab Access: 24/7",
+        "Primary Workstation: WS-3B-771",
+        "Asset Tag: ASET-99821",
+        "Environment: Isolated Development",
+        "",
+        "EMPLOYMENT HISTORY",
+        "Prior Assignment: [REDACTED]",
+        "Transfer Type: Internal Reallocation",
+        "",
+        "EMERGENCY CONTACT",
+        "Status: Not Provided",
+        "",
+        "DISCIPLINARY RECORD",
+        "No formal actions on record",
+        "",
+        "RETENTION INDICATOR",
+        "Risk Level: Moderate",
+        "Note: Increasing independence from team processes",
+        "",
+        "HR COMMENTS",
+        "Employee remains a high-value contributor.",
+        "Improved alignment with data handling and reporting standards is recommended.",
+        "",
+        "EMPLOYEE ACKNOWLEDGMENT",
+        "Signature: Not On File",
+        "Last Acknowledgment: [REDACTED]",
+        "",
+        "Last System Login: WS-3B-771",
+      ],
   };
 }
 
@@ -768,7 +866,21 @@ function isTerminalMissionPhase(phase: MissionState["phase"]) {
     phase === "terminal_brief_pwd" ||
     phase === "terminal_brief_search" ||
     phase === "complete" ||
-    phase === "lesson_2_intro"
+    phase === "lesson_2_intro" ||
+    phase === "lesson_2_vault_prompt" ||
+    phase === "lesson_2_vault_help" ||
+    phase === "lesson_2_vault_done" ||
+    phase === "lesson_2_move_prompt" ||
+    phase === "lesson_2_move_ready" ||
+    phase === "lesson_2_post_move_confirm" ||
+    phase === "lesson_2_harvest_prompt" ||
+    phase === "lesson_2_harvest_help" ||
+    phase === "lesson_2_harvest_done" ||
+    phase === "lesson_2_review_prompt" ||
+    phase === "lesson_2_office_missing" ||
+    phase === "lesson_2_search_intro" ||
+    phase === "lesson_2_search_help" ||
+    phase === "lesson_2_search_active"
   );
 }
 
