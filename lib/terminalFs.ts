@@ -34,7 +34,9 @@ function matches(
 }
 
 function enemyUnknown(cmd: string) {
-  return cmd ? [`bash: ${cmd}: command not found`] : [];
+  return cmd
+    ? [`Unknown command: ${cmd}`, "Type 'help' to list available commands."]
+    : [];
 }
 
 const DIRECTORY_INDEX: FsDirectoryMap = {
@@ -208,7 +210,40 @@ const DIRECTORY_INDEX: FsDirectoryMap = {
   "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/archive":
     ["2025_week_52", "2025_week_51", "2025_week_50"],
 
-  "/home/mporter": ["harvest"],
+  "/home/mporter": ["Desktop", "Documents", "Downloads", "harvest"],
+
+  "/home/mporter/Desktop": ["welcome.txt", "calendar.txt", "admin_tool.exe"],
+
+  "/home/mporter/Documents": [
+    "notes.txt",
+    "handoff.txt",
+    "hr_exports",
+    "admin",
+    "personnel",
+  ],
+
+  "/home/mporter/Documents/hr_exports": ["intake"],
+
+  "/home/mporter/Documents/hr_exports/intake": ["archive"],
+
+  "/home/mporter/Documents/hr_exports/intake/archive": ["executive"],
+
+  "/home/mporter/Documents/hr_exports/intake/archive/executive": [
+    "personnel_profile.doc",
+  ],
+
+  "/home/mporter/Documents/admin": [
+    "handoff_notes.txt",
+    "visitor_schedule.doc",
+  ],
+
+  "/home/mporter/Documents/personnel": ["archived"],
+
+  "/home/mporter/Documents/personnel/archived": ["assistant_roster.doc"],
+
+  "/home/mporter/Downloads": ["temp", "readme.txt"],
+
+  "/home/mporter/Downloads/temp": [],
 
   "/home/mporter/harvest": ["personnel"],
 
@@ -220,6 +255,8 @@ const DIRECTORY_INDEX: FsDirectoryMap = {
 
   "/home/mporter/harvest/personnel/intake/archive/executive": [
     "personnel_profile.doc",
+    "assistant_summary.txt",
+    "contacts.doc",
   ],
 };
 
@@ -641,6 +678,143 @@ function buildFileMap(state: MissionState): FsFileMap {
         "Code resets automatically every Monday at 04:00.",
       ],
 
+    "/home/mporter/Desktop/welcome.txt": [
+      "Admin Workstation",
+      "",
+      "Temporary files only.",
+    ],
+
+    "/home/mporter/Desktop/calendar.txt": [
+      "Calendar Notes",
+      "",
+      "Executive schedule handled externally.",
+    ],
+
+    "/home/mporter/Desktop/admin_tool.exe": null,
+
+    "/home/mporter/Documents/notes.txt": [
+      "Notes",
+      "",
+      "Some records were moved during system migration.",
+    ],
+
+    "/home/mporter/Documents/handoff.txt": [
+      "Handoff",
+      "",
+      "HR exports may be incomplete.",
+    ],
+
+    "/home/mporter/Documents/admin/handoff_notes.txt": [
+      "Handoff Notes",
+      "",
+      "Executive office assignments were updated recently.",
+      "Some records were left incomplete during migration.",
+    ],
+
+    "/home/mporter/Documents/admin/visitor_schedule.doc": [
+      "Visitor Schedule",
+      "",
+      "Placeholder visitor entries.",
+      "Nothing directly useful yet.",
+    ],
+
+    "/home/mporter/Documents/personnel/archived/assistant_roster.doc": [
+      "Assistant Roster",
+      "",
+      "Names omitted in exported copy.",
+      "Cross-reference with relocation materials if needed.",
+    ],
+
+    "/home/mporter/Documents/hr_exports/intake/archive/executive/personnel_profile.doc":
+      [
+        "EMPLOYEE RECORD — INTERNAL USE ONLY",
+        "",
+        "Employee ID: 09-44271-HK",
+        "Name: Harker, Elias V.",
+        "Department: Advanced Systems & Data Engineering",
+        "Job Title: Senior Research Scientist",
+        "Employment Status: Full-Time (Exempt)",
+        "Hire Date: 03/14/[REDACTED]",
+        "Work Location: Facility 3B — Lab Wing C",
+        "Manager: [REDACTED]",
+        "Pay Grade: L7 — Senior Specialist Tier",
+        "",
+        "POSITION SUMMARY",
+        "Employee is responsible for internal software development related to data processing and optimization.",
+        "Specific project details are restricted.",
+        "",
+        "CURRENT ASSIGNMENT",
+        "Project Reference: HC-Prime",
+        "Classification: Restricted Internal Development",
+        "Role: Lead Developer / Systems Architect",
+        "Note: Project scope appears to extend beyond initial documentation.",
+        "",
+        "PERFORMANCE SUMMARY",
+        "Strengths:",
+        "- Advanced technical proficiency",
+        "- Independent execution",
+        "- Consistent output delivery",
+        "",
+        "Areas for Improvement:",
+        "- Documentation below standard",
+        "- Limited team collaboration",
+        "- Delayed administrative responses",
+        "",
+        "ATTENDANCE & WORK PATTERNS",
+        "- Frequent after-hours activity",
+        "- Extended work sessions",
+        "- Occasional missed check-ins",
+        "",
+        "SYSTEM USAGE SUMMARY",
+        "System Utilization: Above Average",
+        "Data Output Volume: Elevated",
+        "Archival Activity: Minimal",
+        "Remote Sync Activity: Inconsistent",
+        "Note: Project progress exceeds expected reporting visibility.",
+        "",
+        "COMPLIANCE & TRAINING",
+        "Secure Storage Protocols — Completed",
+        "Data Handling Compliance — Past Due",
+        "Internal Documentation Standards — Incomplete",
+        "",
+        "ACCESS & EQUIPMENT",
+        "Access Level: Tier 3",
+        "Lab Access: 24/7",
+        "Primary Workstation: WS-3B-771",
+        "Asset Tag: ASET-99821",
+        "Environment: Isolated Development",
+        "",
+        "EMPLOYMENT HISTORY",
+        "Prior Assignment: [REDACTED]",
+        "Transfer Type: Internal Reallocation",
+        "",
+        "EMERGENCY CONTACT",
+        "Status: Not Provided",
+        "",
+        "DISCIPLINARY RECORD",
+        "No formal actions on record",
+        "",
+        "RETENTION INDICATOR",
+        "Risk Level: Moderate",
+        "Note: Increasing independence from team processes",
+        "",
+        "HR COMMENTS",
+        "Employee remains a high-value contributor.",
+        "Improved alignment with data handling and reporting standards is recommended.",
+        "",
+        "EMPLOYEE ACKNOWLEDGMENT",
+        "Signature: Not On File",
+        "Last Acknowledgment: [REDACTED]",
+        "",
+        "Last System Login: WS-3B-771",
+      ],
+
+    "/home/mporter/Downloads/readme.txt": [
+      "Downloads Folder",
+      "",
+      "Clean weekly.",
+    ],
+
     "/home/mporter/harvest/personnel/intake/archive/executive/personnel_profile.doc":
       [
         "EMPLOYEE RECORD — INTERNAL USE ONLY",
@@ -724,6 +898,20 @@ function buildFileMap(state: MissionState): FsFileMap {
         "",
         "Last System Login: WS-3B-771",
       ],
+
+    "/home/mporter/harvest/personnel/intake/archive/executive/assistant_summary.txt":
+      [
+        "Assistant Summary",
+        "",
+        "Personnel packet assembled from HR and executive support records.",
+      ],
+
+    "/home/mporter/harvest/personnel/intake/archive/executive/contacts.doc": [
+      "Executive Contacts",
+      "",
+      "Assistant-facing export copy.",
+      "Several location fields omitted from this view.",
+    ],
   };
 }
 
@@ -733,10 +921,10 @@ function rawDirectoryListing(path: string): string[] | null {
 
 function listForCwd(cwd: string, state?: MissionState): string[] | null {
   const explicit = rawDirectoryListing(cwd);
-  if (explicit) return explicit;
+  if (explicit) return explicit.length ? explicit : ["EMPTY"];
 
   if (!state) return null;
-  if (isDirectory(cwd, state)) return [];
+  if (isDirectory(cwd, state)) return ["EMPTY"];
 
   return null;
 }
@@ -957,7 +1145,7 @@ function runSearchShell(
       handled: true,
       ok: true,
       advanced: false,
-      terminalOut: listForCwd(resolved, state) ?? [],
+      terminalOut: listForCwd(resolved, state) ?? ["EMPTY"],
       handlerOut: [],
       nextState: state,
     };
@@ -1017,7 +1205,7 @@ function runSearchShell(
         handled: true,
         ok: false,
         advanced: false,
-        terminalOut: [`cat: ${fileNameFromPath(filePath)}: binary file`],
+        terminalOut: [`${fileNameFromPath(filePath)}: CANNOT RUN FROM SHELL`],
         handlerOut: [],
         nextState: state,
       };
@@ -1030,7 +1218,7 @@ function runSearchShell(
         handled: true,
         ok: true,
         advanced: false,
-        terminalOut: [],
+        terminalOut: ["EMPTY"],
         handlerOut: [],
         nextState: state,
       };
@@ -1053,9 +1241,7 @@ function runSearchShell(
         handled: true,
         ok: false,
         advanced: false,
-        terminalOut: [
-          `${fileNameFromPath(maybePath)}: cannot be run from shell`,
-        ],
+        terminalOut: [`${fileNameFromPath(maybePath)}: CANNOT RUN FROM SHELL`],
         handlerOut: [],
         nextState: state,
       };
@@ -1079,7 +1265,7 @@ function runSearchShell(
         handled: true,
         ok: false,
         advanced: false,
-        terminalOut: [`bash: ${raw}: No such file or directory`],
+        terminalOut: [`./${raw.slice(2)}: No such file or directory`],
         handlerOut: [],
         nextState: state,
       };
@@ -1090,9 +1276,7 @@ function runSearchShell(
         handled: true,
         ok: false,
         advanced: false,
-        terminalOut: [
-          `${fileNameFromPath(filePath)}: cannot be run from shell`,
-        ],
+        terminalOut: [`${fileNameFromPath(filePath)}: CANNOT RUN FROM SHELL`],
         handlerOut: [],
         nextState: state,
       };
