@@ -13,6 +13,7 @@ import {
 
 const HOME_BAR_SPACE = 44;
 const FAKE_BARS = 34;
+const TACTICAL_FONT = "monospace";
 
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
@@ -292,6 +293,7 @@ const styles = StyleSheet.create({
   wrap: {
     flex: 1,
     padding: 14,
+    backgroundColor: "#05090e",
   },
 
   header: {
@@ -305,13 +307,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.94)",
+    color: "#e6f4ff",
     letterSpacing: 0.8,
+    fontFamily: TACTICAL_FONT,
   },
   headerSub: {
     marginTop: 2,
     fontSize: 12,
-    color: "rgba(255,255,255,0.60)",
+    color: "#7d9bb2",
+    fontFamily: TACTICAL_FONT,
   },
 
   statusPill: {
@@ -320,16 +324,16 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: 3,
     borderWidth: 1,
   },
   statusPillLive: {
-    backgroundColor: "rgba(46, 204, 113, 0.10)",
-    borderColor: "rgba(46, 204, 113, 0.35)",
+    backgroundColor: "#112536",
+    borderColor: "#4da3ff",
   },
   statusPillIdle: {
-    backgroundColor: "rgba(255,255,255,0.06)",
-    borderColor: "rgba(255,255,255,0.12)",
+    backgroundColor: "#0a141d",
+    borderColor: "#29485d",
   },
   statusPillPressed: {
     transform: [{ scale: 0.97 }],
@@ -338,19 +342,20 @@ const styles = StyleSheet.create({
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: 999,
+    borderRadius: 2,
   },
   statusDotLive: {
-    backgroundColor: "#41d98a",
+    backgroundColor: "#5cc8ff",
   },
   statusDotIdle: {
-    backgroundColor: "rgba(255,255,255,0.35)",
+    backgroundColor: "#4e6d82",
   },
   statusText: {
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.8,
-    color: "rgba(255,255,255,0.88)",
+    color: "#d8efff",
+    fontFamily: TACTICAL_FONT,
   },
 
   scroll: {
@@ -361,11 +366,11 @@ const styles = StyleSheet.create({
   },
 
   screenCard: {
-    borderRadius: 22,
+    borderRadius: 3,
     padding: 14,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#0b141d",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: "#214156",
     marginBottom: 12,
   },
   cardTopRow: {
@@ -378,29 +383,32 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontSize: 12,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.82)",
+    color: "#b4d5ec",
     letterSpacing: 0.8,
+    fontFamily: TACTICAL_FONT,
   },
   cardMeta: {
     fontSize: 11,
     fontWeight: "700",
-    color: "rgba(255,255,255,0.50)",
+    color: "#7d9bb2",
+    fontFamily: TACTICAL_FONT,
   },
 
   wavePanel: {
     height: 210,
-    borderRadius: 18,
+    borderRadius: 3,
     padding: 12,
-    backgroundColor: "rgba(7, 12, 18, 0.72)",
+    backgroundColor: "#07111a",
     borderWidth: 1,
-    borderColor: "rgba(90, 170, 255, 0.18)",
+    borderColor: "#2f5b77",
     overflow: "hidden",
     justifyContent: "space-between",
   },
   waveGrid: {
     ...StyleSheet.absoluteFillObject,
-    opacity: 0.18,
-    borderRadius: 18,
+    opacity: 0.2,
+    borderRadius: 3,
+    backgroundColor: "rgba(20,40,56,0.18)",
   },
   barsRow: {
     flex: 1,
@@ -416,15 +424,16 @@ const styles = StyleSheet.create({
   barFill: {
     width: "100%",
     minHeight: 8,
-    borderRadius: 999,
-    backgroundColor: "#5da8ff",
-    shadowColor: "#5da8ff",
-    shadowOpacity: 0.35,
-    shadowRadius: 4,
+    borderRadius: 2,
+    backgroundColor: "#4da3ff",
+    shadowColor: "#4da3ff",
+    shadowOpacity: 0.55,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
+    elevation: 2,
   },
   barFillIdle: {
-    backgroundColor: "rgba(255,255,255,0.16)",
+    backgroundColor: "#29485d",
     shadowOpacity: 0,
   },
   waveFooter: {
@@ -434,8 +443,9 @@ const styles = StyleSheet.create({
   },
   axisText: {
     fontSize: 10,
-    color: "rgba(255,255,255,0.38)",
+    color: "#6f8da4",
     fontWeight: "700",
+    fontFamily: TACTICAL_FONT,
   },
 
   dualRow: {
@@ -445,25 +455,27 @@ const styles = StyleSheet.create({
   },
   infoCard: {
     flex: 1,
-    borderRadius: 22,
+    borderRadius: 3,
     padding: 14,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#0b141d",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: "#214156",
   },
 
   infoLabel: {
     fontSize: 11,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.54)",
+    color: "#8fb0c8",
     letterSpacing: 0.8,
+    fontFamily: TACTICAL_FONT,
   },
   infoValue: {
     marginTop: 6,
     marginBottom: 12,
     fontSize: 22,
     fontWeight: "900",
-    color: "rgba(255,255,255,0.95)",
+    color: "#e6f4ff",
+    fontFamily: TACTICAL_FONT,
   },
 
   segmentRow: {
@@ -472,42 +484,43 @@ const styles = StyleSheet.create({
   },
   segmentBtn: {
     flex: 1,
-    borderRadius: 14,
+    borderRadius: 3,
     paddingVertical: 10,
     alignItems: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "#29485d",
+    backgroundColor: "#09131b",
   },
   segmentBtnActive: {
-    backgroundColor: "rgba(93,168,255,0.18)",
-    borderColor: "rgba(93,168,255,0.42)",
+    backgroundColor: "#12324a",
+    borderColor: "#4da3ff",
   },
   segmentText: {
     fontSize: 11,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.70)",
+    color: "#8fb0c8",
     letterSpacing: 0.6,
+    fontFamily: TACTICAL_FONT,
   },
   segmentTextActive: {
-    color: "#9bc8ff",
+    color: "#d8efff",
   },
 
   meterTrack: {
     height: 12,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 2,
+    backgroundColor: "#09131b",
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "#29485d",
   },
   meterFill: {
     height: "100%",
-    borderRadius: 999,
-    backgroundColor: "#41d98a",
+    borderRadius: 2,
+    backgroundColor: "#4da3ff",
   },
   meterFillIdle: {
-    backgroundColor: "rgba(255,255,255,0.18)",
+    backgroundColor: "#29485d",
   },
   meterLabels: {
     marginTop: 8,
@@ -517,15 +530,16 @@ const styles = StyleSheet.create({
   meterText: {
     fontSize: 10,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.45)",
+    color: "#6f8da4",
+    fontFamily: TACTICAL_FONT,
   },
 
   lockCard: {
-    borderRadius: 22,
+    borderRadius: 3,
     padding: 14,
-    backgroundColor: "rgba(255,255,255,0.06)",
+    backgroundColor: "#0b141d",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
+    borderColor: "#214156",
     marginBottom: 12,
   },
   lockGrid: {
@@ -535,34 +549,37 @@ const styles = StyleSheet.create({
   },
   lockCell: {
     width: "47%",
-    borderRadius: 16,
+    borderRadius: 3,
     padding: 12,
-    backgroundColor: "rgba(255,255,255,0.04)",
+    backgroundColor: "#09131b",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
+    borderColor: "#29485d",
   },
   lockKey: {
     fontSize: 11,
     fontWeight: "700",
-    color: "rgba(255,255,255,0.50)",
+    color: "#8fb0c8",
     marginBottom: 6,
+    fontFamily: TACTICAL_FONT,
   },
   lockVal: {
     fontSize: 14,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.90)",
+    color: "#d8efff",
+    fontFamily: TACTICAL_FONT,
   },
 
   hintCard: {
-    borderRadius: 18,
+    borderRadius: 3,
     padding: 14,
-    backgroundColor: "rgba(93,168,255,0.08)",
+    backgroundColor: "#0a1722",
     borderWidth: 1,
-    borderColor: "rgba(93,168,255,0.16)",
+    borderColor: "#2f5b77",
   },
   hintText: {
     fontSize: 12,
     lineHeight: 18,
-    color: "rgba(255,255,255,0.72)",
+    color: "#a7c6dc",
+    fontFamily: TACTICAL_FONT,
   },
 });

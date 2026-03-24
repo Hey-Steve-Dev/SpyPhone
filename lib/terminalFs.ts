@@ -223,11 +223,8 @@ const DIRECTORY_INDEX: FsDirectoryMap = {
   ],
 
   "/home/mporter/Documents/hr_exports": ["intake"],
-
   "/home/mporter/Documents/hr_exports/intake": ["archive"],
-
   "/home/mporter/Documents/hr_exports/intake/archive": ["executive"],
-
   "/home/mporter/Documents/hr_exports/intake/archive/executive": [
     "personnel_profile.doc",
   ],
@@ -238,26 +235,268 @@ const DIRECTORY_INDEX: FsDirectoryMap = {
   ],
 
   "/home/mporter/Documents/personnel": ["archived"],
-
   "/home/mporter/Documents/personnel/archived": ["assistant_roster.doc"],
 
   "/home/mporter/Downloads": ["temp", "readme.txt"],
-
   "/home/mporter/Downloads/temp": [],
 
   "/home/mporter/harvest": ["personnel"],
-
   "/home/mporter/harvest/personnel": ["intake"],
-
   "/home/mporter/harvest/personnel/intake": ["archive"],
-
   "/home/mporter/harvest/personnel/intake/archive": ["executive"],
-
   "/home/mporter/harvest/personnel/intake/archive/executive": [
     "personnel_profile.doc",
     "assistant_summary.txt",
     "contacts.doc",
   ],
+
+  "/network": [
+    "shared",
+    "departments",
+    "ops",
+    "hr",
+    "facilities",
+    "archives",
+    "temp",
+    "readme.txt",
+    "login_banner.txt",
+  ],
+
+  "/network/shared": [
+    "public",
+    "forms",
+    "templates",
+    "printers",
+    "readme.txt",
+    "mount_status.txt",
+  ],
+
+  "/network/shared/public": [
+    "company_holidays.txt",
+    "expense_template.doc",
+    "office_map_reference.txt",
+    "badge_request_form.doc",
+    "viewer.exe",
+  ],
+
+  "/network/shared/forms": [
+    "visitor_request.doc",
+    "supply_restock_form.doc",
+    "move_request.doc",
+    "conference_room_request.doc",
+  ],
+
+  "/network/shared/templates": [
+    "memo_template.doc",
+    "handoff_template.txt",
+    "project_stub.txt",
+  ],
+
+  "/network/shared/printers": [
+    "driver_readme.txt",
+    "badge_printer.exe",
+    "floor3_queue_status.txt",
+  ],
+
+  "/network/departments": [
+    "admin",
+    "executive",
+    "research",
+    "engineering",
+    "security",
+    "facilities",
+  ],
+
+  "/network/departments/admin": [
+    "handoff_notes.txt",
+    "office_move_list.txt",
+    "desk_assignments_legacy.doc",
+    "admin_tool.exe",
+    "exports",
+    "archive_old",
+  ],
+
+  "/network/departments/admin/exports": [
+    "assistant_contacts.txt",
+    "room_labels_q1.txt",
+    "support_copy.doc",
+  ],
+
+  "/network/departments/admin/archive_old": [
+    "2025_move_notes.txt",
+    "2025_support_roster.txt",
+  ],
+
+  "/network/departments/executive": [
+    "support",
+    "travel",
+    "scheduling",
+    "readme.txt",
+  ],
+
+  "/network/departments/executive/support": [
+    "assistant_matrix.txt",
+    "relocation_summary.txt",
+    "visitor_pref.doc",
+  ],
+
+  "/network/departments/executive/travel": [
+    "travel_policy.txt",
+    "pending_itineraries.txt",
+  ],
+
+  "/network/departments/executive/scheduling": [
+    "calendar_export.txt",
+    "room_priorities.txt",
+  ],
+
+  "/network/departments/research": [
+    "staffing_overview.txt",
+    "project_assignments.doc",
+    "lab_access_notes.txt",
+    "restricted",
+    "old",
+  ],
+
+  "/network/departments/research/restricted": ["EMPTY_PLACEHOLDER.txt"],
+
+  "/network/departments/research/old": [
+    "lab_reorg_2025.txt",
+    "legacy_workstation_map.txt",
+  ],
+
+  "/network/departments/engineering": [
+    "deploy_notes.txt",
+    "asset_registry.txt",
+    "tools",
+  ],
+
+  "/network/departments/engineering/tools": [
+    "diag.exe",
+    "packet_viewer.exe",
+    "readme.txt",
+  ],
+
+  "/network/departments/security": [
+    "badge_audit.txt",
+    "escort_policy.txt",
+    "incident_rollup.txt",
+  ],
+
+  "/network/departments/facilities": [
+    "moves",
+    "maintenance",
+    "maps",
+    "vendors",
+  ],
+
+  "/network/departments/facilities/moves": [
+    "floor3_reassignments.txt",
+    "office_changes_q1.txt",
+    "staging_notes.txt",
+  ],
+
+  "/network/departments/facilities/maintenance": [
+    "door_service_log.txt",
+    "elevator_service_windows.txt",
+    "room_signage_replacements.txt",
+  ],
+
+  "/network/departments/facilities/maps": [
+    "wing_directory.txt",
+    "lab_wing_c_notes.txt",
+  ],
+
+  "/network/departments/facilities/vendors": [
+    "vendor_list.txt",
+    "move_support_contacts.txt",
+  ],
+
+  "/network/ops": ["readme.txt", "handoff", "relay", "watchfloor"],
+
+  "/network/ops/handoff": ["night_shift_summary.txt", "pending_followups.txt"],
+
+  "/network/ops/relay": ["mounts.txt", "service_hosts.txt"],
+
+  "/network/ops/watchfloor": ["camera_status.txt", "door_status.txt"],
+
+  "/network/hr": ["onboarding", "policies", "exports", "benefits", "archived"],
+
+  "/network/hr/onboarding": ["new_hire_packet.txt", "badge_issue_notes.txt"],
+
+  "/network/hr/policies": [
+    "attendance_policy.txt",
+    "storage_policy.txt",
+    "documentation_guidelines.txt",
+  ],
+
+  "/network/hr/exports": [
+    "executive_support_export.txt",
+    "role_summary_export.txt",
+  ],
+
+  "/network/hr/benefits": ["medical_overview.txt", "pto_reference.txt"],
+
+  "/network/hr/archived": [
+    "migration_notes_2025.txt",
+    "legacy_roster_index.txt",
+  ],
+
+  "/network/facilities": [
+    "maps",
+    "maintenance",
+    "relocation",
+    "access_logs",
+    "vendor_docs",
+    "readme.txt",
+  ],
+
+  "/network/facilities/maps": [
+    "building_map.txt",
+    "floor3_rooms.txt",
+    "lab_wing_c_map.txt",
+  ],
+
+  "/network/facilities/maintenance": [
+    "current_tasks.txt",
+    "service_windows.txt",
+    "cabinet_inventory.txt",
+  ],
+
+  "/network/facilities/relocation": [
+    "floor3_reassignments.txt",
+    "office_changes_q1.txt",
+    "move_request_backlog.txt",
+    "archive",
+  ],
+
+  "/network/facilities/relocation/archive": [
+    "q4_2025_reassignments.txt",
+    "temp_move_sheet.doc",
+  ],
+
+  "/network/facilities/access_logs": [
+    "badge_issues.txt",
+    "reader_replacements.txt",
+  ],
+
+  "/network/facilities/vendor_docs": [
+    "vendor_contacts.txt",
+    "move_support_contract.txt",
+  ],
+
+  "/network/archives": ["2024", "2025", "2026", "legacy_exports.txt"],
+
+  "/network/archives/2024": ["EMPTY_PLACEHOLDER.txt"],
+
+  "/network/archives/2025": ["facility_moves_2025.txt", "admin_handoff_q3.txt"],
+
+  "/network/archives/2026": [
+    "q1_transition_notes.txt",
+    "executive_support_refresh.txt",
+  ],
+
+  "/network/temp": [],
 };
 
 function buildFileMap(state: MissionState): FsFileMap {
@@ -911,6 +1150,631 @@ function buildFileMap(state: MissionState): FsFileMap {
       "",
       "Assistant-facing export copy.",
       "Several location fields omitted from this view.",
+    ],
+
+    "/network/readme.txt": [
+      "Network Share",
+      "",
+      "Mounted shared volume for internal departments.",
+      "Some folders are read-only snapshots.",
+    ],
+
+    "/network/login_banner.txt": [
+      "NOTICE",
+      "Access to this network share is monitored.",
+      "Do not store local-only materials in public folders.",
+    ],
+
+    "/network/shared/readme.txt": [
+      "Shared Folder Notes",
+      "",
+      "General files available to most internal users.",
+    ],
+
+    "/network/shared/mount_status.txt": [
+      "Mount Status",
+      "",
+      "shared      OK",
+      "departments OK",
+      "hr          OK",
+      "facilities  OK",
+      "archives    OK",
+      "temp        OK",
+    ],
+
+    "/network/shared/public/company_holidays.txt": [
+      "Company Holidays",
+      "",
+      "- New Year's Day",
+      "- Memorial Day",
+      "- Independence Day",
+      "- Labor Day",
+      "- Thanksgiving",
+      "- Winter Break",
+    ],
+
+    "/network/shared/public/expense_template.doc": [
+      "Expense Template",
+      "",
+      "Use current reimbursement codes only.",
+    ],
+
+    "/network/shared/public/office_map_reference.txt": [
+      "Office Map Reference",
+      "",
+      "For detailed room changes refer to Facilities relocation records.",
+    ],
+
+    "/network/shared/public/badge_request_form.doc": [
+      "Badge Request Form",
+      "",
+      "Submit completed forms to Security and HR.",
+    ],
+
+    "/network/shared/public/viewer.exe": null,
+
+    "/network/shared/forms/visitor_request.doc": [
+      "Visitor Request",
+      "",
+      "Requires escort and desk approval.",
+    ],
+
+    "/network/shared/forms/supply_restock_form.doc": [
+      "Supply Restock Form",
+      "",
+      "Use cabinet ID if known.",
+    ],
+
+    "/network/shared/forms/move_request.doc": [
+      "Move Request",
+      "",
+      "Facilities approval required for office relocation.",
+    ],
+
+    "/network/shared/forms/conference_room_request.doc": [
+      "Conference Room Request",
+      "",
+      "Recurring reservations must be approved weekly.",
+    ],
+
+    "/network/shared/templates/memo_template.doc": [
+      "Memo Template",
+      "",
+      "Standard internal memo format.",
+    ],
+
+    "/network/shared/templates/handoff_template.txt": [
+      "Handoff Template",
+      "",
+      "Owner:",
+      "Status:",
+      "Next action:",
+      "Known blockers:",
+    ],
+
+    "/network/shared/templates/project_stub.txt": [
+      "Project Stub",
+      "",
+      "Name:",
+      "Scope:",
+      "Owner:",
+      "Dependencies:",
+    ],
+
+    "/network/shared/printers/driver_readme.txt": [
+      "Printer Driver Notes",
+      "",
+      "Badge printer drivers are managed separately.",
+    ],
+
+    "/network/shared/printers/badge_printer.exe": null,
+
+    "/network/shared/printers/floor3_queue_status.txt": [
+      "Queue Status",
+      "",
+      "Floor 3 copier queue stable.",
+      "Badge printer queue intermittent.",
+    ],
+
+    "/network/departments/admin/handoff_notes.txt": [
+      "Admin Handoff Notes",
+      "",
+      "Executive support files were split during migration.",
+      "Location fields may be blank in copied exports.",
+      "Facilities retained final office assignments.",
+    ],
+
+    "/network/departments/admin/office_move_list.txt": [
+      "Office Move List",
+      "",
+      "Most Q1 changes completed.",
+      "A few specialist assignments were routed through Facilities.",
+    ],
+
+    "/network/departments/admin/desk_assignments_legacy.doc": [
+      "Legacy Desk Assignments",
+      "",
+      "Outdated after floor reorg.",
+      "Do not use for current room lookups.",
+    ],
+
+    "/network/departments/admin/admin_tool.exe": null,
+
+    "/network/departments/admin/exports/assistant_contacts.txt": [
+      "Assistant Contacts",
+      "",
+      "Support desk A",
+      "Support desk B",
+      "Travel desk",
+      "Scheduling desk",
+    ],
+
+    "/network/departments/admin/exports/room_labels_q1.txt": [
+      "Room Labels Q1",
+      "",
+      "Multiple label requests completed for Lab Wing C.",
+    ],
+
+    "/network/departments/admin/exports/support_copy.doc": [
+      "Support Copy",
+      "",
+      "Omitted sensitive fields from exported copy.",
+    ],
+
+    "/network/departments/admin/archive_old/2025_move_notes.txt": [
+      "2025 Move Notes",
+      "",
+      "Old transition notes retained for reference.",
+    ],
+
+    "/network/departments/admin/archive_old/2025_support_roster.txt": [
+      "2025 Support Roster",
+      "",
+      "Legacy support assignments.",
+    ],
+
+    "/network/departments/executive/readme.txt": [
+      "Executive Department Share",
+      "",
+      "Contains support-side working documents.",
+    ],
+
+    "/network/departments/executive/support/assistant_matrix.txt": [
+      "Assistant Matrix",
+      "",
+      "Specialized staff support rotated last quarter.",
+      "Final room placements were confirmed after relocation wrap-up.",
+    ],
+
+    "/network/departments/executive/support/relocation_summary.txt": [
+      "Relocation Summary",
+      "",
+      "Executive support references were updated after Facilities signoff.",
+      "Some exported personnel packets still show blank office fields.",
+      "See /network/facilities/relocation/office_changes_q1.txt for final assignments.",
+    ],
+
+    "/network/departments/executive/support/visitor_pref.doc": [
+      "Visitor Preferences",
+      "",
+      "Front desk copy only.",
+    ],
+
+    "/network/departments/executive/travel/travel_policy.txt": [
+      "Travel Policy",
+      "",
+      "Use current booking codes.",
+    ],
+
+    "/network/departments/executive/travel/pending_itineraries.txt": [
+      "Pending Itineraries",
+      "",
+      "Nothing finalized.",
+    ],
+
+    "/network/departments/executive/scheduling/calendar_export.txt": [
+      "Calendar Export",
+      "",
+      "Room bookings mirrored nightly.",
+    ],
+
+    "/network/departments/executive/scheduling/room_priorities.txt": [
+      "Room Priorities",
+      "",
+      "Priority conference spaces reserved in advance.",
+    ],
+
+    "/network/departments/research/staffing_overview.txt": [
+      "Research Staffing Overview",
+      "",
+      "Several researchers remain assigned to Lab Wing C.",
+    ],
+
+    "/network/departments/research/project_assignments.doc": [
+      "Project Assignments",
+      "",
+      "Project and room mappings partially redacted in shared copy.",
+    ],
+
+    "/network/departments/research/lab_access_notes.txt": [
+      "Lab Access Notes",
+      "",
+      "After-hours work remains common among senior staff.",
+    ],
+
+    "/network/departments/research/restricted/EMPTY_PLACEHOLDER.txt": [
+      "Restricted",
+      "",
+      "No accessible files in this view.",
+    ],
+
+    "/network/departments/research/old/lab_reorg_2025.txt": [
+      "Lab Reorg 2025",
+      "",
+      "Pre-dates current room assignments.",
+    ],
+
+    "/network/departments/research/old/legacy_workstation_map.txt": [
+      "Legacy Workstation Map",
+      "",
+      "Several IDs no longer current.",
+    ],
+
+    "/network/departments/engineering/deploy_notes.txt": [
+      "Deploy Notes",
+      "",
+      "Nothing relevant to room assignments.",
+    ],
+
+    "/network/departments/engineering/asset_registry.txt": [
+      "Asset Registry",
+      "",
+      "Diagnostic workstations updated weekly.",
+    ],
+
+    "/network/departments/engineering/tools/diag.exe": null,
+    "/network/departments/engineering/tools/packet_viewer.exe": null,
+
+    "/network/departments/engineering/tools/readme.txt": [
+      "Tools Readme",
+      "",
+      "Engineering binaries cannot be run from this shell.",
+    ],
+
+    "/network/departments/security/badge_audit.txt": [
+      "Badge Audit",
+      "",
+      "Badge holders must keep current room information in approved systems only.",
+    ],
+
+    "/network/departments/security/escort_policy.txt": [
+      "Escort Policy",
+      "",
+      "Visitors beyond lobby require escort.",
+    ],
+
+    "/network/departments/security/incident_rollup.txt": [
+      "Incident Rollup",
+      "",
+      "No major security incidents listed.",
+    ],
+
+    "/network/departments/facilities/moves/floor3_reassignments.txt": [
+      "Floor 3 Reassignments",
+      "",
+      "Multiple room swaps completed after wing consolidation.",
+      "Check office_changes_q1.txt for finalized current office assignments.",
+    ],
+
+    "/network/departments/facilities/moves/office_changes_q1.txt": [
+      "Office Changes Q1",
+      "",
+      "Lab Wing C updates:",
+      "- Admin overflow moved to 3B-742",
+      "- Shared support room moved to 3B-755",
+      "- Dr. Elias V. Harker reassigned to office 3B-771",
+    ],
+
+    "/network/departments/facilities/moves/staging_notes.txt": [
+      "Staging Notes",
+      "",
+      "Temporary labels were removed after final room signoff.",
+    ],
+
+    "/network/departments/facilities/maintenance/door_service_log.txt": [
+      "Door Service Log",
+      "",
+      "Routine service only.",
+    ],
+
+    "/network/departments/facilities/maintenance/elevator_service_windows.txt":
+      [
+        "Elevator Service Windows",
+        "",
+        "Monday 04:00 reserved for maintenance resets.",
+      ],
+
+    "/network/departments/facilities/maintenance/room_signage_replacements.txt":
+      [
+        "Room Signage Replacements",
+        "",
+        "Several Lab Wing C signs reprinted after Q1 relocation.",
+      ],
+
+    "/network/departments/facilities/maps/wing_directory.txt": [
+      "Wing Directory",
+      "",
+      "3B-700 series rooms occupy Lab Wing C.",
+    ],
+
+    "/network/departments/facilities/maps/lab_wing_c_notes.txt": [
+      "Lab Wing C Notes",
+      "",
+      "Updated room list maintained by Facilities.",
+    ],
+
+    "/network/departments/facilities/vendors/vendor_list.txt": [
+      "Vendor List",
+      "",
+      "Move support and signage vendors listed here.",
+    ],
+
+    "/network/departments/facilities/vendors/move_support_contacts.txt": [
+      "Move Support Contacts",
+      "",
+      "Facilities handles final room notices.",
+    ],
+
+    "/network/ops/readme.txt": [
+      "Ops Share",
+      "",
+      "Operational support materials only.",
+    ],
+
+    "/network/ops/handoff/night_shift_summary.txt": [
+      "Night Shift Summary",
+      "",
+      "No unusual network activity.",
+    ],
+
+    "/network/ops/handoff/pending_followups.txt": [
+      "Pending Followups",
+      "",
+      "Facilities share remains mounted.",
+    ],
+
+    "/network/ops/relay/mounts.txt": [
+      "Mounted Shares",
+      "",
+      "/network/shared",
+      "/network/departments",
+      "/network/hr",
+      "/network/facilities",
+      "/network/archives",
+    ],
+
+    "/network/ops/relay/service_hosts.txt": [
+      "Service Hosts",
+      "",
+      "ops-relay-1",
+      "ops-relay-2",
+      "fileshare-core",
+    ],
+
+    "/network/ops/watchfloor/camera_status.txt": [
+      "Camera Status",
+      "",
+      "Most cameras operational.",
+    ],
+
+    "/network/ops/watchfloor/door_status.txt": [
+      "Door Status",
+      "",
+      "Service corridor reader intermittent.",
+    ],
+
+    "/network/hr/onboarding/new_hire_packet.txt": [
+      "New Hire Packet",
+      "",
+      "Standard onboarding references.",
+    ],
+
+    "/network/hr/onboarding/badge_issue_notes.txt": [
+      "Badge Issue Notes",
+      "",
+      "Badge issuance handled jointly with Security.",
+    ],
+
+    "/network/hr/policies/attendance_policy.txt": [
+      "Attendance Policy",
+      "",
+      "Standard attendance requirements apply.",
+    ],
+
+    "/network/hr/policies/storage_policy.txt": [
+      "Storage Policy",
+      "",
+      "Local-only storage is prohibited for official records.",
+    ],
+
+    "/network/hr/policies/documentation_guidelines.txt": [
+      "Documentation Guidelines",
+      "",
+      "Project documentation should be current and complete.",
+    ],
+
+    "/network/hr/exports/executive_support_export.txt": [
+      "Executive Support Export",
+      "",
+      "Some office fields intentionally omitted from shared export.",
+    ],
+
+    "/network/hr/exports/role_summary_export.txt": [
+      "Role Summary Export",
+      "",
+      "High-level position summaries only.",
+    ],
+
+    "/network/hr/benefits/medical_overview.txt": [
+      "Medical Overview",
+      "",
+      "Standard benefits reference.",
+    ],
+
+    "/network/hr/benefits/pto_reference.txt": [
+      "PTO Reference",
+      "",
+      "See current handbook for accrual details.",
+    ],
+
+    "/network/hr/archived/migration_notes_2025.txt": [
+      "Migration Notes 2025",
+      "",
+      "Some records were copied without full field parity.",
+    ],
+
+    "/network/hr/archived/legacy_roster_index.txt": [
+      "Legacy Roster Index",
+      "",
+      "Historic record index only.",
+    ],
+
+    "/network/facilities/readme.txt": [
+      "Facilities Share",
+      "",
+      "Maps, relocation notes, maintenance schedules, and vendor references.",
+    ],
+
+    "/network/facilities/maps/building_map.txt": [
+      "Building Map",
+      "",
+      "Floor 3 contains east offices, service hall, and Lab Wing C.",
+    ],
+
+    "/network/facilities/maps/floor3_rooms.txt": [
+      "Floor 3 Rooms",
+      "",
+      "700 series offices grouped under 3B wing layout.",
+    ],
+
+    "/network/facilities/maps/lab_wing_c_map.txt": [
+      "Lab Wing C Map",
+      "",
+      "Updated after room reassignments.",
+      "3B-771 marked occupied.",
+    ],
+
+    "/network/facilities/maintenance/current_tasks.txt": [
+      "Current Tasks",
+      "",
+      "Replace signage in Lab Wing C.",
+      "Confirm room label alignment after final move cycle.",
+    ],
+
+    "/network/facilities/maintenance/service_windows.txt": [
+      "Service Windows",
+      "",
+      "Monday 04:00 reserved maintenance period.",
+    ],
+
+    "/network/facilities/maintenance/cabinet_inventory.txt": [
+      "Cabinet Inventory",
+      "",
+      "Maintenance stock only.",
+    ],
+
+    "/network/facilities/relocation/floor3_reassignments.txt": [
+      "Floor 3 Reassignments",
+      "",
+      "Post-consolidation moves completed.",
+      "Support copies may still show blanks.",
+    ],
+
+    "/network/facilities/relocation/office_changes_q1.txt": [
+      "Office Changes Q1",
+      "",
+      "Finalized assignments:",
+      "- 3B-742 reassigned to admin overflow",
+      "- 3B-755 reassigned to shared executive support",
+      "- 3B-771 assigned to Dr. Elias V. Harker",
+    ],
+
+    "/network/facilities/relocation/move_request_backlog.txt": [
+      "Move Request Backlog",
+      "",
+      "Most pending moves closed.",
+    ],
+
+    "/network/facilities/relocation/archive/q4_2025_reassignments.txt": [
+      "Q4 2025 Reassignments",
+      "",
+      "Older move cycle. Superseded by Q1 updates.",
+    ],
+
+    "/network/facilities/relocation/archive/temp_move_sheet.doc": [
+      "Temp Move Sheet",
+      "",
+      "Working copy retained for archive only.",
+    ],
+
+    "/network/facilities/access_logs/badge_issues.txt": [
+      "Badge Issues",
+      "",
+      "A few room labels were corrected after move cycle.",
+    ],
+
+    "/network/facilities/access_logs/reader_replacements.txt": [
+      "Reader Replacements",
+      "",
+      "Nothing directly relevant to office locations.",
+    ],
+
+    "/network/facilities/vendor_docs/vendor_contacts.txt": [
+      "Vendor Contacts",
+      "",
+      "Move and signage vendors on file.",
+    ],
+
+    "/network/facilities/vendor_docs/move_support_contract.txt": [
+      "Move Support Contract",
+      "",
+      "Facilities only.",
+    ],
+
+    "/network/archives/legacy_exports.txt": [
+      "Legacy Exports",
+      "",
+      "Historical snapshots may not reflect current office assignments.",
+    ],
+
+    "/network/archives/2024/EMPTY_PLACEHOLDER.txt": [
+      "Archive Placeholder",
+      "",
+      "No accessible files in this snapshot.",
+    ],
+
+    "/network/archives/2025/facility_moves_2025.txt": [
+      "Facility Moves 2025",
+      "",
+      "Historic move notes retained.",
+    ],
+
+    "/network/archives/2025/admin_handoff_q3.txt": [
+      "Admin Handoff Q3",
+      "",
+      "Older support-side notes only.",
+    ],
+
+    "/network/archives/2026/q1_transition_notes.txt": [
+      "Q1 Transition Notes",
+      "",
+      "Room changes finalized by Facilities and reflected in relocation records.",
+    ],
+
+    "/network/archives/2026/executive_support_refresh.txt": [
+      "Executive Support Refresh",
+      "",
+      "Shared export copies may omit room numbers.",
     ],
   };
 }

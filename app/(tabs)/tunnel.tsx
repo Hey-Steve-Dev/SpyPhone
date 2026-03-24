@@ -623,8 +623,8 @@ const styles = StyleSheet.create({
   deviceCard: {
     borderRadius: 3,
     borderWidth: 1,
-    borderColor: "#1c3444",
-    backgroundColor: "#0c1720",
+    borderColor: "#2f6fa1",
+    backgroundColor: "#12324a",
     padding: 10,
   },
   deviceCardSelected: {

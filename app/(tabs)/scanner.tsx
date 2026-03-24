@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 const HOME_BAR_SPACE = 44;
+const TACTICAL_FONT = "monospace";
 
 type BandKey = "VHF" | "UHF" | "AIR" | "CIV";
 
@@ -127,6 +128,7 @@ function fmtTime(ts: number) {
 }
 
 export default function ScannerScreen() {
+  const [lastTrafficAt, setLastTrafficAt] = useState(0);
   const [band, setBand] = useState<BandKey | "ALL">("ALL");
   const [isScanning, setIsScanning] = useState(true);
   const [isHold, setIsHold] = useState(false);
@@ -168,15 +170,21 @@ export default function ScannerScreen() {
       const next = pick(visibleChannels);
       setActiveChannel(next);
 
-      const hasTraffic = Math.random() > 0.42;
+      const now = Date.now();
+      const trafficCooldownMs = 9000;
+      const canFireTraffic = now - lastTrafficAt >= trafficCooldownMs;
+      const hasTraffic = canFireTraffic && Math.random() > 0.82;
+
       if (hasTraffic) {
         const nextText = pick(next.traffic);
         const nextSignal = Math.max(
           18,
           Math.min(100, next.strength + rand(-12, 10)),
         );
+
         setSignal(nextSignal);
         setNoiseText("Carrier lock detected");
+        setLastTrafficAt(now);
 
         setLogs((prev) => [
           ...prev,
@@ -192,17 +200,16 @@ export default function ScannerScreen() {
         setSignal(rand(8, 22));
         setNoiseText("Static / weak modulation");
       }
-    }, 1800);
+    }, 5200);
 
     return () => clearInterval(interval);
-  }, [isScanning, isHold, visibleChannels]);
-
+  }, [isScanning, isHold, visibleChannels, lastTrafficAt]);
   useEffect(() => {
     if (!isHold || !activeChannel) return;
 
     const interval = setInterval(() => {
       const chance = Math.random();
-      if (chance > 0.45) {
+      if (chance > 2.62) {
         const msg = pick(activeChannel.traffic);
         setSignal(
           Math.max(20, Math.min(100, activeChannel.strength + rand(-10, 8))),
@@ -223,7 +230,7 @@ export default function ScannerScreen() {
         setSignal(rand(12, 28));
         setNoiseText("Monitoring...");
       }
-    }, 2300);
+    }, 4200);
 
     return () => clearInterval(interval);
   }, [isHold, activeChannel]);
@@ -434,7 +441,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 14,
     paddingBottom: HOME_BAR_SPACE + 18,
-    backgroundColor: "#071018",
+    backgroundColor: "#06100c",
   },
 
   header: {
@@ -447,12 +454,15 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 18,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.94)",
+    color: "#e6fff1",
+    fontFamily: TACTICAL_FONT,
+    letterSpacing: 0.8,
   },
   headerSub: {
     marginTop: 2,
     fontSize: 12,
-    color: "rgba(255,255,255,0.58)",
+    color: "#88b8a1",
+    fontFamily: TACTICAL_FONT,
   },
 
   statusPill: {
@@ -461,40 +471,41 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 999,
+    borderRadius: 3,
     borderWidth: 1,
-    borderColor: "rgba(120,255,190,0.18)",
-    backgroundColor: "rgba(120,255,190,0.08)",
+    borderColor: "#2f694f",
+    backgroundColor: "#0d1b15",
   },
   statusDot: {
     width: 8,
     height: 8,
-    borderRadius: 999,
+    borderRadius: 2,
   },
   dotOn: {
     backgroundColor: "#67f0a8",
   },
   dotOff: {
-    backgroundColor: "rgba(255,255,255,0.35)",
+    backgroundColor: "#4f6b5d",
   },
   statusText: {
     fontSize: 11,
     fontWeight: "800",
     letterSpacing: 0.8,
     color: "#c7ffe2",
+    fontFamily: TACTICAL_FONT,
   },
 
   screenCard: {
-    borderRadius: 22,
+    borderRadius: 3,
     padding: 14,
     borderWidth: 1,
-    borderColor: "rgba(120,255,190,0.12)",
-    backgroundColor: "rgba(10,20,30,0.96)",
+    borderColor: "#2a5f47",
+    backgroundColor: "#0a1511",
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.24,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 6 },
+    shadowColor: "#67f0a8",
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
   },
   screenTop: {
     marginBottom: 12,
@@ -503,19 +514,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     letterSpacing: 1.2,
-    color: "rgba(116,255,197,0.76)",
+    color: "#8df5bb",
     marginBottom: 4,
+    fontFamily: TACTICAL_FONT,
   },
   freqText: {
     fontSize: 30,
     fontWeight: "900",
     letterSpacing: 1.2,
     color: "#effff7",
+    fontFamily: TACTICAL_FONT,
   },
   labelText: {
     marginTop: 4,
     fontSize: 13,
-    color: "rgba(255,255,255,0.66)",
+    color: "#9ec4b1",
+    fontFamily: TACTICAL_FONT,
   },
 
   scopeWrap: {
@@ -524,11 +538,11 @@ const styles = StyleSheet.create({
   },
   scopeGrid: {
     height: 84,
-    borderRadius: 16,
+    borderRadius: 3,
     overflow: "hidden",
     borderWidth: 1,
-    borderColor: "rgba(116,255,197,0.14)",
-    backgroundColor: "#06131a",
+    borderColor: "#2f694f",
+    backgroundColor: "#06100c",
     position: "relative",
   },
   sweepLine: {
@@ -544,7 +558,8 @@ const styles = StyleSheet.create({
   scopeStatus: {
     marginTop: 8,
     fontSize: 12,
-    color: "rgba(255,255,255,0.56)",
+    color: "#88b8a1",
+    fontFamily: TACTICAL_FONT,
   },
 
   meterRow: {
@@ -556,18 +571,21 @@ const styles = StyleSheet.create({
     width: 26,
     fontSize: 11,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.55)",
+    color: "#88b8a1",
+    fontFamily: TACTICAL_FONT,
   },
   meterTrack: {
     flex: 1,
     height: 10,
-    borderRadius: 999,
-    backgroundColor: "rgba(255,255,255,0.08)",
+    borderRadius: 2,
+    backgroundColor: "#0b1712",
     overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#2a5f47",
   },
   meterFill: {
     height: "100%",
-    borderRadius: 999,
+    borderRadius: 2,
     backgroundColor: "#6df3ac",
   },
   meterValue: {
@@ -575,32 +593,35 @@ const styles = StyleSheet.create({
     textAlign: "right",
     fontSize: 11,
     fontWeight: "700",
-    color: "rgba(255,255,255,0.62)",
+    color: "#b8e6cb",
+    fontFamily: TACTICAL_FONT,
   },
 
   bandRow: {
     paddingBottom: 10,
-    gap: 8,
+    gap: 6,
   },
   bandBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 3,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "#2a5f47",
+    backgroundColor: "#0a1511",
+    minHeight: 0,
   },
   bandBtnActive: {
-    borderColor: "rgba(116,255,197,0.24)",
-    backgroundColor: "rgba(116,255,197,0.12)",
+    borderColor: "#67f0a8",
+    backgroundColor: "#123124",
   },
   bandBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.64)",
+    color: "#9ec4b1",
+    fontFamily: TACTICAL_FONT,
   },
   bandBtnTextActive: {
-    color: "#c8ffe3",
+    color: "#d9ffee",
   },
 
   controlsRow: {
@@ -614,24 +635,25 @@ const styles = StyleSheet.create({
     minWidth: "22%",
     paddingVertical: 11,
     paddingHorizontal: 10,
-    borderRadius: 14,
+    borderRadius: 3,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "#2a5f47",
+    backgroundColor: "#0a1511",
   },
   primaryBtn: {
-    borderColor: "rgba(116,255,197,0.24)",
-    backgroundColor: "rgba(116,255,197,0.14)",
+    borderColor: "#67f0a8",
+    backgroundColor: "#123124",
   },
   controlBtnText: {
     fontSize: 12,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.78)",
+    color: "#c7ffe2",
+    fontFamily: TACTICAL_FONT,
   },
   primaryBtnText: {
-    color: "#d6ffe9",
+    color: "#e9fff3",
   },
 
   logHeader: {
@@ -644,20 +666,23 @@ const styles = StyleSheet.create({
   logTitle: {
     fontSize: 14,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.88)",
+    color: "#e6fff1",
+    fontFamily: TACTICAL_FONT,
   },
   clearText: {
     fontSize: 12,
     fontWeight: "700",
-    color: "rgba(116,255,197,0.8)",
+    color: "#8df5bb",
+    fontFamily: TACTICAL_FONT,
   },
 
   logCard: {
     flex: 1,
-    borderRadius: 20,
+    minHeight: 320,
+    borderRadius: 3,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.08)",
-    backgroundColor: "rgba(255,255,255,0.04)",
+    borderColor: "#2a5f47",
+    backgroundColor: "#0a1511",
   },
   logContent: {
     padding: 12,
@@ -667,14 +692,15 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 12,
     lineHeight: 18,
-    color: "rgba(255,255,255,0.46)",
+    color: "#7eaa94",
+    fontFamily: TACTICAL_FONT,
   },
   logItem: {
-    borderRadius: 16,
+    borderRadius: 3,
     padding: 10,
     borderWidth: 1,
-    borderColor: "rgba(116,255,197,0.08)",
-    backgroundColor: "rgba(5,12,18,0.72)",
+    borderColor: "#214b39",
+    backgroundColor: "#08110d",
   },
   logTop: {
     flexDirection: "row",
@@ -685,20 +711,24 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "800",
     color: "#9ef8c8",
+    fontFamily: TACTICAL_FONT,
   },
   logTime: {
     fontSize: 11,
-    color: "rgba(255,255,255,0.45)",
+    color: "#7eaa94",
+    fontFamily: TACTICAL_FONT,
   },
   logLabel: {
     marginBottom: 4,
     fontSize: 11,
     fontWeight: "700",
-    color: "rgba(255,255,255,0.58)",
+    color: "#b4d9c4",
+    fontFamily: TACTICAL_FONT,
   },
   logText: {
     fontSize: 13,
     lineHeight: 18,
-    color: "rgba(255,255,255,0.84)",
+    color: "#e8fff1",
+    fontFamily: TACTICAL_FONT,
   },
 });

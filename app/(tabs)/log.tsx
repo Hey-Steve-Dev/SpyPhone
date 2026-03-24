@@ -9,6 +9,8 @@ import {
   type ListRenderItem,
 } from "react-native";
 
+const TACTICAL_FONT = "monospace";
+
 function ts(at: number) {
   const d = new Date(at);
   const hh = String(d.getHours()).padStart(2, "0");
@@ -35,8 +37,6 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "network", label: "Network" },
   { key: "jammer", label: "Jammer" },
   { key: "thread", label: "Thread" },
-  { key: "banner", label: "Banner" },
-  { key: "system", label: "System" },
 ];
 
 export default function LogScreen() {
@@ -48,9 +48,7 @@ export default function LogScreen() {
   const listRef = useRef<FlatList<GameLogItem>>(null);
 
   const filtered = useMemo(() => {
-    const src = log
-      .filter((item) => item.kind !== "mission") // hide mission logs
-      .slice(-500);
+    const src = log.filter((item) => item.kind !== "mission").slice(-500);
 
     if (filter === "all") return src;
 
@@ -135,6 +133,7 @@ const styles = StyleSheet.create({
   wrap: {
     flex: 1,
     padding: 14,
+    backgroundColor: "#05090e",
   },
 
   header: {
@@ -149,26 +148,31 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: "900",
-    color: "rgba(255,255,255,0.92)",
+    color: "#e6f4ff",
+    fontFamily: TACTICAL_FONT,
+    letterSpacing: 0.8,
   },
   sub: {
     marginTop: 3,
     fontSize: 12,
-    color: "rgba(255,255,255,0.62)",
+    color: "#7d9bb2",
+    fontFamily: TACTICAL_FONT,
   },
 
   clearBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
-    borderRadius: 14,
+    borderRadius: 3,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.12)",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "#29485d",
+    backgroundColor: "#0a141d",
   },
   clearTxt: {
     fontSize: 12,
     fontWeight: "900",
-    color: "rgba(255,255,255,0.86)",
+    color: "#d8efff",
+    fontFamily: TACTICAL_FONT,
+    letterSpacing: 0.6,
   },
 
   filterRow: {
@@ -180,31 +184,33 @@ const styles = StyleSheet.create({
   filterBtn: {
     paddingHorizontal: 10,
     paddingVertical: 7,
-    borderRadius: 999,
+    borderRadius: 3,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(255,255,255,0.05)",
+    borderColor: "#29485d",
+    backgroundColor: "#09131b",
   },
   filterBtnActive: {
-    backgroundColor: "rgba(111,123,255,0.16)",
-    borderColor: "rgba(111,123,255,0.26)",
+    backgroundColor: "#12324a",
+    borderColor: "#4da3ff",
   },
   filterTxt: {
     fontSize: 11.5,
     fontWeight: "800",
-    color: "rgba(255,255,255,0.72)",
+    color: "#8fb0c8",
+    fontFamily: TACTICAL_FONT,
+    letterSpacing: 0.5,
   },
   filterTxtActive: {
-    color: "rgba(255,255,255,0.92)",
+    color: "#d8efff",
   },
 
   panel: {
     flex: 1,
     minHeight: 0,
-    borderRadius: 20,
+    borderRadius: 3,
     borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.10)",
-    backgroundColor: "rgba(0,0,0,0.40)",
+    borderColor: "#214156",
+    backgroundColor: "#0b141d",
     overflow: "hidden",
     padding: 14,
   },
@@ -224,20 +230,21 @@ const styles = StyleSheet.create({
   line: {
     fontSize: 12.5,
     lineHeight: 17,
-    color: "rgba(255,255,255,0.84)",
-    fontFamily: "monospace" as any,
+    color: "#d8efff",
+    fontFamily: TACTICAL_FONT,
   },
   ts: {
-    color: "rgba(255,255,255,0.50)",
+    color: "#6f8da4",
   },
   kind: {
-    color: "rgba(111,189,255,0.88)",
+    color: "#5cc8ff",
     fontWeight: "900",
+    fontFamily: TACTICAL_FONT,
   },
 
   empty: {
     fontSize: 12.5,
-    color: "rgba(255,255,255,0.55)",
-    fontFamily: "monospace" as any,
+    color: "#7d9bb2",
+    fontFamily: TACTICAL_FONT,
   },
 });
