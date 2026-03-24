@@ -248,6 +248,36 @@ function withMissionPhase(
 
 const CAMERA_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 
+// ✅ CENTRAL SHELL REGISTRY
+type ShellProfile = {
+  hostId: string;
+  cwd: string;
+};
+
+const SHELLS: Record<string, ShellProfile> = {
+  agent_phone: {
+    hostId: "agent_phone",
+    cwd: "/home/agent/phone",
+  },
+  admin_assistant_pc: {
+    hostId: "admin_assistant_pc",
+    cwd: "/home/mporter",
+  },
+  local_jcarter: {
+    hostId: "local_jcarter",
+    cwd: "/home/jcarter",
+  },
+  network_node: {
+    hostId: "network_node",
+    cwd: "/network/root",
+  },
+};
+const DEVICE_SHELL_MAP: Record<string, string> = {
+  admin_assistant_pc: SHELLS.admin_assistant_pc.hostId,
+  security_laptop: SHELLS.local_jcarter.hostId,
+  camera_access_point: SHELLS.network_node.hostId,
+};
+
 function makeInitialBanner(): Banner {
   return { on: false, title: "SECURE COMMS", message: "…" };
 }
@@ -295,7 +325,10 @@ function makeInitialEndGameWipeState(): EndGameWipeState {
 
 function makeInitialTerminal(): TerminalState {
   return {
-    session: createTerminalSession("phone_shell"),
+    session: {
+      ...createTerminalSession(SHELLS.agent_phone.hostId),
+      cwd: SHELLS.agent_phone.cwd,
+    },
     mode: "easy",
     lines: [
       { id: "l1", kind: "out", text: "Secure shell — Git Bash (simulated)" },
@@ -1430,8 +1463,21 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setTerminalHost: (hostId) =>
     set((s) => {
-      const nextSession = createTerminalSession(hostId);
-      get().pushLog("terminal", `Terminal host set to ${hostId}.`);
+      const shell = SHELLS[hostId] ?? {
+        hostId,
+        cwd: s.terminal.session.cwd,
+      };
+
+      const nextSession = {
+        ...createTerminalSession(shell.hostId),
+        cwd: shell.cwd,
+      };
+
+      get().pushLog(
+        "terminal",
+        `Terminal host set to ${shell.hostId} @ ${shell.cwd}.`,
+      );
+
       return {
         terminal: {
           ...s.terminal,
@@ -2759,36 +2805,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       if (device.id === "camera_access_point") {
         get().setCameraNetworkOnline(true);
         get().bannerPush("CAMERAS", "Camera feeds online.", 1800);
-
-        await get().dispatchMissionEvent({
-          type: "TUNNEL_LINKED",
-          deviceId: device.id,
-          deviceName: device.name,
-        });
-
-        return;
       }
 
-      if (device.id === "security_laptop") {
-        get().setTerminalHost("local_jcarter");
-
-        await get().dispatchMissionEvent({
-          type: "TUNNEL_LINKED",
-          deviceId: device.id,
-          deviceName: device.name,
-        });
-
-        return;
-      }
-
-      if (device.id === "admin_assistant_pc") {
-        await get().dispatchMissionEvent({
-          type: "TUNNEL_LINKED",
-          deviceId: device.id,
-          deviceName: device.name,
-        });
-
-        return;
+      const shellHostId = DEVICE_SHELL_MAP[device.id];
+      if (shellHostId) {
+        get().setTerminalHost(shellHostId);
       }
 
       await get().dispatchMissionEvent({

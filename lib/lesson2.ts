@@ -13,7 +13,7 @@ const ADMIN_ASSISTANT_TERMINAL_HOST = "admin_assistant_pc";
 
 const LESSON_2_DEV_COMMAND = "root el 2";
 const LESSON_2_VAULT_ERASE_COMMAND = "run log.erase --secure --depth 5";
-const LESSON_2_CRED_HARVEST_COMMAND = "run cred.harvest";
+const LESSON_2_EXFIL_COMMAND = "run exfil.push --enc aes --chunk 512";
 const LESSON_2_ADMIN_ASSISTANT_DEVICE_ID = "admin_assistant_pc";
 
 type Lesson2Phase =
@@ -176,6 +176,7 @@ export function makeLesson2CheckpointState(state: MissionState): MissionState {
     step: lesson2PhaseToStep("lesson_2_vault_prompt"),
     tracePercent: 0,
     camera12Checked: false,
+    lesson2ExfilComplete: false,
   };
 }
 
@@ -193,9 +194,6 @@ export function makeLesson2CheckpointEffects(
     { type: "set_hallway_occupied", on: false },
     { type: "clear_camera_target", cameraId: 12 },
 
-    { type: "reset_terminal" },
-    { type: "set_terminal_host", hostId: DEFAULT_TERMINAL_HOST },
-    { type: "set_terminal_cwd", cwd: DEFAULT_TERMINAL_CWD },
     { type: "set_terminal_locked", on: false },
 
     {
@@ -206,6 +204,7 @@ export function makeLesson2CheckpointEffects(
         `DEV: cwd=${DEFAULT_TERMINAL_CWD}`,
         "DEV: tracePercent=0",
         "DEV: camera12Checked=false",
+        "DEV: lesson2ExfilComplete=false",
       ],
     },
     {
@@ -293,15 +292,15 @@ export function missionIntroLesson2(state: MissionState): string[] | null {
         "Copy. This is an admin assistant machine.",
         "They should have access to personnel files and that is what we need to pull.",
         "This should be easy. Tunnel in and gain access.",
-        "When you're in, run Credential Harvest from the Vault.",
+        "When you're in, exfil the data using the Vault tool.",
         "Let me know when you have extracted it.",
       ];
 
     case "lesson_2_harvest_help":
       return [
-        "Open Vault and look for Credential Harvest.",
-        "Use the run command exactly as shown in Vault.",
-        "On this system the command is `run cred.harvest`.",
+        "Open Vault and look for the Exfil tool.",
+        "Use the command exactly as shown in Vault.",
+        "On this system the command is `run exfil.push --enc aes --chunk 512`.",
       ];
 
     case "lesson_2_harvest_done":
@@ -506,7 +505,13 @@ export function handleLesson2Event(
       state.phase === "lesson_2_post_move_confirm" &&
       event.action === "lesson2_post_move_in"
     ) {
-      const nextState = withLesson2Phase(state, "lesson_2_harvest_prompt");
+      const nextState = withLesson2Phase(
+        {
+          ...state,
+          lesson2ExfilComplete: false,
+        },
+        "lesson_2_harvest_prompt",
+      );
 
       return {
         nextState,
@@ -533,7 +538,7 @@ export function handleLesson2Event(
                 950,
               ),
               opsLine(
-                "When you're in, run Credential Harvest in the Vault.",
+                "When you're in, push the data out. Use exfiltration from the Vault.",
                 1450,
                 1000,
               ),
@@ -547,6 +552,11 @@ export function handleLesson2Event(
           { type: "reset_terminal" },
           { type: "set_terminal_host", hostId: DEFAULT_TERMINAL_HOST },
           { type: "set_terminal_cwd", cwd: DEFAULT_TERMINAL_CWD },
+          { type: "set_terminal_locked", on: false },
+          {
+            type: "set_reply_chips",
+            chips: harvestReplyChips(),
+          },
           { type: "set_terminal_locked", on: false },
         ],
       };
@@ -570,14 +580,10 @@ export function handleLesson2Event(
           {
             type: "handler_sequence",
             items: [
-              opsLine("Open Vault and look for Credential Harvest.", 1200, 700),
+              opsLine("Open Vault and look for the Exfil tool.", 1200, 700),
+              opsLine("Use the command exactly as shown in Vault.", 1250, 800),
               opsLine(
-                "Use the run command exactly as shown in Vault.",
-                1250,
-                800,
-              ),
-              opsLine(
-                "On this system the command is `run cred.harvest`.",
+                "On this system the command is `run exfil.push --enc aes --chunk 512`.",
                 1250,
                 800,
               ),
@@ -597,6 +603,42 @@ export function handleLesson2Event(
         state.phase === "lesson_2_harvest_done") &&
       event.action === "lesson2_harvest_done"
     ) {
+      if (!state.lesson2ExfilComplete) {
+        return {
+          nextState: state,
+          effects: [
+            { type: "clear_reply_chips" },
+            ...(event.label
+              ? [{ type: "player_message", text: event.label } as MissionEffect]
+              : []),
+            {
+              type: "handler_sequence",
+              items: [
+                opsLine(
+                  "Negative. You have not exfiltrated the data yet.",
+                  1350,
+                  900,
+                ),
+                opsLine(
+                  "Tunnel into the admin assistant machine first.",
+                  1300,
+                  850,
+                ),
+                opsLine(
+                  "Then run `exfil.push --enc aes --chunk 512`.",
+                  1350,
+                  900,
+                ),
+              ],
+            },
+            {
+              type: "set_reply_chips",
+              chips: harvestReplyChips(),
+            },
+          ],
+        };
+      }
+
       const nextState = withLesson2Phase(state, "lesson_2_review_prompt");
 
       return {
@@ -831,8 +873,14 @@ export function handleLesson2Event(
       state.phase === "lesson_2_harvest_help" ||
       state.phase === "lesson_2_harvest_done"
     ) {
-      if (raw === LESSON_2_CRED_HARVEST_COMMAND) {
-        const nextState = withLesson2Phase(state, "lesson_2_harvest_done");
+      if (raw === LESSON_2_EXFIL_COMMAND) {
+        const nextState = withLesson2Phase(
+          {
+            ...state,
+            lesson2ExfilComplete: true,
+          },
+          "lesson_2_harvest_done",
+        );
 
         return {
           nextState,
@@ -841,9 +889,12 @@ export function handleLesson2Event(
               type: "append_terminal_output",
               lines: [
                 "Vault utility started.",
-                "Credential harvest in progress...",
-                "Collecting personnel-access artifacts...",
-                "Extraction complete.",
+                "Initializing encrypted exfiltration...",
+                "Packaging personnel-access artifacts...",
+                "Streaming chunks...",
+                "Encryption: AES active",
+                "Exfil complete.",
+                "Remote package ID: PX-4421-AES",
                 "Saved: /home/mporter/harvest/personnel/intake/archive/executive/personnel_profile.doc",
               ],
             },

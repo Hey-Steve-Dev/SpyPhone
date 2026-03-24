@@ -59,6 +59,7 @@ export type MissionState = {
   elevatorCode: string;
   tracePercent: number;
   camera12Checked: boolean;
+  lesson2ExfilComplete?: boolean;
 };
 
 export type ReplyChip = {

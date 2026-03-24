@@ -1501,6 +1501,51 @@ function buildAdminAssistantHarvestNode(): FsDirNode {
 }
 
 export const TERMINAL_HOSTS: Record<string, TerminalHost> = {
+  agent_phone: {
+    id: "agent_phone",
+    name: "Agent Phone",
+    user: "agent",
+    home: "/home/agent/phone",
+    fs: dir({
+      home: dir({
+        agent: dir({
+          phone: dir({
+            "mission_brief.txt": file(
+              "MISSION BRIEF",
+              "",
+              "We need to complete this misson and leave no trail behind",
+              "",
+              "OBJECTIVES:",
+              "- Gain access to internal systems",
+              "- Avoid detection",
+              "- Follow OPS instructions",
+              "",
+              "Your phone will auto delete if caught",
+            ),
+            apps: dir({
+              "messages.app": file("Launch Messages"),
+              "network.app": file("Launch Network"),
+              "cameras.app": file("Launch Cameras"),
+              "scanner.app": file("Launch Scanner"),
+            }),
+            "notes.txt": file(
+              "Local device notes",
+              "",
+              "Use the apps folder to access phone tools.",
+              "Use tunnel to connect to remote machines.",
+            ),
+            "readme.txt": file(
+              "Secure phone shell",
+              "",
+              "This terminal controls your field device.",
+              "Remote systems appear after tunnel access.",
+            ),
+          }),
+        }),
+      }),
+    }),
+  },
+
   local_jcarter: {
     id: "local_jcarter",
     name: "JCarter Workstation",
@@ -1663,48 +1708,14 @@ export const TERMINAL_HOSTS: Record<string, TerminalHost> = {
     }),
   },
 
-  phone_shell: {
-    id: "phone_shell",
-    name: "Agent Phone",
-    user: "agent",
-    home: "/home/agent/phone",
+  network_node: {
+    id: "network_node",
+    name: "Network Node",
+    user: "network",
+    home: "/network/root",
     fs: dir({
-      home: dir({
-        agent: dir({
-          phone: dir({
-            "mission_brief.txt": file(
-              "MISSION BRIEF",
-              "",
-              "We need to complete this misson and leave no trail behind",
-              "",
-              "OBJECTIVES:",
-              "- Gain access to internal systems",
-              "- Avoid detection",
-              "- Follow OPS instructions",
-              "",
-              "Your phone will auto delete if caught",
-            ),
-
-            apps: dir({
-              "messages.app": file("Launch Messages"),
-              "network.app": file("Launch Network"),
-              "cameras.app": file("Launch Cameras"),
-              "scanner.app": file("Launch Scanner"),
-            }),
-            "notes.txt": file(
-              "Local device notes",
-              "",
-              "Use the apps folder to access phone tools.",
-              "Use tunnel to connect to remote machines.",
-            ),
-            "readme.txt": file(
-              "Secure phone shell",
-              "",
-              "This terminal controls your field device.",
-              "Remote systems appear after tunnel access.",
-            ),
-          }),
-        }),
+      network: dir({
+        root: buildSharedNetworkNode(),
       }),
     }),
   },
