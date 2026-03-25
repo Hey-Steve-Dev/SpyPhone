@@ -32,6 +32,7 @@ export type CommandResult = {
   command: string;
   targetPath?: string;
   readFilePath?: string;
+  launchApp?: string;
 };
 
 type EmployeeRecord = {
@@ -149,6 +150,10 @@ function parseInput(input: string) {
 
 function isExeFilename(name: string) {
   return name.toLowerCase().endsWith(".exe");
+}
+
+function isAppFilename(name: string) {
+  return name.toLowerCase().endsWith(".app");
 }
 
 function buildEmployeeDoc(record: EmployeeRecord): string[] {
@@ -1523,11 +1528,138 @@ export const TERMINAL_HOSTS: Record<string, TerminalHost> = {
               "Your phone will auto delete if caught",
             ),
             apps: dir({
+              // MESSAGES
               "messages.app": file("Launch Messages"),
-              "network.app": file("Launch Network"),
+              "messages.txt": file(
+                "MESSAGES APP",
+                "",
+                "Primary communication channel.",
+                "Used to receive instructions from OPS and reply during missions.",
+              ),
+
+              // TERMINAL
+              "terminal.app": file("Launch Terminal"),
+              "terminal.txt": file(
+                "TERMINAL",
+                "",
+                "Command-line interface.",
+                "Used to navigate systems, read files, and execute operations.",
+              ),
+
+              // TUNNEL
+              "tunnel.app": file("Launch Tunnel"),
+              "tunnel.txt": file(
+                "TUNNEL",
+                "",
+                "Remote connection utility.",
+                "Used to access external machines and pivot between systems.",
+              ),
+
+              // NOTES
+              "notes.app": file("Launch Notes"),
+              "notes.txt": file(
+                "NOTES",
+                "",
+                "Local note storage.",
+                "Used to track mission clues and useful information.",
+              ),
+
+              // MASK
+              "mask.app": file("Launch Mask"),
+              "mask.txt": file(
+                "MASK",
+                "",
+                "Identity obfuscation tool.",
+                "Used to reduce traceability while operating in systems.",
+              ),
+
+              // CAMERAS
               "cameras.app": file("Launch Cameras"),
-              "scanner.app": file("Launch Scanner"),
+              "cameras.txt": file(
+                "CAMERAS",
+                "",
+                "Surveillance system access.",
+                "Used to monitor rooms and confirm safe movement.",
+              ),
+
+              // NETWORK
+              "network.app": file("Launch Network"),
+              "network.txt": file(
+                "NETWORK",
+                "",
+                "Device scanner and connector.",
+                "Used to discover targets and establish tunnels.",
+              ),
+
+              // ECHO SCAN
+              "echoscan.app": file("Launch Echo Scan"),
+              "echoscan.txt": file(
+                "ECHO SCAN",
+                "",
+                "Signal monitoring tool.",
+                "Detects chatter and anomalies in nearby systems.",
+              ),
+
+              // JAMMER
+              "jammer.app": file("Launch Jammer"),
+              "jammer.txt": file(
+                "JAMMER",
+                "",
+                "Signal disruption tool.",
+                "Used to block or interfere with nearby communications.",
+              ),
+
+              // LOG
+              "log.app": file("Launch Log"),
+              "log.txt": file(
+                "LOG",
+                "",
+                "System activity logs.",
+                "Used to review past actions and detect traces.",
+              ),
+
+              // VAULT
+              "vault.app": file("Launch Vault"),
+              "vault.txt": file(
+                "VAULT",
+                "",
+                "Secure tools and utilities.",
+                "Contains sensitive operations like exfiltration and cleanup.",
+              ),
+
+              // RF SCANNER
+              "rfscanner.app": file("Launch RF Scanner"),
+              "rfscanner.txt": file(
+                "RF SCANNER",
+                "",
+                "Radio frequency scanner.",
+                "Detects hidden devices and signal sources.",
+              ),
             }),
+            "messages.txt": file(
+              "MESSAGES",
+              "",
+              "Communications channel for OPS and mission updates.",
+              "Use this app to review instructions and reply when prompted.",
+            ),
+            "network.txt": file(
+              "NETWORK",
+              "",
+              "Device discovery and tunnel management.",
+              "Use this app to scan, select targets, and establish shell access.",
+            ),
+            "cameras.txt": file(
+              "CAMERAS",
+              "",
+              "Building surveillance viewer.",
+              "Use this app to inspect feeds and verify safe movement paths.",
+            ),
+            "scanner.txt": file(
+              "SCANNER",
+              "",
+              "Signal and chatter detection tool.",
+              "Use this app to monitor nearby activity and hidden devices.",
+            ),
             "notes.txt": file(
               "Local device notes",
               "",
@@ -1539,6 +1671,7 @@ export const TERMINAL_HOSTS: Record<string, TerminalHost> = {
               "",
               "This terminal controls your field device.",
               "Remote systems appear after tunnel access.",
+              "Use `run <appname>.app` to launch phone apps from the shell.",
             ),
           }),
         }),
@@ -1817,6 +1950,7 @@ export function runCommandEngine(
         "cd <dir>",
         "cd ..",
         "cat <file>",
+        "run <file>",
         "clear",
       ],
       nextSession: session,
@@ -1951,6 +2085,62 @@ export function runCommandEngine(
     return {
       ok: true,
       output,
+      nextSession: session,
+      command,
+      readFilePath: nextPath,
+    };
+  }
+
+  if (command === "run") {
+    if (args.length === 0) {
+      return {
+        ok: false,
+        output: ["run: missing file operand"],
+        nextSession: session,
+        command,
+      };
+    }
+
+    const rawTarget = args.join(" ");
+    const nextPath = resolvePath(session.cwd, rawTarget, host.home);
+    const node = getNodeAtPath(host.fs, nextPath);
+
+    if (!node) {
+      return {
+        ok: false,
+        output: [`run: ${rawTarget}: No such file`],
+        nextSession: session,
+        command,
+      };
+    }
+
+    if (node.type !== "file") {
+      return {
+        ok: false,
+        output: [`run: ${rawTarget}: Not a file`],
+        nextSession: session,
+        command,
+      };
+    }
+
+    const filename = rawTarget.split("/").pop() || "";
+
+    if (isAppFilename(filename)) {
+      const appName = filename.replace(/\.app$/i, "");
+
+      return {
+        ok: true,
+        output: [`Launching ${appName}...`],
+        nextSession: session,
+        command,
+        launchApp: appName,
+        readFilePath: nextPath,
+      };
+    }
+
+    return {
+      ok: false,
+      output: [`${filename}: cannot execute`],
       nextSession: session,
       command,
       readFilePath: nextPath,

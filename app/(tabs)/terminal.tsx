@@ -184,8 +184,41 @@ export default function TerminalScreen() {
     }
 
     const res = runCommandEngine(cmd, session);
+
     setTerminalSession(res.nextSession);
     res.output.forEach((line) => append("out", line));
+
+    if (res.launchApp) {
+      const store = useGameStore.getState() as typeof useGameStore extends {
+        getState: () => infer T;
+      }
+        ? T
+        : never;
+
+      if ("setActiveApp" in store && typeof store.setActiveApp === "function") {
+        const appMap: Record<string, string> = {
+          messages: "messages",
+          terminal: "terminal",
+          tunnel: "tunnel",
+          notes: "notes",
+          mask: "mask",
+          cameras: "cameras",
+          network: "network",
+          echoscan: "echoScan",
+          jammer: "jammer",
+          log: "log",
+          vault: "vault",
+          rfscanner: "rfScanner",
+        };
+
+        const normalized = res.launchApp.replace(/[\s_-]/g, "").toLowerCase();
+        const targetApp = appMap[normalized];
+
+        if (targetApp) {
+          store.setActiveApp(targetApp);
+        }
+      }
+    }
   }
 
   function renderKeyboardRow(row: string[], rowIndex: number) {
