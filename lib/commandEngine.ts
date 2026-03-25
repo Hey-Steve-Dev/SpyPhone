@@ -1688,11 +1688,61 @@ export const TERMINAL_HOSTS: Record<string, TerminalHost> = {
       home: dir({
         jcarter: dir({
           Desktop: dir({
-            "todo.txt": file(
-              "Desktop reminder",
+            "welcome.txt": file(
+              "Admin workstation",
               "",
-              "Ask maintenance about the noisy elevator.",
+              "Temporary desktop items.",
             ),
+
+            "calendar_shortcuts.txt": file(
+              "Quick Links",
+              "",
+              "Use the folders on Desktop to access linked resources.",
+            ),
+
+            "Executive calendar mirror": dir({
+              "calendar_export.txt": file(
+                "Calendar Export",
+                "",
+                "Mirrored executive calendar.",
+                "Some entries redacted.",
+              ),
+              "readme.txt": file(
+                "Calendar Mirror",
+                "",
+                "Local copy only.",
+                "Primary data lives in scheduling system.",
+              ),
+            }),
+
+            "Travel coordination board": dir({
+              "travel_notes.txt": file(
+                "Travel Coordination",
+                "",
+                "Pending trips being organized.",
+                "No finalized itineraries.",
+              ),
+              "itinerary_draft.doc": file(
+                "Draft Itinerary",
+                "",
+                "Incomplete planning document.",
+              ),
+            }),
+
+            "Office move checklist": dir({
+              "move_checklist.txt": file(
+                "Office Move Checklist",
+                "",
+                "- Confirm room labels",
+                "- Verify desk assignments",
+                "- Update directory listings",
+              ),
+              "readme.txt": file(
+                "Move Checklist Folder",
+                "",
+                "Temporary working folder.",
+              ),
+            }),
           }),
           Documents: dir({
             "shift_report.txt": file(

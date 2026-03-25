@@ -6,8 +6,8 @@ import type {
   ReplyChip,
 } from "@/lib/missionEngine";
 
-const DEFAULT_TERMINAL_CWD = "/home/jcarter";
-const DEFAULT_TERMINAL_HOST = "local_jcarter";
+const DEFAULT_TERMINAL_CWD = "/home/agent/phone";
+const DEFAULT_TERMINAL_HOST = "agent_phone";
 const ADMIN_ASSISTANT_TERMINAL_CWD = "/home/mporter";
 const ADMIN_ASSISTANT_TERMINAL_HOST = "admin_assistant_pc";
 
@@ -552,11 +552,6 @@ export function handleLesson2Event(
           { type: "reset_terminal" },
           { type: "set_terminal_host", hostId: DEFAULT_TERMINAL_HOST },
           { type: "set_terminal_cwd", cwd: DEFAULT_TERMINAL_CWD },
-          { type: "set_terminal_locked", on: false },
-          {
-            type: "set_reply_chips",
-            chips: harvestReplyChips(),
-          },
           { type: "set_terminal_locked", on: false },
         ],
       };
