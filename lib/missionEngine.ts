@@ -60,6 +60,7 @@ export type MissionState = {
   tracePercent: number;
   camera12Checked: boolean;
   lesson2ExfilComplete?: boolean;
+  lesson2ViewedExtractedProfile?: boolean;
 };
 
 export type ReplyChip = {

@@ -324,14 +324,12 @@ export default function TerminalScreen() {
             />
 
             <Pressable
-              onPress={() => {
-                void runCommand(input);
-              }}
-              disabled={terminalLocked}
+              focusable={false}
+              onPress={focusInput}
               style={({ pressed }) => [
-                styles.inputRunBtn,
-                terminalLocked && styles.inputRunBtnDisabled,
-                pressed && styles.inputRunBtnPressed,
+                styles.termInput,
+                pressed && styles.termInputPressed,
+                terminalLocked && styles.termInputDisabled,
               ]}
             >
               <Text style={styles.inputRunBtnTxt}>↻</Text>

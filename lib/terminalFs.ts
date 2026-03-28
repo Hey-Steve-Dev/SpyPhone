@@ -39,7 +39,16 @@ function enemyUnknown(cmd: string) {
     : [];
 }
 
+function getSessionHome(cwd: string) {
+  if (cwd.startsWith("/home/mporter")) return "/home/mporter";
+  if (cwd.startsWith("/home/jcarter")) return "/home/jcarter";
+  if (cwd.startsWith("/network")) return "/network";
+  return DEFAULT_TERMINAL_CWD;
+}
+
 const DIRECTORY_INDEX: FsDirectoryMap = {
+  "/home": ["jcarter", "mporter"],
+
   "/home/jcarter": [
     "Desktop",
     "Documents",
@@ -199,6 +208,12 @@ const DIRECTORY_INDEX: FsDirectoryMap = {
   "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes":
     ["2026_week_09", "2026_week_10", "current_week", "archive", "README.txt"],
 
+  "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/2026_week_09":
+    ["elevator_override.txt"],
+
+  "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/2026_week_10":
+    ["elevator_override.txt"],
+
   "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/current_week":
     [
       "elevator_override.txt",
@@ -209,6 +224,15 @@ const DIRECTORY_INDEX: FsDirectoryMap = {
 
   "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/archive":
     ["2025_week_52", "2025_week_51", "2025_week_50"],
+
+  "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/archive/2025_week_52":
+    ["elevator_override.txt"],
+
+  "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/archive/2025_week_51":
+    ["elevator_override.txt"],
+
+  "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/archive/2025_week_50":
+    ["elevator_override.txt"],
 
   "/home/mporter": ["Desktop", "Documents", "Downloads", "harvest"],
 
@@ -884,6 +908,12 @@ function buildFileMap(state: MissionState): FsFileMap {
         "Archive retained for reference only.",
       ],
 
+    "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/2026_week_09/elevator_override.txt":
+      ["Elevator Maintenance Override", "Week 09", "", "Override Code: 1924"],
+
+    "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/2026_week_10/elevator_override.txt":
+      ["Elevator Maintenance Override", "Week 10", "", "Override Code: 6401"],
+
     "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/current_week/service_notes.txt":
       [
         "Service Notes",
@@ -916,6 +946,15 @@ function buildFileMap(state: MissionState): FsFileMap {
         "Note:",
         "Code resets automatically every Monday at 04:00.",
       ],
+
+    "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/archive/2025_week_52/elevator_override.txt":
+      ["Elevator Maintenance Override", "Week 52", "", "Override Code: 7718"],
+
+    "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/archive/2025_week_51/elevator_override.txt":
+      ["Elevator Maintenance Override", "Week 51", "", "Override Code: 1142"],
+
+    "/home/jcarter/saved_notes/network/maintenance/info/elevators/weekly_passcodes/archive/2025_week_50/elevator_override.txt":
+      ["Elevator Maintenance Override", "Week 50", "", "Override Code: 9055"],
 
     "/home/mporter/Desktop/welcome.txt": [
       "Admin Workstation",
@@ -1649,10 +1688,32 @@ function joinPath(base: string, name: string): string {
   return `${base}/${name}`.replace(/\/+/g, "/");
 }
 
-function parentPath(path: string): string | null {
-  if (path === DEFAULT_TERMINAL_CWD) return null;
+function normalizeAbsolutePath(path: string) {
   const parts = path.split("/").filter(Boolean);
+  const stack: string[] = [];
+
+  for (const part of parts) {
+    if (part === ".") continue;
+    if (part === "..") {
+      stack.pop();
+      continue;
+    }
+    stack.push(part);
+  }
+
+  return `/${stack.join("/")}`;
+}
+
+function parentPath(path: string, cwd: string): string | null {
+  const sessionHome = getSessionHome(cwd);
+  const normalizedPath = normalizeAbsolutePath(path);
+
+  if (normalizedPath === sessionHome) return null;
+  if (normalizedPath === "/network") return null;
+
+  const parts = normalizedPath.split("/").filter(Boolean);
   if (parts.length <= 1) return null;
+
   return `/${parts.slice(0, -1).join("/")}`;
 }
 
@@ -1670,7 +1731,7 @@ function isDirectory(path: string, state: MissionState): boolean {
   if (Object.prototype.hasOwnProperty.call(DIRECTORY_INDEX, path)) return true;
   if (isFile(path, state)) return false;
 
-  const parent = parentPath(path);
+  const parent = parentPath(path, path);
   if (!parent) return false;
 
   const parentListing = listForCwd(parent, state);
@@ -1697,42 +1758,26 @@ function resolvePathFromCwd(
   state: MissionState,
 ): string | null {
   const target = norm(targetRaw);
+  const sessionHome = getSessionHome(cwd);
 
   if (!target) return cwd;
-  if (target === "~") return DEFAULT_TERMINAL_CWD;
-  if (target === "/") return null;
+  if (target === "~") return sessionHome;
 
   if (target.startsWith("/")) {
-    return pathExists(target, state) ? target : null;
+    const absolute = normalizeAbsolutePath(target);
+    return pathExists(absolute, state) ? absolute : null;
   }
 
   if (target === ".") return cwd;
 
   if (target === "..") {
-    if (cwd === DEFAULT_TERMINAL_CWD) return DEFAULT_TERMINAL_CWD;
-    return cwd.split("/").slice(0, -1).join("/") || DEFAULT_TERMINAL_CWD;
+    if (cwd === sessionHome || cwd === "/network") return cwd;
+    const parent = normalizeAbsolutePath(`${cwd}/..`);
+    return pathExists(parent, state) ? parent : null;
   }
 
-  const parts = target.split("/").filter(Boolean);
-  let current = cwd;
-
-  for (const part of parts) {
-    if (part === ".") continue;
-
-    if (part === "..") {
-      current =
-        current === DEFAULT_TERMINAL_CWD
-          ? DEFAULT_TERMINAL_CWD
-          : current.split("/").slice(0, -1).join("/") || DEFAULT_TERMINAL_CWD;
-      continue;
-    }
-
-    const next = joinPath(current, part);
-    if (!pathExists(next, state)) return null;
-    current = next;
-  }
-
-  return current;
+  const combined = normalizeAbsolutePath(`${cwd}/${target}`);
+  return pathExists(combined, state) ? combined : null;
 }
 
 function resolveCd(
@@ -1788,6 +1833,129 @@ function isTerminalMissionPhase(phase: MissionState["phase"]) {
   );
 }
 
+function grepSingleFile(
+  term: string,
+  filePath: string,
+  state: MissionState,
+): string[] {
+  const contents = getFileContents(filePath, state);
+  if (!contents || contents.length === 0) return [];
+
+  return contents.filter((line) =>
+    line.toLowerCase().includes(term.toLowerCase()),
+  );
+}
+
+function collectFilesRecursive(path: string, state: MissionState): string[] {
+  if (isFile(path, state)) return [path];
+  if (!isDirectory(path, state)) return [];
+
+  const listing = listForCwd(path, state);
+  if (!listing || listing[0] === "EMPTY") return [];
+
+  const out: string[] = [];
+
+  for (const item of listing) {
+    const next = joinPath(path, item);
+    if (isFile(next, state)) {
+      out.push(next);
+    } else if (isDirectory(next, state)) {
+      out.push(...collectFilesRecursive(next, state));
+    }
+  }
+
+  return out;
+}
+
+function runGrep(
+  raw: string,
+  state: MissionState,
+  cwd: string,
+): TerminalCommandResult | null {
+  const trimmed = norm(raw);
+
+  if (!trimmed.toLowerCase().startsWith("grep ")) return null;
+
+  const recursiveMatch = trimmed.match(/^grep\s+-r\s+(.+?)\s+(.+)$/i);
+  if (recursiveMatch) {
+    const searchTerm = recursiveMatch[1].trim().replace(/^["']|["']$/g, "");
+    const targetRaw = recursiveMatch[2].trim();
+    const resolvedTarget = resolvePathFromCwd(cwd, targetRaw, state);
+
+    if (!resolvedTarget) {
+      return {
+        handled: true,
+        ok: false,
+        advanced: false,
+        terminalOut: [`grep: ${targetRaw}: No such file or directory`],
+        handlerOut: [],
+        nextState: state,
+      };
+    }
+
+    const files = collectFilesRecursive(resolvedTarget, state);
+    const matchesOut: string[] = [];
+
+    for (const filePath of files) {
+      const matches = grepSingleFile(searchTerm, filePath, state);
+      for (const line of matches) {
+        matchesOut.push(`${filePath}:${line}`);
+      }
+    }
+
+    return {
+      handled: true,
+      ok: matchesOut.length > 0,
+      advanced: false,
+      terminalOut: matchesOut.length
+        ? matchesOut
+        : [`grep: no matches for ${searchTerm}`],
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
+  const singleMatch = trimmed.match(/^grep\s+(.+?)\s+(.+)$/i);
+  if (!singleMatch) {
+    return {
+      handled: true,
+      ok: false,
+      advanced: false,
+      terminalOut: ["grep: invalid syntax"],
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
+  const searchTerm = singleMatch[1].trim().replace(/^["']|["']$/g, "");
+  const targetRaw = singleMatch[2].trim();
+  const filePath = resolveFilePath(cwd, targetRaw, state);
+
+  if (!filePath) {
+    return {
+      handled: true,
+      ok: false,
+      advanced: false,
+      terminalOut: [`grep: ${targetRaw}: No such file or directory`],
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
+  const matchesOut = grepSingleFile(searchTerm, filePath, state);
+
+  return {
+    handled: true,
+    ok: matchesOut.length > 0,
+    advanced: false,
+    terminalOut: matchesOut.length
+      ? matchesOut
+      : [`grep: no matches for ${searchTerm}`],
+    handlerOut: [],
+    nextState: state,
+  };
+}
+
 function runSearchShell(
   raw: string,
   mode: Mode,
@@ -1795,6 +1963,40 @@ function runSearchShell(
   cwd: string,
 ): TerminalCommandResult {
   if (!raw) {
+    return {
+      handled: true,
+      ok: true,
+      advanced: false,
+      terminalOut: [],
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
+  if (matches(raw, "help", mode)) {
+    return {
+      handled: true,
+      ok: true,
+      advanced: false,
+      terminalOut: [
+        "Available commands:",
+        "help",
+        "pwd",
+        "ls",
+        "cd <dir>",
+        "cd ..",
+        "cat <file>",
+        "grep <term> <file>",
+        "grep -r <term> .",
+        "run <file>",
+        "clear",
+      ],
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
+  if (matches(raw, "clear", mode)) {
     return {
       handled: true,
       ok: true,
@@ -1945,6 +2147,47 @@ function runSearchShell(
       ok: true,
       advanced: false,
       terminalOut: contents,
+      handlerOut: [],
+      nextState: state,
+    };
+  }
+
+  const grepResult = runGrep(raw, state, cwd);
+  if (grepResult) {
+    return grepResult;
+  }
+
+  if (normLower(raw).startsWith("run ")) {
+    const arg = raw.slice(raw.indexOf("run") + 3).trim();
+    const filePath = resolveFilePath(cwd, arg, state);
+
+    if (!filePath) {
+      return {
+        handled: true,
+        ok: false,
+        advanced: false,
+        terminalOut: [`run: ${arg}: No such file`],
+        handlerOut: [],
+        nextState: state,
+      };
+    }
+
+    if (isExeFile(filePath)) {
+      return {
+        handled: true,
+        ok: false,
+        advanced: false,
+        terminalOut: [`${fileNameFromPath(filePath)}: CANNOT RUN FROM SHELL`],
+        handlerOut: [],
+        nextState: state,
+      };
+    }
+
+    return {
+      handled: true,
+      ok: false,
+      advanced: false,
+      terminalOut: [`${fileNameFromPath(filePath)}: cannot execute`],
       handlerOut: [],
       nextState: state,
     };

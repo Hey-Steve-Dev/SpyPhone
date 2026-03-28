@@ -6,15 +6,13 @@ import type {
   ReplyChip,
 } from "@/lib/missionEngine";
 
-const DEFAULT_TERMINAL_CWD = "/home/agent/phone";
-const DEFAULT_TERMINAL_HOST = "agent_phone";
-const ADMIN_ASSISTANT_TERMINAL_CWD = "/home/mporter";
-const ADMIN_ASSISTANT_TERMINAL_HOST = "admin_assistant_pc";
-
 const LESSON_2_DEV_COMMAND = "root el 2";
 const LESSON_2_VAULT_ERASE_COMMAND = "run log.erase --secure --depth 5";
 const LESSON_2_EXFIL_COMMAND = "run exfil.push --enc aes --chunk 512";
 const LESSON_2_ADMIN_ASSISTANT_DEVICE_ID = "admin_assistant_pc";
+const ADMIN_ASSISTANT_TERMINAL_CWD = "/home/mporter";
+const ADMIN_ASSISTANT_TERMINAL_HOST = "admin_assistant_pc";
+const LESSON_2_PROFILE_FILENAME = "personnel_profile.doc";
 
 type Lesson2Phase =
   | "lesson_2_intro"
@@ -165,6 +163,37 @@ function searchReplyChips(): ReplyChip[] {
   ];
 }
 
+function hasAlreadyOpenedProfile(state: MissionState) {
+  return Boolean(state.lesson2ViewedExtractedProfile);
+}
+
+function isProfileCatCommand(raw: string) {
+  if (!raw.startsWith("cat ")) return false;
+
+  const target = raw.slice(4).trim();
+  if (!target) return false;
+
+  return (
+    target === LESSON_2_PROFILE_FILENAME ||
+    target.endsWith(`/${LESSON_2_PROFILE_FILENAME}`) ||
+    target.endsWith(`\\${LESSON_2_PROFILE_FILENAME}`) ||
+    target.endsWith(`./${LESSON_2_PROFILE_FILENAME}`)
+  );
+}
+
+function isLateLesson2Phase(phase: MissionState["phase"]) {
+  return (
+    phase === "lesson_2_harvest_prompt" ||
+    phase === "lesson_2_harvest_help" ||
+    phase === "lesson_2_harvest_done" ||
+    phase === "lesson_2_review_prompt" ||
+    phase === "lesson_2_office_missing" ||
+    phase === "lesson_2_search_intro" ||
+    phase === "lesson_2_search_help" ||
+    phase === "lesson_2_search_active"
+  );
+}
+
 export function isLesson2DevJump(input: string) {
   return normalize(input) === LESSON_2_DEV_COMMAND;
 }
@@ -177,6 +206,7 @@ export function makeLesson2CheckpointState(state: MissionState): MissionState {
     tracePercent: 0,
     camera12Checked: false,
     lesson2ExfilComplete: false,
+    lesson2ViewedExtractedProfile: false,
   };
 }
 
@@ -200,11 +230,10 @@ export function makeLesson2CheckpointEffects(
       type: "append_terminal_output",
       lines: [
         "DEV: lesson 2 checkpoint loaded.",
-        `DEV: host=${DEFAULT_TERMINAL_HOST}`,
-        `DEV: cwd=${DEFAULT_TERMINAL_CWD}`,
         "DEV: tracePercent=0",
         "DEV: camera12Checked=false",
         "DEV: lesson2ExfilComplete=false",
+        "DEV: lesson2ViewedExtractedProfile=false",
       ],
     },
     {
@@ -509,6 +538,7 @@ export function handleLesson2Event(
         {
           ...state,
           lesson2ExfilComplete: false,
+          lesson2ViewedExtractedProfile: false,
         },
         "lesson_2_harvest_prompt",
       );
@@ -549,9 +579,6 @@ export function handleLesson2Event(
             type: "set_reply_chips",
             chips: harvestReplyChips(),
           },
-          { type: "reset_terminal" },
-          { type: "set_terminal_host", hostId: DEFAULT_TERMINAL_HOST },
-          { type: "set_terminal_cwd", cwd: DEFAULT_TERMINAL_CWD },
           { type: "set_terminal_locked", on: false },
         ],
       };
@@ -598,42 +625,6 @@ export function handleLesson2Event(
         state.phase === "lesson_2_harvest_done") &&
       event.action === "lesson2_harvest_done"
     ) {
-      if (!state.lesson2ExfilComplete) {
-        return {
-          nextState: state,
-          effects: [
-            { type: "clear_reply_chips" },
-            ...(event.label
-              ? [{ type: "player_message", text: event.label } as MissionEffect]
-              : []),
-            {
-              type: "handler_sequence",
-              items: [
-                opsLine(
-                  "Negative. You have not exfiltrated the data yet.",
-                  1350,
-                  900,
-                ),
-                opsLine(
-                  "Tunnel into the admin assistant machine first.",
-                  1300,
-                  850,
-                ),
-                opsLine(
-                  "Then run `exfil.push --enc aes --chunk 512`.",
-                  1350,
-                  900,
-                ),
-              ],
-            },
-            {
-              type: "set_reply_chips",
-              chips: harvestReplyChips(),
-            },
-          ],
-        };
-      }
-
       const nextState = withLesson2Phase(state, "lesson_2_review_prompt");
 
       return {
@@ -647,10 +638,11 @@ export function handleLesson2Event(
             type: "handler_sequence",
             items: [
               opsLine(
-                "Take a look. We are trying to find the target's office.",
+                "Good. Open the extracted material and see what is in there.",
                 1400,
                 900,
               ),
+              opsLine("We are trying to find the target's office.", 1300, 850),
               opsLine(
                 "The extracted personnel file should be in that harvested data somewhere.",
                 1450,
@@ -662,10 +654,6 @@ export function handleLesson2Event(
                 900,
               ),
             ],
-          },
-          {
-            type: "set_reply_chips",
-            chips: missingOfficeReplyChips(),
           },
         ],
       };
@@ -790,10 +778,11 @@ export function handleLesson2Event(
   }
 
   if (event.type === "TUNNEL_LINKED") {
-    if (
-      state.phase === "lesson_2_harvest_prompt" &&
-      event.deviceId === LESSON_2_ADMIN_ASSISTANT_DEVICE_ID
-    ) {
+    if (event.deviceId === LESSON_2_ADMIN_ASSISTANT_DEVICE_ID) {
+      if (!isLateLesson2Phase(state.phase)) {
+        return null;
+      }
+
       return {
         nextState: state,
         effects: [
@@ -851,30 +840,24 @@ export function handleLesson2Event(
         };
       }
 
-      return {
-        nextState: state,
-        effects: [],
-        commandResult: {
-          handled: false,
-          ok: false,
-          advanced: false,
-          gated: false,
-        },
-      };
+      return null;
     }
 
-    if (
-      state.phase === "lesson_2_harvest_prompt" ||
-      state.phase === "lesson_2_harvest_help" ||
-      state.phase === "lesson_2_harvest_done"
-    ) {
+    if (isLateLesson2Phase(state.phase)) {
       if (raw === LESSON_2_EXFIL_COMMAND) {
+        const nextPhase: Lesson2Phase =
+          state.phase === "lesson_2_harvest_prompt" ||
+          state.phase === "lesson_2_harvest_help" ||
+          state.phase === "lesson_2_harvest_done"
+            ? "lesson_2_harvest_done"
+            : state.phase;
+
         const nextState = withLesson2Phase(
           {
             ...state,
             lesson2ExfilComplete: true,
           },
-          "lesson_2_harvest_done",
+          nextPhase,
         );
 
         return {
@@ -893,10 +876,16 @@ export function handleLesson2Event(
                 "Saved: /home/mporter/harvest/personnel/intake/archive/executive/personnel_profile.doc",
               ],
             },
-            {
-              type: "set_reply_chips",
-              chips: harvestReplyChips(),
-            },
+            ...(state.phase === "lesson_2_harvest_prompt" ||
+            state.phase === "lesson_2_harvest_help" ||
+            state.phase === "lesson_2_harvest_done"
+              ? [
+                  {
+                    type: "set_reply_chips",
+                    chips: harvestReplyChips(),
+                  } as MissionEffect,
+                ]
+              : []),
           ],
           commandResult: {
             handled: true,
@@ -907,21 +896,60 @@ export function handleLesson2Event(
         };
       }
 
-      return {
-        nextState: state,
-        effects: [],
-        commandResult: {
-          handled: false,
-          ok: false,
-          advanced: false,
-          gated: false,
-        },
-      };
+      if (isProfileCatCommand(raw) && !hasAlreadyOpenedProfile(state)) {
+        const nextPhase: Lesson2Phase =
+          state.phase === "lesson_2_review_prompt"
+            ? "lesson_2_office_missing"
+            : state.phase === "lesson_2_office_missing"
+              ? "lesson_2_office_missing"
+              : "lesson_2_search_active";
+
+        const nextState = withLesson2Phase(
+          {
+            ...state,
+            lesson2ViewedExtractedProfile: true,
+          },
+          nextPhase,
+        );
+
+        return {
+          nextState,
+          effects: [
+            {
+              type: "set_reply_chips",
+              chips: missingOfficeReplyChips(),
+            },
+          ],
+          commandResult: {
+            handled: false,
+            ok: true,
+            advanced: true,
+            gated: false,
+          },
+        };
+      }
+
+      if (
+        state.phase === "lesson_2_search_intro" ||
+        state.phase === "lesson_2_search_help"
+      ) {
+        const nextState = withLesson2Phase(state, "lesson_2_search_active");
+
+        return {
+          nextState,
+          effects: [],
+          commandResult: {
+            handled: false,
+            ok: false,
+            advanced: false,
+            gated: false,
+          },
+        };
+      }
+
+      return null;
     }
   }
 
-  return {
-    nextState: state,
-    effects: [],
-  };
+  return null;
 }

@@ -1789,8 +1789,11 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     await get().applyMissionEffects(result.effects);
 
+    const isTerminalEvent = event.type === "TERMINAL_COMMAND";
+    const commandHandled = result.commandResult?.handled;
+
     return {
-      handled: result.commandResult?.handled ?? true,
+      handled: commandHandled ?? (isTerminalEvent ? false : true),
       ok: result.commandResult?.ok ?? true,
       advanced:
         result.commandResult?.advanced ?? result.nextState.phase !== prevPhase,
