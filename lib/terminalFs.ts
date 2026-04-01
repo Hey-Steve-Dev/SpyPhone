@@ -259,6 +259,7 @@ const DIRECTORY_INDEX: FsDirectoryMap = {
   "/home/mporter/Documents/admin": [
     "handoff_notes.txt",
     "visitor_schedule.doc",
+    "temp_maintenance.txt",
   ],
 
   "/home/mporter/Documents/personnel": ["archived"],
@@ -997,6 +998,17 @@ function buildFileMap(state: MissionState): FsFileMap {
       "",
       "Placeholder visitor entries.",
       "Nothing directly useful yet.",
+    ],
+
+    "/home/mporter/Documents/admin/temp_maintenance.txt": [
+      "Temp Maintenance Notes",
+      "",
+      "Had to override elevator during relocation work.",
+      "Facilities gave me the current rotation code.",
+      "",
+      `Override Code: ${state.elevatorCode}`,
+      "",
+      "Need to delete this after everything settles.",
     ],
 
     "/home/mporter/Documents/personnel/archived/assistant_roster.doc": [
