@@ -1,5 +1,6 @@
-import React from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { useGameStore } from "@/store/useGameStore";
+import React, { useState } from "react";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
 type VaultItem = {
   id: string;
@@ -138,6 +139,39 @@ const VAULT: VaultItem[] = [
   },
 ];
 
+function VaultCodeBlock({ code, run }: { code: string; run: string }) {
+  const [active, setActive] = useState(false);
+  const setTerminalPendingInsert = useGameStore(
+    (s) => s.setTerminalPendingInsert,
+  );
+  const setTerminalLocked = useGameStore((s) => s.setTerminalLocked);
+  const setActiveApp = useGameStore((s: any) => s.setActiveApp);
+
+  const handlePress = () => {
+    setTerminalPendingInsert(run);
+    setActive(true);
+    setTimeout(() => setActive(false), 1000);
+  };
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      style={({ pressed }) => [
+        styles.codeBlock,
+        pressed && styles.codeBlockPressed,
+        active && styles.codeBlockActive,
+      ]}
+    >
+      <View style={styles.codeRow}>
+        <Text style={[styles.code, active && styles.codeActive]}>{code}</Text>
+        <Text style={[styles.copyIcon, active && styles.copyIconActive]}>
+          {active ? "ADDED" : "⧉"}
+        </Text>
+      </View>
+    </Pressable>
+  );
+}
+
 export default function VaultScreen() {
   return (
     <ScrollView
@@ -155,11 +189,9 @@ export default function VaultScreen() {
           <Text style={styles.title}>{item.title}</Text>
           <Text style={styles.desc}>{item.desc}</Text>
 
-          <View style={styles.codeBlock}>
-            <Text style={styles.code}>{item.code}</Text>
-          </View>
+          <VaultCodeBlock code={item.code} run={item.run} />
 
-          <View style={styles.runBlock}>
+          <View style={styles.runBlock} pointerEvents="none">
             <Text style={styles.runLabel}>RUN:</Text>
             <Text style={styles.run}>{item.run}</Text>
           </View>
@@ -218,12 +250,47 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 6,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#16311e",
+  },
+
+  codeBlockPressed: {
+    opacity: 0.9,
+  },
+
+  codeBlockActive: {
+    backgroundColor: "#0d1f12",
+    borderColor: "#7CFF9E",
+  },
+
+  codeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
 
   code: {
     color: "#7CFF9E",
     fontFamily: "monospace",
     fontSize: 12,
+    flex: 1,
+  },
+
+  codeActive: {
+    color: "#b8ffca",
+  },
+
+  copyIcon: {
+    color: "#4d7a58",
+    fontSize: 14,
+    fontWeight: "700",
+    marginLeft: 10,
+  },
+
+  copyIconActive: {
+    color: "#7CFF9E",
+    fontSize: 10,
+    letterSpacing: 0.8,
   },
 
   runBlock: {

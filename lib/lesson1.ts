@@ -579,7 +579,7 @@ export function handleLesson1Event(
       nextState,
       effects: [
         { type: "trigger_biometric_scan", durationMs: 600 },
-        { type: "set_terminal_locked", on: true },
+        { type: "set_terminal_locked", on: false },
         { type: "clear_thread" },
         { type: "reset_terminal" },
         { type: "clear_tunnel_targets" },
@@ -1058,7 +1058,7 @@ export function handleLesson1Event(
             },
           ],
         },
-        { type: "set_terminal_locked", on: true },
+        { type: "set_terminal_locked", on: false },
       ],
     };
   }
@@ -1094,7 +1094,7 @@ export function handleLesson1Event(
               },
             ],
           },
-          { type: "set_terminal_locked", on: true },
+          { type: "set_terminal_locked", on: false },
         ],
       };
     }

@@ -620,6 +620,7 @@ type GameState = {
   terminalLocked: boolean;
 
   terminal: TerminalState;
+  terminalPendingInsert: string | null;
   appendTerminalLine: (kind: TerminalLine["kind"], text: string) => void;
   clearTerminalLines: () => void;
   resetTerminalSession: () => void;
@@ -627,6 +628,7 @@ type GameState = {
   setTerminalSession: (session: TerminalSession) => void;
   setTerminalCwd: (cwd: string) => void;
   setTerminalHost: (hostId: string) => void;
+  setTerminalPendingInsert: (command: string | null) => void;
 
   banner: Banner;
   setBanner: (banner: Banner) => void;
@@ -962,8 +964,9 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       scanner: makeInitialScannerState(),
 
-      terminalLocked: true,
+      terminalLocked: false,
       terminal: nextTerminal,
+      terminalPendingInsert: null,
 
       banner: makeInitialBanner(),
 
@@ -1385,6 +1388,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   terminalLocked: false,
 
   terminal: makeInitialTerminal(),
+  terminalPendingInsert: null,
 
   appendTerminalLine: (kind, text) =>
     set((s) => ({
@@ -1416,6 +1420,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     const next = makeInitialTerminal();
     set({
       terminal: next,
+      terminalPendingInsert: null,
     });
     setCommandEngineMode(next.mode);
     get().pushLog("terminal", "Terminal session reset.");
@@ -1483,6 +1488,17 @@ export const useGameStore = create<GameState>((set, get) => ({
           ...s.terminal,
           session: nextSession,
         },
+      };
+    }),
+
+  setTerminalPendingInsert: (command) =>
+    set(() => {
+      if (command) {
+        get().pushLog("terminal", `Queued terminal insert: ${command}`);
+      }
+
+      return {
+        terminalPendingInsert: command,
       };
     }),
 

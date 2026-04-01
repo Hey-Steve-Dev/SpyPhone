@@ -46,7 +46,11 @@ export default function TerminalScreen() {
   const lines = useGameStore((s) => s.terminal.lines);
   const dispatchMissionEvent = useGameStore((s) => s.dispatchMissionEvent);
 
-  useGameStore((s) => s.terminalLocked);
+  const terminalLocked = useGameStore((s) => s.terminalLocked);
+  const terminalPendingInsert = useGameStore((s) => s.terminalPendingInsert);
+  const setTerminalPendingInsert = useGameStore(
+    (s) => s.setTerminalPendingInsert,
+  );
 
   const cwd = session.cwd;
 
@@ -59,7 +63,6 @@ export default function TerminalScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
 
-  const terminalLocked = false;
   const showCustomKeyboard =
     IS_NATIVE_DEVICE && inputFocused && !terminalLocked;
 
@@ -156,6 +159,20 @@ export default function TerminalScreen() {
     }, 0);
     return () => clearTimeout(id);
   }, [lines]);
+
+  useEffect(() => {
+    if (!terminalPendingInsert) return;
+    if (terminalLocked) return;
+
+    setInput(terminalPendingInsert);
+    setSelection({
+      start: terminalPendingInsert.length,
+      end: terminalPendingInsert.length,
+    });
+    setShift(false);
+    focusInput();
+    setTerminalPendingInsert(null);
+  }, [terminalPendingInsert, terminalLocked, setTerminalPendingInsert]);
 
   async function runCommand(raw: string) {
     const cmd = raw.trim();
@@ -325,12 +342,15 @@ export default function TerminalScreen() {
 
             <Pressable
               focusable={false}
-              onPress={focusInput}
+              onPress={() => {
+                void runCommand(input);
+              }}
               style={({ pressed }) => [
-                styles.termInput,
-                pressed && styles.termInputPressed,
-                terminalLocked && styles.termInputDisabled,
+                styles.inputRunBtn,
+                terminalLocked && styles.inputRunBtnDisabled,
+                pressed && styles.inputRunBtnPressed,
               ]}
+              disabled={terminalLocked}
             >
               <Text style={styles.inputRunBtnTxt}>↻</Text>
             </Pressable>
