@@ -147,7 +147,7 @@ function VaultCodeBlock({ code, run }: { code: string; run: string }) {
   const setTerminalLocked = useGameStore((s) => s.setTerminalLocked);
 
   const handlePress = () => {
-    setTerminalPendingInsert(code);
+    setTerminalPendingInsert(`run ${code}`);
 
     setActive(true);
     setTimeout(() => setActive(false), 1000);
