@@ -1,6 +1,6 @@
 import { runCommandEngine } from "@/lib/commandEngine";
 import { useGameStore } from "@/store/useGameStore";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -62,6 +62,12 @@ export default function TerminalScreen() {
 
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+  const moveRepeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const moveRepeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
 
   const showCustomKeyboard =
     IS_NATIVE_DEVICE && inputFocused && !terminalLocked;
@@ -142,22 +148,55 @@ export default function TerminalScreen() {
     focusInput();
   }
 
-  function moveCursor(delta: number) {
+  const moveCursor = useCallback(
+    (delta: number) => {
+      if (terminalLocked) return;
+
+      setSelection((prev) => {
+        const current = prev.start ?? 0;
+        const next = Math.max(0, Math.min(input.length, current + delta));
+        return { start: next, end: next };
+      });
+
+      focusInput();
+    },
+    [input.length, terminalLocked],
+  );
+
+  function stopMoveRepeat() {
+    if (moveRepeatTimeoutRef.current) {
+      clearTimeout(moveRepeatTimeoutRef.current);
+      moveRepeatTimeoutRef.current = null;
+    }
+
+    if (moveRepeatIntervalRef.current) {
+      clearInterval(moveRepeatIntervalRef.current);
+      moveRepeatIntervalRef.current = null;
+    }
+  }
+
+  function startMoveRepeat(delta: number) {
     if (terminalLocked) return;
 
-    const next = Math.max(
-      0,
-      Math.min(input.length, (selection.start ?? 0) + delta),
-    );
-    setSelection({ start: next, end: next });
-    focusInput();
+    moveCursor(delta);
+    stopMoveRepeat();
+
+    moveRepeatTimeoutRef.current = setTimeout(() => {
+      moveRepeatIntervalRef.current = setInterval(() => {
+        moveCursor(delta);
+      }, 50);
+    }, 300);
   }
 
   useEffect(() => {
     const id = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: false });
     }, 0);
-    return () => clearTimeout(id);
+
+    return () => {
+      clearTimeout(id);
+      stopMoveRepeat();
+    };
   }, [lines]);
 
   useEffect(() => {
@@ -403,6 +442,10 @@ export default function TerminalScreen() {
 
                 <Pressable
                   onPress={() => moveCursor(-1)}
+                  onPressIn={() => startMoveRepeat(-1)}
+                  onPressOut={stopMoveRepeat}
+                  onLongPress={() => {}}
+                  delayLongPress={300}
                   style={({ pressed }) => [
                     styles.modeKey,
                     styles.utilityKey,
@@ -414,6 +457,10 @@ export default function TerminalScreen() {
 
                 <Pressable
                   onPress={() => moveCursor(1)}
+                  onPressIn={() => startMoveRepeat(1)}
+                  onPressOut={stopMoveRepeat}
+                  onLongPress={() => {}}
+                  delayLongPress={300}
                   style={({ pressed }) => [
                     styles.modeKey,
                     styles.utilityKey,
