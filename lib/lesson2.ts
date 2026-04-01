@@ -245,7 +245,6 @@ export function makeLesson2CheckpointEffects(
     {
       type: "handler_sequence",
       items: [
-        opsLine("Copy that, good work.", 1200, 700),
         opsLine("Now we need to clean our tracks.", 1250, 800),
         opsLine(
           "Go to your Vault app and find the command for log erase.",
