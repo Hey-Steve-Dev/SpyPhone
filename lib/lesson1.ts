@@ -1014,8 +1014,41 @@ export function handleLesson1Event(
                 label: "I found the code",
                 action: "terminal_found_code",
               },
+              {
+                id: "terminal_not_here_2",
+                label: "It must not be here",
+                action: "terminal_not_here",
+              },
             ],
           },
+        ],
+      };
+    }
+
+    if (
+      state.phase === "terminal_brief_search" &&
+      event.action === "terminal_not_here"
+    ) {
+      const nextState = makeLesson2CheckpointState(state);
+
+      return {
+        nextState,
+        effects: [
+          ...(event.label
+            ? [{ type: "player_message", text: event.label } as MissionEffect]
+            : []),
+          {
+            type: "handler_sequence",
+            items: [
+              opsLine("Ok.", 1200, 600),
+              opsLine(
+                "We can search another machine. Let's move on.",
+                1400,
+                900,
+              ),
+            ],
+          },
+          ...makeLesson2CheckpointEffects(nextState),
         ],
       };
     }
