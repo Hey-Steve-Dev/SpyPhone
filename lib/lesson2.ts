@@ -844,11 +844,11 @@ export function handleLesson2Event(
 
     if (isLateLesson2Phase(state.phase)) {
       if (raw === LESSON_2_EXFIL_COMMAND) {
-        const nextPhase: Lesson2Phase =
+        const nextPhase =
           state.phase === "lesson_2_harvest_prompt" ||
           state.phase === "lesson_2_harvest_help" ||
           state.phase === "lesson_2_harvest_done"
-            ? "lesson_2_harvest_done"
+            ? "lesson_2_review_prompt"
             : state.phase;
 
         const nextState = withLesson2Phase(

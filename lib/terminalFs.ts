@@ -11,7 +11,10 @@ type FsDirectoryMap = Record<string, string[]>;
 type FsFileMap = Record<string, string[] | null>;
 
 function norm(s: string) {
-  return s.trim().replace(/\s+/g, " ");
+  return s
+    .trim()
+    .replace(/^[>$#\s]*/, "")
+    .replace(/\s+/g, " ");
 }
 
 function normLower(s: string) {
@@ -1873,13 +1876,26 @@ function runGrep(
   cwd: string,
 ): TerminalCommandResult | null {
   const trimmed = norm(raw);
+  const parts = trimmed.split(" ").filter(Boolean);
 
-  if (!trimmed.toLowerCase().startsWith("grep ")) return null;
+  if (parts[0]?.toLowerCase() !== "grep") return null;
 
-  const recursiveMatch = trimmed.match(/^grep\s+-r\s+(.+?)\s+(.+)$/i);
-  if (recursiveMatch) {
-    const searchTerm = recursiveMatch[1].trim().replace(/^["']|["']$/g, "");
-    const targetRaw = recursiveMatch[2].trim();
+  const isRecursive = parts[1] === "-r";
+
+  if (isRecursive) {
+    if (parts.length < 3) {
+      return {
+        handled: true,
+        ok: false,
+        advanced: false,
+        terminalOut: ["grep: missing search term"],
+        handlerOut: [],
+        nextState: state,
+      };
+    }
+
+    const searchTerm = parts[2].replace(/^["']|["']$/g, "");
+    const targetRaw = parts.slice(3).join(" ").trim() || ".";
     const resolvedTarget = resolvePathFromCwd(cwd, targetRaw, state);
 
     if (!resolvedTarget) {
@@ -1915,8 +1931,7 @@ function runGrep(
     };
   }
 
-  const singleMatch = trimmed.match(/^grep\s+(.+?)\s+(.+)$/i);
-  if (!singleMatch) {
+  if (parts.length < 3) {
     return {
       handled: true,
       ok: false,
@@ -1927,8 +1942,8 @@ function runGrep(
     };
   }
 
-  const searchTerm = singleMatch[1].trim().replace(/^["']|["']$/g, "");
-  const targetRaw = singleMatch[2].trim();
+  const searchTerm = parts[1].replace(/^["']|["']$/g, "");
+  const targetRaw = parts.slice(2).join(" ").trim();
   const filePath = resolveFilePath(cwd, targetRaw, state);
 
   if (!filePath) {
@@ -2016,6 +2031,11 @@ function runSearchShell(
       handlerOut: [],
       nextState: state,
     };
+  }
+
+  const grepResult = runGrep(raw, state, cwd);
+  if (grepResult) {
+    return grepResult;
   }
 
   if (
@@ -2152,11 +2172,6 @@ function runSearchShell(
     };
   }
 
-  const grepResult = runGrep(raw, state, cwd);
-  if (grepResult) {
-    return grepResult;
-  }
-
   if (normLower(raw).startsWith("run ")) {
     const arg = raw.slice(raw.indexOf("run") + 3).trim();
     const filePath = resolveFilePath(cwd, arg, state);
@@ -2267,9 +2282,5 @@ export function runMissionCommand(
   state: MissionState,
   cwd: string,
 ): TerminalCommandResult {
-  if (!isTerminalMissionPhase(state.phase)) {
-    return { handled: false };
-  }
-
   return runSearchShell(norm(input), mode, state, cwd || DEFAULT_TERMINAL_CWD);
 }

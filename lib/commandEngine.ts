@@ -2105,7 +2105,72 @@ export function runCommandEngine(
       readFilePath: nextPath,
     };
   }
+  if (command === "grep") {
+    if (args.length < 2) {
+      return {
+        ok: false,
+        output: ["grep: missing search term or file"],
+        nextSession: session,
+        command,
+      };
+    }
 
+    const recursive = args.includes("-r");
+    const filteredArgs = args.filter((a) => a !== "-r");
+
+    const searchTerm = filteredArgs[0];
+    const targetRaw = filteredArgs.slice(1).join(" ") || ".";
+
+    const startPath = resolvePath(session.cwd, targetRaw, host.home);
+    const startNode = getNodeAtPath(host.fs, startPath);
+
+    if (!startNode) {
+      return {
+        ok: false,
+        output: [`grep: ${targetRaw}: No such file or directory`],
+        nextSession: session,
+        command,
+      };
+    }
+
+    const results: string[] = [];
+
+    function searchNode(node: FsNode, currentPath: string) {
+      if (node.type === "file") {
+        node.content.forEach((line) => {
+          if (line.toLowerCase().includes(searchTerm.toLowerCase())) {
+            results.push(`${currentPath}: ${line}`);
+          }
+        });
+      }
+
+      if (node.type === "dir" && recursive) {
+        for (const [name, child] of Object.entries(node.children)) {
+          searchNode(child, `${currentPath}/${name}`);
+        }
+      }
+    }
+
+    if (startNode.type === "file") {
+      searchNode(startNode, startPath);
+    } else if (recursive) {
+      searchNode(startNode, startPath);
+    } else {
+      return {
+        ok: false,
+        output: ["grep: use -r to search directories"],
+        nextSession: session,
+        command,
+      };
+    }
+
+    return {
+      ok: true,
+      output: results.length ? results : ["No matches found"],
+      nextSession: session,
+      command,
+    };
+  }
   if (command === "clear") {
     return {
       ok: true,
