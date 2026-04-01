@@ -60,12 +60,22 @@ export default function TerminalScreen() {
   const [keyboardMode, setKeyboardMode] = useState<KeyboardMode>("alpha");
   const [shift, setShift] = useState(false);
 
+  const inputValueRef = useRef("");
+  const selectionRef = useRef({ start: 0, end: 0 });
+
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
+
   const moveRepeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
   const moveRepeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
+    null,
+  );
+  const deleteRepeatTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
+  const deleteRepeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(
     null,
   );
 
@@ -76,6 +86,14 @@ export default function TerminalScreen() {
     keyboardMode === "alpha"
       ? TERMINAL_KEYBOARD_ALPHA_ROWS
       : TERMINAL_KEYBOARD_SYMBOL_ROWS;
+
+  useEffect(() => {
+    inputValueRef.current = input;
+  }, [input]);
+
+  useEffect(() => {
+    selectionRef.current = selection;
+  }, [selection]);
 
   function append(kind: "out" | "cmd", text: string) {
     appendTerminalLine(kind, text);
@@ -116,6 +134,8 @@ export default function TerminalScreen() {
 
     setInput(nextValue);
     setSelection({ start: nextCaret, end: nextCaret });
+    inputValueRef.current = nextValue;
+    selectionRef.current = { start: nextCaret, end: nextCaret };
 
     if (shift && keyboardMode === "alpha") {
       setShift(false);
@@ -127,24 +147,32 @@ export default function TerminalScreen() {
   function backspaceAtCursor() {
     if (terminalLocked) return;
 
-    const start = selection.start ?? input.length;
-    const end = selection.end ?? input.length;
+    const currentInput = inputValueRef.current;
+    const currentSelection = selectionRef.current;
+
+    const start = currentSelection.start ?? currentInput.length;
+    const end = currentSelection.end ?? currentInput.length;
 
     if (start !== end) {
-      const nextValue = input.slice(0, start) + input.slice(end);
+      const nextValue = currentInput.slice(0, start) + currentInput.slice(end);
       setInput(nextValue);
       setSelection({ start, end: start });
+      inputValueRef.current = nextValue;
+      selectionRef.current = { start, end: start };
       focusInput();
       return;
     }
 
     if (start <= 0) return;
 
-    const nextValue = input.slice(0, start - 1) + input.slice(end);
+    const nextValue =
+      currentInput.slice(0, start - 1) + currentInput.slice(end);
     const nextCaret = start - 1;
 
     setInput(nextValue);
     setSelection({ start: nextCaret, end: nextCaret });
+    inputValueRef.current = nextValue;
+    selectionRef.current = { start: nextCaret, end: nextCaret };
     focusInput();
   }
 
@@ -155,7 +183,9 @@ export default function TerminalScreen() {
       setSelection((prev) => {
         const current = prev.start ?? 0;
         const next = Math.max(0, Math.min(input.length, current + delta));
-        return { start: next, end: next };
+        const nextSelection = { start: next, end: next };
+        selectionRef.current = nextSelection;
+        return nextSelection;
       });
 
       focusInput();
@@ -188,6 +218,31 @@ export default function TerminalScreen() {
     }, 300);
   }
 
+  function stopDeleteRepeat() {
+    if (deleteRepeatTimeoutRef.current) {
+      clearTimeout(deleteRepeatTimeoutRef.current);
+      deleteRepeatTimeoutRef.current = null;
+    }
+
+    if (deleteRepeatIntervalRef.current) {
+      clearInterval(deleteRepeatIntervalRef.current);
+      deleteRepeatIntervalRef.current = null;
+    }
+  }
+
+  function startDeleteRepeat() {
+    if (terminalLocked) return;
+
+    backspaceAtCursor();
+    stopDeleteRepeat();
+
+    deleteRepeatTimeoutRef.current = setTimeout(() => {
+      deleteRepeatIntervalRef.current = setInterval(() => {
+        backspaceAtCursor();
+      }, 50);
+    }, 300);
+  }
+
   useEffect(() => {
     const id = setTimeout(() => {
       scrollRef.current?.scrollToEnd({ animated: false });
@@ -196,6 +251,7 @@ export default function TerminalScreen() {
     return () => {
       clearTimeout(id);
       stopMoveRepeat();
+      stopDeleteRepeat();
     };
   }, [lines]);
 
@@ -208,6 +264,11 @@ export default function TerminalScreen() {
       start: terminalPendingInsert.length,
       end: terminalPendingInsert.length,
     });
+    inputValueRef.current = terminalPendingInsert;
+    selectionRef.current = {
+      start: terminalPendingInsert.length,
+      end: terminalPendingInsert.length,
+    };
     setShift(false);
     focusInput();
     setTerminalPendingInsert(null);
@@ -221,6 +282,8 @@ export default function TerminalScreen() {
 
     setInput("");
     setSelection({ start: 0, end: 0 });
+    inputValueRef.current = "";
+    selectionRef.current = { start: 0, end: 0 };
     setShift(false);
     focusInput();
 
@@ -356,7 +419,9 @@ export default function TerminalScreen() {
               onChangeText={setInput}
               selection={selection}
               onSelectionChange={(e) => {
-                setSelection(e.nativeEvent.selection);
+                const nextSelection = e.nativeEvent.selection;
+                setSelection(nextSelection);
+                selectionRef.current = nextSelection;
               }}
               onFocus={() => setInputFocused(true)}
               onBlur={() => setInputFocused(false)}
@@ -507,6 +572,10 @@ export default function TerminalScreen() {
 
                 <Pressable
                   onPress={backspaceAtCursor}
+                  onPressIn={startDeleteRepeat}
+                  onPressOut={stopDeleteRepeat}
+                  onLongPress={() => {}}
+                  delayLongPress={300}
                   style={({ pressed }) => [
                     styles.key,
                     styles.deleteKey,
