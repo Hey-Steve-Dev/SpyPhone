@@ -105,10 +105,10 @@ function reviewSetIndexForPhase(phase: Lesson1ReviewPhase): number {
 
 function reviewAckChips(phase: Lesson1ReviewPhase): ReplyChip[] {
   const chipSets: Array<[ack1: string, ack2: string, skip: string]> = [
-    ["OK", "Got it", "Pass"],
-    ["Copy", "Understood", "Pass"],
-    ["Roger", "I got it", "Pass"],
-    ["OK", "Move on", "Pass"],
+    ["OK", "Got it", "Let's get to it"],
+    ["Copy", "Understood", "I am ready"],
+    ["Roger", "OK", "Let's move on"],
+    ["OK", "Copy", "Understood"],
   ];
 
   const [ack1, ack2, skip] =
@@ -147,7 +147,7 @@ function reviewLinesForPhase(phase: Lesson1ReviewPhase): string[] {
   switch (phase) {
     case "review_messages":
       return [
-        "Coms is burst traffic, so it's limited.",
+        "Comms is limited burst traffic.",
         "Use the response chips when you can.",
         "Keep chatter to a minimum.",
       ];
@@ -168,8 +168,7 @@ function reviewLinesForPhase(phase: Lesson1ReviewPhase): string[] {
       return [
         "Listen carefully and follow directions in order.",
         "Timing matters on this mission. Move too early or too late and it can break the window.",
-        "I am not inside with you.",
-        "You are the sole eyes and ears in that building.",
+        "I am not inside with you. You are the sole eyes and ears in that building.",
       ];
   }
 }
@@ -186,9 +185,9 @@ function handlerForTerminalPhase(
     case "terminal_brief_search":
       return [
         "Good. You're going to need to look around in there for an elevator passcode.",
-        "Type `ls` to list files and folders.",
-        "Type `cat` + file name, to read a file.",
-        "Type `cd` + folder name to move into a folder.",
+        "Type `ls ` to list files and folders.",
+        "Type `cat ` + file name, to read a file.",
+        "Type `cd ` + folder name to move into a folder.",
         "Search through the system and find the code.",
       ];
 
@@ -620,11 +619,7 @@ export function handleLesson1Event(
             {
               type: "handler_sequence",
               items: [
-                opsLine(
-                  "OK, we need to get you behind the firewall on the 3rd floor quietly.",
-                  1550,
-                  1100,
-                ),
+                opsLine("We need to move.", 1550, 1100),
                 opsLine(
                   "Your device has been updated. Do you need a rundown?",
                   1500,

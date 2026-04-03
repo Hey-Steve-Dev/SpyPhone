@@ -227,22 +227,6 @@ export function makeLesson2CheckpointEffects(
     { type: "set_terminal_locked", on: false },
 
     {
-      type: "append_terminal_output",
-      lines: [
-        "DEV: lesson 2 checkpoint loaded.",
-        "DEV: tracePercent=0",
-        "DEV: camera12Checked=false",
-        "DEV: lesson2ExfilComplete=false",
-        "DEV: lesson2ViewedExtractedProfile=false",
-      ],
-    },
-    {
-      type: "banner",
-      title: "DEV CHECKPOINT",
-      message: "Lesson 2 loaded.",
-      ms: 1800,
-    },
-    {
       type: "handler_sequence",
       items: [
         opsLine("Now we need to clean our tracks.", 1250, 800),

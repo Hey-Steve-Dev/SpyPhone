@@ -11,7 +11,7 @@ import {
 
 type TabKey = "scan" | "hop" | "hack" | "log";
 
-type Band = "LTE" | "5G" | "WIFI" | "SAT" | "UHF" | "VHF";
+type Band = "LTE" | "5G" | "WIFI" | "SAT";
 type Sec = "OPEN" | "WEP" | "WPA2" | "WPA3" | "EAP" | "UNKNOWN";
 
 type Net = {
@@ -101,8 +101,6 @@ function fakeTags(band: Band, sec: Sec) {
     "5G": ["nr", "slice", "core"],
     WIFI: ["ap", "mesh", "wpa"],
     SAT: ["uplink", "beam", "latency"],
-    UHF: ["short", "penetration", "urban"],
-    VHF: ["long", "rural", "line-of-sight"],
   };
   const secTags: Record<Sec, string[]> = {
     OPEN: ["open"],
@@ -124,7 +122,7 @@ function fakeTags(band: Band, sec: Sec) {
 }
 
 function genNetworks(seedCount: number): Net[] {
-  const bands: Band[] = ["5G", "LTE", "WIFI", "SAT", "UHF", "VHF"];
+  const bands: Band[] = ["5G", "LTE", "WIFI", "SAT"];
   const secs: Sec[] = ["OPEN", "WEP", "WPA2", "WPA3", "EAP", "UNKNOWN"];
 
   const now = Date.now();
@@ -296,7 +294,7 @@ export default function NetworkScreen() {
     const t = setInterval(() => {
       const chance = stealth ? 0.08 : 0.14;
       if (Math.random() < chance) {
-        const options: Band[] = ["LTE", "5G", "WIFI", "SAT", "UHF", "VHF"];
+        const options: Band[] = ["LTE", "5G", "WIFI", "SAT"];
         const next = pick(options.filter((b) => b !== preferredBand));
         setPreferredBand(next);
         pushLog("LINK", `Band-hop: preferred=${next}`);
@@ -495,7 +493,7 @@ export default function NetworkScreen() {
   }
 
   function hopNow() {
-    const options: Band[] = ["LTE", "5G", "WIFI", "SAT", "UHF", "VHF"];
+    const options: Band[] = ["LTE", "5G", "WIFI", "SAT"];
     const next = pick(options.filter((b) => b !== preferredBand));
     setPreferredBand(next);
     pushLog("LINK", `Band-hop: manual → ${next}`);
@@ -631,7 +629,7 @@ export default function NetworkScreen() {
 
         {tab === "hop" && (
           <FlatList
-            data={["LTE", "5G", "WIFI", "SAT", "UHF", "VHF"] as Band[]}
+            data={["LTE", "5G", "WIFI", "SAT"] as Band[]}
             keyExtractor={(b) => b}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listPad}
@@ -946,11 +944,7 @@ function BandRow({
               ? "high latency • hard to trace"
               : band === "5G"
                 ? "fast • noisy • slicing"
-                : band === "LTE"
-                  ? "stable • common • broad coverage"
-                  : band === "UHF"
-                    ? "urban penetration • mid range"
-                    : "long range • line-of-sight"}
+                : "stable • common • broad coverage"}
         </Text>
       </View>
 
