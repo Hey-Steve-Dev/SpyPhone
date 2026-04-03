@@ -1,4 +1,5 @@
 import type {
+  MissionContext,
   MissionEffect,
   MissionEvent,
   MissionEventResult,
@@ -194,6 +195,16 @@ function isLateLesson2Phase(phase: MissionState["phase"]) {
   );
 }
 
+function isConnectedToLesson2Target(
+  currentTerminalHost?: string | null,
+  activeRemoteHostId?: string | null,
+) {
+  return (
+    currentTerminalHost === ADMIN_ASSISTANT_TERMINAL_HOST ||
+    activeRemoteHostId === LESSON_2_ADMIN_ASSISTANT_DEVICE_ID
+  );
+}
+
 export function isLesson2DevJump(input: string) {
   return normalize(input) === LESSON_2_DEV_COMMAND;
 }
@@ -235,7 +246,7 @@ export function makeLesson2CheckpointEffects(
           1350,
           900,
         ),
-        opsLine("Then type in run and paste that code.", 1250, 850),
+        opsLine("Select it, it will go to your terminal.", 1250, 850),
         opsLine(
           "Remember, we will need to do this before we leave any system.",
           1300,
@@ -364,6 +375,7 @@ export function missionIntroLesson2(state: MissionState): string[] | null {
 export function handleLesson2Event(
   state: MissionState,
   event: MissionEvent,
+  context?: MissionContext,
 ): MissionEventResult | null {
   if (!isLesson2Phase(state.phase)) {
     return null;
@@ -828,6 +840,29 @@ export function handleLesson2Event(
 
     if (isLateLesson2Phase(state.phase)) {
       if (raw === LESSON_2_EXFIL_COMMAND) {
+        if (
+          !isConnectedToLesson2Target(
+            context?.currentTerminalHost,
+            context?.activeRemoteHostId,
+          )
+        ) {
+          return {
+            nextState: state,
+            effects: [
+              {
+                type: "append_terminal_output",
+                lines: ["exfil.push: target not found"],
+              },
+            ],
+            commandResult: {
+              handled: true,
+              ok: false,
+              advanced: false,
+              gated: true,
+            },
+          };
+        }
+
         const nextPhase =
           state.phase === "lesson_2_harvest_prompt" ||
           state.phase === "lesson_2_harvest_help" ||

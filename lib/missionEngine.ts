@@ -72,6 +72,8 @@ export type ReplyChip = {
 export type MissionContext = {
   jammerEnabled: boolean;
   hallwayOccupied: boolean;
+  currentTerminalHost?: string | null;
+  activeRemoteHostId?: string | null;
 };
 
 export type MissionEffect =
@@ -265,7 +267,7 @@ export function handleMissionEvent(
     };
   }
 
-  const lesson2Result = handleLesson2Event(state, event);
+  const lesson2Result = handleLesson2Event(state, event, ctx);
   if (lesson2Result) {
     return lesson2Result;
   }

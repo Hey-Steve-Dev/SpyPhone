@@ -1027,7 +1027,7 @@ export const useGameStore = create<GameState>((set, get) => ({
           id: makeId(),
           at: Date.now(),
           kind: "endgame",
-          text: "Device wipe complete. Restarting simulation.",
+          text: "Device wipe complete.",
         },
       ],
     });
@@ -1795,6 +1795,8 @@ export const useGameStore = create<GameState>((set, get) => ({
     const result = handleMissionEvent(state.mission, event, {
       jammerEnabled: state.jammer.enabled,
       hallwayOccupied: state.hallwayOneOccupied,
+      currentTerminalHost: state.terminal.session.hostId,
+      activeRemoteHostId: state.activeRemoteHostId,
     });
 
     set({ mission: result.nextState });
@@ -2299,11 +2301,11 @@ export const useGameStore = create<GameState>((set, get) => ({
     const s = get();
     if (s.cameraSimTimer) return;
     if (!s.cameraNetworkOnline) {
-      get().pushLog("camera", "Camera simulation blocked. Network is offline.");
+      get().pushLog("camera", "Camera blocked. Network is offline.");
       return;
     }
 
-    get().pushLog("camera", "Camera simulation started.");
+    get().pushLog("camera", "Camera started.");
 
     const timer = setInterval(() => {
       const st = get();
@@ -2823,7 +2825,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
       if (device.id === "camera_access_point") {
         get().setCameraNetworkOnline(true);
-        get().bannerPush("CAMERAS", "Camera feeds online.", 1800);
       }
 
       const shellHostId = DEVICE_SHELL_MAP[device.id];
