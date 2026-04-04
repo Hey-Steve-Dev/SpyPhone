@@ -26,9 +26,7 @@ type FilterKey =
   | "terminal"
   | "messages"
   | "network"
-  | "jammer"
-  | "banner"
-  | "thread";
+  | "jammer";
 
 const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "all", label: "All" },
@@ -36,7 +34,6 @@ const FILTERS: { key: FilterKey; label: string }[] = [
   { key: "messages", label: "Messages" },
   { key: "network", label: "Network" },
   { key: "jammer", label: "Jammer" },
-  { key: "thread", label: "Thread" },
 ];
 
 export default function LogScreen() {
@@ -48,7 +45,15 @@ export default function LogScreen() {
   const listRef = useRef<FlatList<GameLogItem>>(null);
 
   const filtered = useMemo(() => {
-    const src = log.filter((item) => item.kind !== "mission").slice(-500);
+    const src = log
+      .filter(
+        (item) =>
+          item.kind !== "mission" &&
+          item.kind !== "banner" &&
+          item.kind !== "thread" &&
+          item.kind !== "biometric",
+      )
+      .slice(-500);
 
     if (filter === "all") return src;
 

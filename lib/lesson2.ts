@@ -677,12 +677,12 @@ export function handleLesson2Event(
                 1000,
               ),
               opsLine(
-                "Use `cd ..` to move up a folder, `ls` to see what is there, and `cat` to read files.",
+                "You can search for a term like `office` by using `grep -r office` to search for everything in that file level and below.",
                 1450,
                 950,
               ),
               opsLine(
-                "Now we use real search. If you know the file, type something like `grep office info.doc`.",
+                "Make sure you start at the highest level to search everything.",
                 1500,
                 1000,
               ),
@@ -725,7 +725,7 @@ export function handleLesson2Event(
             type: "handler_sequence",
             items: [
               opsLine(
-                "Real version here. `grep office info.doc` searches one file named info.doc for the word office.",
+                "Like this... `grep office info.doc` searches one file named info.doc for the word office.",
                 1500,
                 1000,
               ),
@@ -891,7 +891,7 @@ export function handleLesson2Event(
                 "Encryption: AES active",
                 "Exfil complete.",
                 "Remote package ID: PX-4421-AES",
-                "Saved: /home/mporter/harvest/personnel/intake/archive/executive/personnel_profile.doc",
+                "/home/mporter/harvest/personnel/intake/archive/executive/personnel_profile.doc",
               ],
             },
             ...(state.phase === "lesson_2_harvest_prompt" ||

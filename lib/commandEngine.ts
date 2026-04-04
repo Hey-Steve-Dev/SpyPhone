@@ -1783,8 +1783,8 @@ export const TERMINAL_HOSTS: Record<string, TerminalHost> = {
               "relocation_memo.doc": file(
                 "Relocation Memo",
                 "",
-                "Placeholder clue file.",
-                "Office data moved during records transition.",
+                "Dr. Harker requested we offically his location to the main server room to make space for other staff.",
+                "He noted that he is in there all the time so it may as well be his work station.",
               ),
               "temp_extract.txt": file(
                 "Temporary extract",
