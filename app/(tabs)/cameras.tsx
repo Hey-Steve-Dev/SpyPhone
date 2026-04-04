@@ -1,6 +1,6 @@
 import { useGameStore } from "@/store/useGameStore";
 import { useIsFocused } from "@react-navigation/native";
-import { AVPlaybackStatus, ResizeMode, Video } from "expo-av";
+import { ResizeMode, Video } from "expo-av";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   LayoutChangeEvent,
@@ -14,7 +14,6 @@ import {
 const HOME_BAR_SPACE = 44;
 const GRID_IDS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
 const CAM12_PLAYBACK_RATE = 0.65;
-const CAM13_PLAYBACK_RATE = 0.55;
 
 const CCTV_FONT = Platform.select({
   ios: "Menlo",
@@ -125,15 +124,8 @@ function FeaturedCameraView({ width }: { width: number }) {
   const cam12SyncingRef = useRef(false);
   const [cam12NativeLoaded, setCam12NativeLoaded] = useState(false);
 
-  const cam13NativeRef = useRef<Video>(null);
-  const cam13WebRef = useRef<HTMLVideoElement | null>(null);
-  const cam13DirectionRef = useRef<1 | -1>(1);
-  const cam13DurationRef = useRef(0);
-  const cam13SwitchingRef = useRef(false);
-
   const isCam12Selected = activeCamId === 12 && !isCamOffline;
   const isCam12Playing = isCam12Selected && camera12Sequence.mode === "playing";
-  const isStandingLoopCam13 = activeCamId === 13 && !isCamOffline;
 
   const getCam12ElapsedMs = () => {
     if (!camera12Sequence.startedAt) return 0;
@@ -285,110 +277,6 @@ function FeaturedCameraView({ width }: { width: number }) {
     return () => clearInterval(timer);
   }, [camera12Sequence.mode, camera12Sequence.startedAt]);
 
-  useEffect(() => {
-    if (!isStandingLoopCam13) return;
-
-    cam13DirectionRef.current = 1;
-    cam13DurationRef.current = 0;
-    cam13SwitchingRef.current = false;
-
-    if (Platform.OS === "web") {
-      const el = cam13WebRef.current;
-      if (!el) return;
-
-      el.loop = true;
-      el.playbackRate = CAM13_PLAYBACK_RATE;
-
-      const playPromise = el.play();
-      if (playPromise && typeof playPromise.catch === "function") {
-        playPromise.catch(() => {});
-      }
-
-      return () => {
-        el.pause();
-        try {
-          el.currentTime = 0;
-        } catch {}
-      };
-    }
-
-    const runNative = async () => {
-      const player = cam13NativeRef.current;
-      if (!player) return;
-
-      try {
-        await player.setPositionAsync(0);
-        await player.setRateAsync(CAM13_PLAYBACK_RATE, true);
-        await player.playAsync();
-      } catch {}
-    };
-
-    void runNative();
-
-    return () => {
-      const player = cam13NativeRef.current;
-      if (!player) return;
-
-      void (async () => {
-        try {
-          await player.pauseAsync();
-          await player.setPositionAsync(0);
-          await player.setRateAsync(CAM13_PLAYBACK_RATE, true);
-        } catch {}
-      })();
-    };
-  }, [isStandingLoopCam13]);
-
-  const handleCam13StatusUpdate = async (status: AVPlaybackStatus) => {
-    if (!isStandingLoopCam13) return;
-    if (Platform.OS === "web") return;
-    if (!status.isLoaded) return;
-
-    if (status.durationMillis && cam13DurationRef.current === 0) {
-      cam13DurationRef.current = status.durationMillis;
-    }
-
-    if (cam13SwitchingRef.current) return;
-
-    const player = cam13NativeRef.current;
-    if (!player) return;
-
-    if (cam13DirectionRef.current === 1 && status.didJustFinish) {
-      cam13SwitchingRef.current = true;
-
-      try {
-        cam13DirectionRef.current = -1;
-        await player.setPositionAsync(
-          Math.max(
-            (cam13DurationRef.current || status.positionMillis || 0) - 40,
-            0,
-          ),
-        );
-        await player.setRateAsync(-CAM13_PLAYBACK_RATE, true);
-        await player.playAsync();
-      } catch {
-      } finally {
-        cam13SwitchingRef.current = false;
-      }
-
-      return;
-    }
-
-    if (cam13DirectionRef.current === -1 && status.positionMillis <= 60) {
-      cam13SwitchingRef.current = true;
-
-      try {
-        cam13DirectionRef.current = 1;
-        await player.setPositionAsync(0);
-        await player.setRateAsync(CAM13_PLAYBACK_RATE, true);
-        await player.playAsync();
-      } catch {
-      } finally {
-        cam13SwitchingRef.current = false;
-      }
-    }
-  };
-
   if (isCamOffline) {
     return (
       <View style={[styles.featuredCard, { width }]}>
@@ -506,45 +394,6 @@ function FeaturedCameraView({ width }: { width: number }) {
                     endCam12Playback();
                   }
                 }}
-              />
-              <CameraOverlay camLabel={camLabel} live />
-            </View>
-          )
-        ) : isStandingLoopCam13 ? (
-          Platform.OS === "web" ? (
-            <View style={styles.featuredWebWrap}>
-              {/* @ts-ignore */}
-              <video
-                ref={(node) => {
-                  cam13WebRef.current = node;
-                }}
-                src="/assets/?unstable_path=.%2Fassets%2Fcams%2Fhallway1%2Fguard-standing.mp4"
-                muted
-                playsInline
-                preload="auto"
-                loop
-                autoPlay
-                style={{
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                  display: "block",
-                  backgroundColor: "#000",
-                }}
-              />
-              <CameraOverlay camLabel={camLabel} live />
-            </View>
-          ) : (
-            <View style={styles.featuredMediaWrap}>
-              <Video
-                ref={cam13NativeRef}
-                source={require("../../assets/cams/hallway1/guard-standing.mp4")}
-                style={styles.featuredMedia}
-                resizeMode={ResizeMode.CONTAIN}
-                shouldPlay
-                isLooping={false}
-                isMuted
-                onPlaybackStatusUpdate={handleCam13StatusUpdate}
               />
               <CameraOverlay camLabel={camLabel} live />
             </View>

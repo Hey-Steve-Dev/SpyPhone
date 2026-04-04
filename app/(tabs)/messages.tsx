@@ -43,6 +43,9 @@ export default function MessagesScreen() {
   const handleMessageReplyAction = useGameStore(
     (s) => s.handleMessageReplyAction,
   );
+  const commsJammed = useGameStore((s) => s.commsJammed);
+  const messagesInputEnabled = useGameStore((s) => s.messagesInputEnabled);
+  const messagesSendEnabled = useGameStore((s) => s.messagesSendEnabled);
 
   const [input, setInput] = useState("");
   const [dots, setDots] = useState("...");
@@ -58,8 +61,9 @@ export default function MessagesScreen() {
   const liveKeyCounterRef = useRef(0);
 
   const manualTextDisabled = true;
-  const inputEnabled = false;
-  const sendEnabled = false;
+  const inputEnabled = messagesInputEnabled && !commsJammed;
+  const sendEnabled = messagesSendEnabled && !commsJammed;
+  const replyBlocked = messagesTyping || commsJammed;
 
   const nextLiveUiKey = useCallback(() => {
     liveKeyCounterRef.current += 1;
@@ -247,7 +251,11 @@ export default function MessagesScreen() {
         <Text style={styles.kicker}>SECURE COMMS</Text>
         <Text style={styles.title}>Messages</Text>
         <Text style={styles.subtle}>
-          {liveBubble?.phase === "typing" ? "ops typing" : "channel active"}
+          {commsJammed
+            ? "signal jammed"
+            : liveBubble?.phase === "typing"
+              ? "ops typing"
+              : "channel active"}
         </Text>
       </View>
 
@@ -294,7 +302,7 @@ export default function MessagesScreen() {
             });
           })}
 
-          {liveBubble?.phase === "typing" && (
+          {liveBubble?.phase === "typing" && !commsJammed && (
             <View
               key={`live-typing-${liveBubble.uiKey}`}
               style={[styles.row, styles.rowLeft]}
@@ -334,13 +342,14 @@ export default function MessagesScreen() {
               <Pressable
                 key={`chip-${item.id}`}
                 onPress={() => {
+                  if (replyBlocked) return;
                   void handleMessageReplyAction(item.action, item.label);
                 }}
                 style={[
                   styles.quickBtn,
-                  messagesTyping ? styles.quickBtnDisabled : undefined,
+                  replyBlocked ? styles.quickBtnDisabled : undefined,
                 ]}
-                disabled={messagesTyping}
+                disabled={replyBlocked}
               >
                 <Text style={styles.quickBtnText}>{item.label}</Text>
               </Pressable>
@@ -353,7 +362,11 @@ export default function MessagesScreen() {
         <TextInput
           value={input}
           onChangeText={setInput}
-          placeholder="Awaiting quick reply selection..."
+          placeholder={
+            commsJammed
+              ? "Signal jammed. Messages unavailable."
+              : "Awaiting quick reply selection..."
+          }
           placeholderTextColor="rgba(255,255,255,0.35)"
           style={[styles.input, styles.inputDisabled]}
           onSubmitEditing={() => handleSend()}

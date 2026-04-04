@@ -1573,6 +1573,11 @@ export const useGameStore = create<GameState>((set, get) => ({
   setMessagesTyping: (on) => set({ messagesTyping: on }),
 
   pushHandlerMessageDelayed: async (text, typingMs, afterMs = 1200) => {
+    if (get().commsJammed) {
+      get().pushLog("thread", `Blocked handler message while jammed: ${text}`);
+      return;
+    }
+
     const reactionDelay = 1000 + rand(0, 1000);
     const autoTypingDelay =
       900 + Math.min(text.length * 18, 1100) + rand(120, 320);
@@ -1581,10 +1586,27 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     await wait(reactionDelay);
 
+    if (get().commsJammed) {
+      get().pushLog(
+        "thread",
+        `Blocked handler message after reaction delay while jammed: ${text}`,
+      );
+      return;
+    }
+
     set({ messagesTyping: true });
     get().bannerPush("OPS", "…", finalTypingMs);
 
     await wait(finalTypingMs);
+
+    if (get().commsJammed) {
+      set({ messagesTyping: false });
+      get().pushLog(
+        "thread",
+        `Blocked handler delivery during typing while jammed: ${text}`,
+      );
+      return;
+    }
 
     set({ messagesTyping: false });
     get().bannerPush("OPS", text, 3500);
@@ -1597,6 +1619,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   pushHandlerSequence: async (items) => {
     for (const item of items) {
+      if (get().commsJammed) {
+        get().pushLog(
+          "thread",
+          "Blocked remaining handler sequence because comms are jammed.",
+        );
+        return;
+      }
+
       await get().pushHandlerMessageDelayed(
         item.text,
         item.typingMs,
@@ -1822,6 +1852,13 @@ export const useGameStore = create<GameState>((set, get) => ({
   handleMessageReplyAction: async (action, label) => {
     const s = get();
     if (s.messagesTyping) return;
+    if (s.commsJammed) {
+      get().pushLog(
+        "thread",
+        `Blocked reply action while jammed: ${action} (${label})`,
+      );
+      return;
+    }
 
     get().pushLog("thread", `Player selected reply action: ${action}`);
 
@@ -1838,6 +1875,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     const s = get();
     if (!s.messagesInputEnabled || !s.messagesSendEnabled) return;
+    if (s.commsJammed) {
+      get().pushLog(
+        "thread",
+        `Blocked manual message while jammed: ${trimmed}`,
+      );
+      return;
+    }
 
     get().pushThread("player", trimmed);
   },
@@ -2048,12 +2092,17 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   setCommsJammed: (on) => {
-    set({ commsJammed: on });
-    set((s) => ({ jammer: { ...s.jammer, enabled: on } }));
+    set((s) => ({
+      commsJammed: on,
+      jammer: { ...s.jammer, enabled: on },
+      commsConnected: on ? false : s.commsConnected,
+      commsConnecting: on ? false : s.commsConnecting,
+      messagesTyping: on ? false : s.messagesTyping,
+    }));
+
     get().pushLog("jammer", `Comms jam ${on ? "enabled" : "disabled"}.`);
 
     if (on) {
-      set({ commsConnected: false, commsConnecting: false });
       get().bannerPush("ALERT", "Signal jam detected. Messages blocked.", 4200);
     } else {
       get().bannerPush("STATUS", "Jam cleared. Reconnect available.", 2200);

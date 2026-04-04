@@ -43,7 +43,6 @@ export default function JammerScreen() {
   const connectComms = useGameStore((s) => s.connectComms);
   const setCommsJammed = useGameStore((s) => s.setCommsJammed);
 
-  const bannerPush = useGameStore((s) => s.bannerPush);
   const pushThread = useGameStore((s) => s.pushThread);
 
   const jammer = useGameStore((s) => s.jammer);
@@ -68,19 +67,11 @@ export default function JammerScreen() {
 
   function setJam(on: boolean) {
     if (on === commsJammed) return;
-
     setCommsJammed(on);
-
-    if (on) {
-      pushThread("system", "Jammer enabled. Secure comms blocked.");
-      bannerPush("OPS", "Jammer engaged.", 2000);
-    } else {
-      pushThread("system", "Jammer disabled. Reconnect available.");
-      bannerPush("OPS", "Jammer released.", 2000);
-    }
   }
 
   function reconnect() {
+    if (commsJammed || commsConnecting) return;
     pushThread("system", "Attempting to re-establish secure link…");
     connectComms();
   }
@@ -300,12 +291,16 @@ export default function JammerScreen() {
               onPress={reconnect}
               style={[
                 styles.actionBtn,
-                commsJammed && styles.actionBtnDisabled,
+                (commsJammed || commsConnecting) && styles.actionBtnDisabled,
               ]}
-              disabled={commsJammed}
+              disabled={commsJammed || commsConnecting}
             >
               <Text style={styles.actionTxt}>
-                {commsJammed ? "BLOCKED" : "RECONNECT"}
+                {commsJammed
+                  ? "BLOCKED"
+                  : commsConnecting
+                    ? "WORKING"
+                    : "RECONNECT"}
               </Text>
             </Pressable>
           </View>

@@ -619,9 +619,9 @@ export function handleLesson1Event(
             {
               type: "handler_sequence",
               items: [
-                opsLine("We need to move.", 1550, 1100),
+                opsLine("Good job getting in.", 1550, 1100),
                 opsLine(
-                  "Your device has been updated. Do you need a rundown?",
+                  "Your brief says you haven't run digital ingress before, do you need a rundown?",
                   1500,
                   1200,
                 ),
@@ -661,7 +661,7 @@ export function handleLesson1Event(
             {
               type: "handler_sequence",
               items: [
-                opsLine("Ok, here's the rundown.", 1450, 1100),
+                opsLine("Ok, 3 main things.", 1450, 1100),
                 ...opsSequence(reviewLinesForPhase("review_messages")),
               ],
             },
@@ -696,12 +696,12 @@ export function handleLesson1Event(
                   1000,
                 ),
                 opsLine(
-                  "There should be an access point for the cameras in the room next to you.",
+                  "There should be an access point for the camera in the room next to you.",
                   1500,
                   1000,
                 ),
                 opsLine("Open Tunnel and access it.", 1400, 900),
-                opsLine("We need eyes inside the building.", 1450, 1200),
+                opsLine("We need eyes inside the hallway.", 1450, 1200),
               ],
             },
           ],
@@ -739,12 +739,12 @@ export function handleLesson1Event(
                   1000,
                 ),
                 opsLine(
-                  "There should be an access point for the cameras in the room next to you.",
+                  "There should be an access point for the camera in the hall next to you.",
                   1500,
                   1000,
                 ),
                 opsLine("Open Tunnel and access it.", 1400, 900),
-                opsLine("We need eyes inside the building.", 1450, 1200),
+                opsLine("We need eyes inside hallway.", 1450, 1200),
               ],
             },
           ],
@@ -774,7 +774,7 @@ export function handleLesson1Event(
                 1550,
                 1000,
               ),
-              opsLine("Go to Camera 12 and wait for him to pass.", 1500, 1000),
+              opsLine("Go to Cameras and wait for him to pass.", 1500, 1000),
             ],
           },
           { type: "start_camera_objective", targetId: 12 },
@@ -944,7 +944,7 @@ export function handleLesson1Event(
             type: "handler_sequence",
             items: [
               opsLine(
-                "Use `cat` to read files like info.txt or anything with a . extension. Use `cd` to move into folders. You might find more folders or files inside.",
+                "Use `cat ` to read files like cat info.txt or anything with a `.` extension. Use `cd ` to move into folders like this cd Downloads. You might find more folders or files inside.",
                 1450,
                 900,
               ),
