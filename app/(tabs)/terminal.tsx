@@ -19,7 +19,7 @@ import {
   View,
 } from "react-native";
 
-const HOME_BAR_SPACE = 44;
+const HOME_BAR_SPACE = 4;
 const IS_NATIVE_DEVICE = Platform.OS === "ios" || Platform.OS === "android";
 const PROMPT = "$";
 const SCREEN_WIDTH = Dimensions.get("window").width;
@@ -971,13 +971,7 @@ export default function TerminalScreen() {
                         pressed && styles.chipPressed,
                       ]}
                     >
-                      <Text
-                        numberOfLines={1}
-                        ellipsizeMode="tail"
-                        style={styles.chipText}
-                      >
-                        {chip}
-                      </Text>
+                      <Text style={styles.chipText}>{chip}</Text>
                     </Pressable>
                   );
                 })}
@@ -1329,7 +1323,7 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.06)",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10,
+    paddingHorizontal: 12, // slightly more breathing room
   },
 
   chipPrimary: {
@@ -1531,6 +1525,8 @@ const styles = StyleSheet.create({
     height: 40,
   },
   chipQuarter: {
-    width: 92,
+    minWidth: 92,
+    paddingHorizontal: 10,
+    flexShrink: 0,
   },
 });
