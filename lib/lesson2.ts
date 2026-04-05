@@ -293,7 +293,7 @@ export function missionIntroLesson2(state: MissionState): string[] | null {
       return [
         "Open the Vault app.",
         "Find the Log Eraser entry.",
-        "Take the code shown there and type run in front of it.",
+        "Select the command it will go to terminal.",
         "The full terminal command is `run log.erase --secure --depth 5`.",
       ];
 
@@ -304,7 +304,7 @@ export function missionIntroLesson2(state: MissionState): string[] | null {
     case "lesson_2_move_ready":
       return [
         "Ok, we need to make a move out the door to your left 4 doors down.",
-        "Check camera 12 again before you move.",
+        "Check the camera again before you move.",
       ];
 
     case "lesson_2_post_move_confirm":
@@ -315,27 +315,24 @@ export function missionIntroLesson2(state: MissionState): string[] | null {
         "Copy. This is an admin assistant machine.",
         "They should have access to personnel files and that is what we need to pull.",
         "This should be easy. Tunnel in and gain access.",
-        "When you're in, exfil the data using the Vault tool.",
-        "Let me know when you have extracted it.",
+        "When you're in, go to Vault and select the data exfil command.",
+        "Run it in terminal. Let me know when you have extracted it.",
       ];
 
     case "lesson_2_harvest_help":
       return [
-        "Open Vault and look for the Exfil tool.",
-        "Use the command exactly as shown in Vault.",
+        "Open Vault and look for the data exfil command.",
+        "Select the command, it will automatically go to terminal.",
         "On this system the command is `run exfil.push --enc aes --chunk 512`.",
       ];
 
     case "lesson_2_harvest_done":
-      return [
-        "Good. Open the extracted material and see what is in there.",
-        "You are looking for personnel data on the target.",
-      ];
+      return ["Good. Open the extracted material This is our target."];
 
     case "lesson_2_review_prompt":
       return [
         "Take a look. We are trying to find the target's office.",
-        "The extracted personnel file should be somewhere in the harvested data.",
+        "The extracted personnel file should be in the harvested data.",
       ];
 
     case "lesson_2_office_missing":
@@ -344,21 +341,16 @@ export function missionIntroLesson2(state: MissionState): string[] | null {
     case "lesson_2_search_intro":
       return [
         "Let's take a look through this machine and see if we can find a clue to where it is.",
-        "You do not need to open every file by hand.",
-        "Use `cd ..` to move up a folder.",
-        "Use `ls` to see what is in a folder.",
-        "Use `cat` to read text files and docs in this sim.",
-        "And now use `grep` to search realistically.",
-        "If you know the file, use something like `grep office info.doc`.",
-        "If you need to search through everything from where you are, use `grep -r office .`.",
+        "You can search through these files faster with grep.",
+        "If you want to find `office`, use `grep -r office .`.",
       ];
 
     case "lesson_2_search_help":
       return [
         "Real version this time.",
-        "If you know the file, type something like `grep office info.doc`.",
+        "If you want to search for `office` in just one file, type `grep -r office`.",
         "If you need to search the whole tree from your current folder, type `grep -r office .`.",
-        "You can also search by a name, department, title, assistant, relocation, or anything else that might leave a clue.",
+        "You can search by a name, department, or anything else.",
       ];
 
     case "lesson_2_search_active":
@@ -457,7 +449,7 @@ export function handleLesson2Event(
                 1400,
                 900,
               ),
-              opsLine("Check camera 12 again before you move.", 1300, 850),
+              opsLine("Check the camera again before you move.", 1300, 850),
             ],
           },
           {
@@ -563,7 +555,7 @@ export function handleLesson2Event(
                 950,
               ),
               opsLine(
-                "When you're in, push the data out. Use exfiltration from the Vault.",
+                "When you're in, push the data out. Use the data exfil command from the Vault.",
                 1450,
                 1000,
               ),
@@ -597,7 +589,7 @@ export function handleLesson2Event(
           {
             type: "handler_sequence",
             items: [
-              opsLine("Open Vault and look for the Exfil tool.", 1200, 700),
+              opsLine("Open Vault and look for the Exfil command.", 1200, 700),
               opsLine("Use the command exactly as shown in Vault.", 1250, 800),
               opsLine(
                 "On this system the command is `run exfil.push --enc aes --chunk 512`.",
@@ -643,11 +635,7 @@ export function handleLesson2Event(
                 1450,
                 950,
               ),
-              opsLine(
-                "It will not be right up front. You are going to have to dig a little.",
-                1400,
-                900,
-              ),
+              opsLine("Let me know what you find.", 1400, 900),
             ],
           },
         ],
@@ -677,15 +665,11 @@ export function handleLesson2Event(
                 1000,
               ),
               opsLine(
-                "You can search for a term like `office` by using `grep -r office` to search for everything in that file level and below.",
+                "You can search for a term like `office` by using `grep -r office` to search for everything in that file.",
                 1450,
                 950,
               ),
-              opsLine(
-                "Make sure you start at the highest level to search everything.",
-                1500,
-                1000,
-              ),
+
               opsLine(
                 "If you need to search the whole tree from your current folder, use `grep -r office .`.",
                 1500,
