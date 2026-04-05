@@ -904,7 +904,7 @@ export default function TerminalScreen() {
 
         <View style={styles.modeToggleWrap}>
           <Text style={styles.modeToggleLabel}>
-            {difficultyMode === "INTELLIGENT" ? "EASY" : "STRICT"}
+            {difficultyMode === "INTELLIGENT" ? "INTELLIGENT" : "STRICT"}
           </Text>
 
           <Switch
