@@ -1,4 +1,3 @@
-import HomeGestureBar from "@/components/HomeGestureBar";
 import StatusBarFake from "@/components/StatusBarFake";
 import BiometricOverlay from "@/constants/BiometricOverlay";
 import EndGameOverlay from "@/constants/endGameOverlay";
@@ -107,12 +106,6 @@ export default function PhoneFrame({
         <View style={styles.body}>{children}</View>
 
         {overlay ? <View style={styles.overlay}>{overlay}</View> : null}
-
-        {isWeb && showGestureBar ? (
-          <View style={styles.gestureDock}>
-            <HomeGestureBar />
-          </View>
-        ) : null}
       </View>
     </>
   );
