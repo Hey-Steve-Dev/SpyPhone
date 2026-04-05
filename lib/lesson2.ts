@@ -214,10 +214,11 @@ export function makeLesson2CheckpointState(state: MissionState): MissionState {
     ...state,
     phase: "lesson_2_vault_prompt",
     step: lesson2PhaseToStep("lesson_2_vault_prompt"),
-    tracePercent: 0,
+
     camera12Checked: false,
     lesson2ExfilComplete: false,
     lesson2ViewedExtractedProfile: false,
+    lesson2LogsErased: false,
   };
 }
 
@@ -424,11 +425,9 @@ export function handleLesson2Event(
         state.phase === "lesson_2_vault_done") &&
       event.action === "lesson2_done"
     ) {
-      const cleaned = state.tracePercent === 0;
       const nextState = withLesson2Phase(
         {
           ...state,
-          tracePercent: cleaned ? state.tracePercent : 10,
           camera12Checked: false,
         },
         "lesson_2_move_prompt",
@@ -485,9 +484,15 @@ export function handleLesson2Event(
         };
       }
 
+      const cleaned = Boolean(state.lesson2LogsErased);
+      const nextTracePercent = cleaned
+        ? state.tracePercent
+        : Math.min(100, state.tracePercent + 16);
+
       const nextState = withLesson2Phase(
         {
           ...state,
+          tracePercent: nextTracePercent,
           camera12Checked: false,
         },
         "lesson_2_post_move_confirm",
@@ -499,6 +504,17 @@ export function handleLesson2Event(
           { type: "clear_reply_chips" },
           ...(event.label
             ? [{ type: "player_message", text: event.label } as MissionEffect]
+            : []),
+          ...(!cleaned
+            ? [
+                {
+                  type: "append_terminal_output",
+                  lines: [
+                    "WARNING: trace residue detected.",
+                    `Trace increased to ${nextTracePercent}%`,
+                  ],
+                } as MissionEffect,
+              ]
             : []),
           { type: "stop_camera_sim" },
           { type: "resolve_camera_objective" },
@@ -669,7 +685,6 @@ export function handleLesson2Event(
                 1450,
                 950,
               ),
-
               opsLine(
                 "If you need to search the whole tree from your current folder, use `grep -r office .`.",
                 1500,
@@ -793,6 +808,7 @@ export function handleLesson2Event(
           {
             ...state,
             tracePercent: 0,
+            lesson2LogsErased: true,
           },
           "lesson_2_vault_done",
         );

@@ -61,6 +61,7 @@ export type MissionState = {
   camera12Checked: boolean;
   lesson2ExfilComplete?: boolean;
   lesson2ViewedExtractedProfile?: boolean;
+  lesson2LogsErased?: boolean;
 };
 
 export type ReplyChip = {

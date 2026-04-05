@@ -54,7 +54,7 @@ const APPS: AppTile[] = [
   },
   {
     key: "messages",
-    label: "Coms",
+    label: "Comms",
     icon: comsIcon,
     route: "/messages",
   },

@@ -1777,7 +1777,11 @@ export const useGameStore = create<GameState>((set, get) => ({
         }
 
         case "set_mission_state": {
-          set({ mission: effect.state });
+          set({
+            mission: effect.state,
+            trace: effect.state.tracePercent, // 🔥 THIS LINE FIXES EVERYTHING
+          });
+
           get().pushLog(
             "mission",
             `Mission state loaded: ${effect.state.phase} (step ${effect.state.step}).`,
@@ -1829,7 +1833,11 @@ export const useGameStore = create<GameState>((set, get) => ({
       activeRemoteHostId: state.activeRemoteHostId,
     });
 
-    set({ mission: result.nextState });
+    set({
+      mission: result.nextState,
+      trace: result.nextState.tracePercent,
+    });
+
     get().pushLog(
       "mission",
       `Mission event ${event.type} -> ${result.nextState.phase}.`,
