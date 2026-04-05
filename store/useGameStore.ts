@@ -549,7 +549,6 @@ function preloadUiAssets() {
 }
 
 type GameState = {
-  trace: number;
   secondsLeft: number;
   timerRunning: boolean;
 
@@ -773,7 +772,6 @@ type GameState = {
 };
 
 export const useGameStore = create<GameState>((set, get) => ({
-  trace: 16,
   secondsLeft: 1500,
   timerRunning: true,
 
@@ -926,7 +924,6 @@ export const useGameStore = create<GameState>((set, get) => ({
     setCommandEngineMode(nextTerminal.mode);
 
     set({
-      trace: 16,
       secondsLeft: 150,
       timerRunning: true,
 
@@ -1229,12 +1226,18 @@ export const useGameStore = create<GameState>((set, get) => ({
     const profile = state.masks.find((m) => m.id === id);
     if (!profile) return;
 
-    const nextTrace = clamp(state.trace + profile.traceModifier, 0, 100);
-
-    set({
+    const nextTrace = clamp(
+      state.mission.tracePercent + profile.traceModifier,
+      0,
+      100,
+    );
+    set((s) => ({
       mask: id,
-      trace: nextTrace,
-    });
+      mission: {
+        ...s.mission,
+        tracePercent: nextTrace,
+      },
+    }));
 
     get().pushLog(
       "mask",
@@ -1779,7 +1782,6 @@ export const useGameStore = create<GameState>((set, get) => ({
         case "set_mission_state": {
           set({
             mission: effect.state,
-            trace: effect.state.tracePercent, // 🔥 THIS LINE FIXES EVERYTHING
           });
 
           get().pushLog(
@@ -1835,7 +1837,6 @@ export const useGameStore = create<GameState>((set, get) => ({
 
     set({
       mission: result.nextState,
-      trace: result.nextState.tracePercent,
     });
 
     get().pushLog(
@@ -1929,7 +1930,12 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setTrace: (next, reason) => {
     const v = clamp(next, 0, 100);
-    set({ trace: v });
+    set((s) => ({
+      mission: {
+        ...s.mission,
+        tracePercent: v,
+      },
+    }));
     get().pushLog(
       "trace",
       `Trace set to ${v}%${reason ? ` (${reason})` : ""}.`,
@@ -1949,8 +1955,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   },
 
   bumpTrace: (delta, reason) => {
-    const { trace, setTrace } = get();
-    setTrace(trace + delta, reason);
+    const { mission, setTrace } = get();
+    setTrace(mission.tracePercent + delta, reason);
   },
 
   setTimerRunning: (on) => {

@@ -161,7 +161,7 @@ export default function NetworkScreen() {
   const engineSetNetwork = useGameStore((s) => s.setNetwork);
   const engineAddLog = useGameStore((s) => s.appendNetworkLog);
   const engineClearLog = useGameStore((s) => s.clearNetworkLog);
-  const engineTrace = useGameStore((s) => s.trace);
+  const engineTrace = useGameStore((s) => s.mission.tracePercent);
   const engineBumpTrace = useGameStore((s) => s.bumpTrace);
 
   const [tab, setTab] = useState<TabKey>("scan");

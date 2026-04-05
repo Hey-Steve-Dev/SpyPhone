@@ -129,7 +129,7 @@ export default function HomePhoneScreen() {
 
   const unreadMessages = useGameStore((s) => s.unreadMessages);
   const secondsLeft = useGameStore((s) => s.secondsLeft);
-  const trace = useGameStore((s) => s.trace);
+  const trace = useGameStore((s) => s.mission.tracePercent);
   const timerRunning = useGameStore((s) => s.timerRunning);
 
   const activeTraceSegments = Math.max(
